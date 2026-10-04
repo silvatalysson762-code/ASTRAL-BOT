@@ -611,7 +611,7 @@ client.on("interactionCreate", async interaction => {
       if (normal.length) state.latestStock.normal = normal;
       if (mirage.length) state.latestStock.mirage = mirage;
       state.history.unshift({ at: new Date().toISOString(), stock });
-      state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
+      state.history = state.history.slice(0, Math.max(500, Number(readConfig().historyLimit || 500)));
       saveState(state);
       await interaction.editReply("Stocks normal e Mirage consultados e publicados em mensagens separadas!");
     } catch (e) { await interaction.editReply(`Falha: ${e.message}`); }
