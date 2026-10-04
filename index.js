@@ -7,7 +7,7 @@ const {
 } = require("discord.js");
 const OpenAI = require("openai");
 
-const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID", "CHANNEL_ID", "STOCK_API_URL", "STOCK_API_KEY", "OPENAI_API_KEY"];
+const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID", "CHANNEL_ID", "OPENAI_API_KEY"];
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`Configuração ausente: ${key}. Veja o arquivo .env.example.`);
@@ -66,28 +66,75 @@ function normalizeStock(payload) {
   if (Array.isArray(data)) return data.map(x => typeof x === "string" ? { name: x } : x);
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
-async function getStock() {
-  if (Date.now() < apiCooldownUntil) {
-    const minutes = Math.ceil((apiCooldownUntil - Date.now()) / 60000);
-    throw new Error(`API em pausa por limite de requisições. Tente novamente em aproximadamente ${minutes} min.`);
+const WIKI_STOCK_URL = process.env.WIKI_STOCK_URL || "https://blox-fruits-wiki.com/wiki/stock/";
+
+function decodeHtmlEntities(value) {
+  return String(value)
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+}
+
+function htmlToStockText(html) {
+  return decodeHtmlEntities(
+    String(html)
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<!--([\s\S]*?)-->/g, " ")
+      .replace(/<[^>]+>/g, "\n")
+  ).replace(/[\t\r ]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+}
+
+function parseWikiStockSection(text, heading, nextHeading, type) {
+  const start = text.toLowerCase().indexOf(heading.toLowerCase());
+  if (start < 0) throw new Error("A seção '" + heading + "' não foi encontrada na página de stock.");
+  const contentStart = start + heading.length;
+  const end = text.toLowerCase().indexOf(nextHeading.toLowerCase(), contentStart);
+  const section = text.slice(contentStart, end < 0 ? undefined : end);
+  const found = [];
+
+  for (const fruit of ALL_FRUITS) {
+    const escaped = fruit.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+    const match = new RegExp("(^|[^A-Za-z0-9])(" + escaped + ")(?=$|[^A-Za-z0-9])", "i").exec(section);
+    if (match) found.push({ name: fruit, index: match.index + match[1].length });
   }
-  const response = await fetch(process.env.STOCK_API_URL, {
-    headers: { "Accept": "application/json", "X-API-Key": process.env.STOCK_API_KEY },
-    signal: AbortSignal.timeout(15000)
+  found.sort((a, b) => a.index - b.index);
+
+  return found.map((fruit, index) => {
+    const nextIndex = found[index + 1]?.index ?? section.length;
+    const details = section.slice(fruit.index + fruit.name.length, nextIndex);
+    const numbers = [...details.matchAll(/\b\d[\d,]*(?:\.\d+)?\b/g)].map(match => Number(match[0].replace(/,/g, "")));
+    return {
+      name: fruit.name,
+      type,
+      ...(numbers.length ? { money_price: numbers[0] } : {}),
+      ...(numbers.length > 1 ? { robux_price: numbers[1] } : {})
+    };
   });
-  if (response.status === 429) {
-    const retryAfter = response.headers.get("retry-after");
-    const seconds = Number(retryAfter);
-    const retryMs = retryAfter && Number.isFinite(seconds)
-      ? Math.max(60000, seconds * 1000)
-      : retryAfter
-        ? Math.max(60000, Date.parse(retryAfter) - Date.now())
-        : 10 * 60 * 1000;
-    apiCooldownUntil = Date.now() + (Number.isFinite(retryMs) && retryMs > 0 ? retryMs : 10 * 60 * 1000);
-    throw new Error(`API bloqueou novas consultas (HTTP 429). Vou aguardar ${Math.ceil((apiCooldownUntil - Date.now()) / 60000)} min antes de tentar novamente.`);
+}
+
+async function getStock() {
+  const response = await fetch(WIKI_STOCK_URL, {
+    headers: {
+      "Accept": "text/html,application/xhtml+xml",
+      "User-Agent": "AstralStockDiscordBot/1.0 (Blox Fruits stock tracker)"
+    },
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!response.ok) throw new Error("Wiki de stock respondeu HTTP " + response.status);
+  const html = await response.text();
+  const text = htmlToStockText(html);
+  const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
+  const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+  if (!normal.length || !mirage.length) {
+    throw new Error("A página da Wiki não retornou as duas listas de stock. Nenhum dado salvo foi alterado.");
   }
-  if (!response.ok) throw new Error(`API respondeu HTTP ${response.status}`);
-  return normalizeStock(await response.json());
+  return [...normal, ...mirage];
 }
 function safeName(item) {
   return String(item.name || item.Name || item.fruit || item.Fruit || "Fruta desconhecida");
