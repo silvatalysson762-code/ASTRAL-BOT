@@ -33,3 +33,14 @@ Mantenha o processo ligado em um host Node.js. Configure as variáveis de ambien
 - /atualizar força uma publicação (requer Gerenciar servidor).
 - /historico mostra alterações salvas localmente.
 - A API e o bot ainda precisam ser iniciados e testados com as credenciais do servidor.
+
+
+## Configuração de cargos pelo Discord
+
+Depois que o bot estiver online, administradores podem configurar as menções sem editar arquivos:
+
+- `/configurar-fruta fruta:Dragon East cargo:@Dragon East` define o cargo para uma fruta.
+- `/listar-cargos` mostra as configurações existentes.
+- `/remover-cargo fruta:Dragon East` remove uma configuração.
+
+Digite o nome da fruta exatamente como aparece no stock da API. Dragon East, Dragon West e Control podem ter cargos separados. Os comandos de configuração exigem a permissão **Gerenciar servidor**.
