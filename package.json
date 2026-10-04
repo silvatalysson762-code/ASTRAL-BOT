@@ -1,0 +1,16 @@
+{
+  "name": "blox-fruits-stock-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for Blox Fruits stock alerts",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.1",
+    "dotenv": "^16.6.1"
+  }
+}
