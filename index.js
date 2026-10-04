@@ -378,6 +378,17 @@ async function runScheduledStockCycle(groupKeys) {
   console.log("Iniciando captura pós-reset para: " + [...pending].join(", "));
 
   while (pending.size) {
+    // Se uma captura demorar além do próximo reset, adiciona esse grupo ao ciclo
+    // sem interromper as tentativas que já estão em andamento.
+    const now = Date.now();
+    for (const key of ["normal", "mirage"]) {
+      if (!pending.has(key) && nextStockAt[key] && now >= nextStockAt[key] + 60000) {
+        pending.add(key);
+        baseline[key] = readState().stockSignatures?.[key] || null;
+        console.log("Novo ciclo de captura iniciado para: " + key);
+      }
+    }
+
     try {
       const stock = await getStock();
       const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
@@ -395,7 +406,10 @@ async function runScheduledStockCycle(groupKeys) {
       if (readyGroups.length) {
         const ok = await checkStock(false, readyGroups, false, stock);
         if (ok) {
-          for (const key of readyGroups) pending.delete(key);
+          for (const key of readyGroups) {
+            pending.delete(key);
+            nextStockAt[key] = nextGlobalReset(key, new Date(Date.now())).getTime();
+          }
           console.log("Captura concluída para: " + readyGroups.join(", "));
         }
       } else {
