@@ -18,7 +18,7 @@ const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 let checking = false;
-const STOCK_INTERVALS = { normal: 4 * 60 * 60 * 1000, mirage: 2 * 60 * 60 * 1000 };
+const STOCK_INTERVALS = { normal: 4 * 60 * 60 * 1000, mirage: 2 * 60 * 60 * 1000 };\nconst BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 
 function readConfig() {
@@ -118,11 +118,23 @@ function stockTitle(groupKey) {
   };
   return config.titles?.[groupKey] || defaults[groupKey] || "🍈 Blox Fruits | Stock atualizado";
 }
+function nextGlobalReset(groupKey, now = new Date()) {
+  const intervalHours = groupKey === "mirage" ? 2 : 4;
+  const d = new Date(now.getTime());
+  const hour = d.getUTCHours();
+  let nextHour = hour + (intervalHours - (hour % intervalHours));
+  if (nextHour === hour && (d.getUTCMinutes() || d.getUTCSeconds() || d.getUTCMilliseconds())) nextHour += intervalHours;
+  if (nextHour >= 24) { d.setUTCDate(d.getUTCDate() + 1); nextHour -= 24; }
+  d.setUTCHours(nextHour, 0, 0, 0);
+  return d;
+}
+function brasilTime(timestamp) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: BRASIL_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(timestamp));
+}
 function stockCountdown(groupKey) {
-  const next = nextStockAt[groupKey];
-  if (!next) return "";
+  const next = nextGlobalReset(groupKey);
   const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock normal";
-  return `<a:emoji_233:1556370328135925931> **Próximo ${label}:** <t:${Math.floor(next / 1000)}:R>`;
+  return "<a:emoji_233:1556370328135925931> **Próximo " + label + ":** <t:" + Math.floor(next.getTime() / 1000) + ":R> • **" + brasilTime(next.getTime()) + " (Brasília)**";
 }
 async function resolveEmoji(input) {
   const value = String(input || "").trim();
@@ -258,18 +270,20 @@ client.once("ready", async () => {
     console.error("Erro na inicialização do Astral Stock:", error);
   }
 
-  nextStockAt.normal = Date.now() + STOCK_INTERVALS.normal;
-  nextStockAt.mirage = Date.now() + STOCK_INTERVALS.mirage;
+  nextStockAt.normal = nextGlobalReset("normal").getTime();
+  nextStockAt.mirage = nextGlobalReset("mirage").getTime();
 
-  console.log("Agendamento automático: Stock normal a cada 4 horas; Stock da Mirage a cada 2 horas.");
-  setInterval(() => {
-    nextStockAt.normal = Date.now() + STOCK_INTERVALS.normal;
-    checkStock(false, ["normal"]);
-  }, STOCK_INTERVALS.normal);
-  setInterval(() => {
-    nextStockAt.mirage = Date.now() + STOCK_INTERVALS.mirage;
-    checkStock(false, ["mirage"]);
-  }, STOCK_INTERVALS.mirage);
+  console.log("Agendamento automático baseado no relógio global, exibido em horário de Brasília.");
+  const schedule = (groupKey) => {
+    const run = () => {
+      nextStockAt[groupKey] = nextGlobalReset(groupKey).getTime();
+      checkStock(false, [groupKey]);
+      setTimeout(run, Math.max(1000, nextGlobalReset(groupKey).getTime() - Date.now()));
+    };
+    setTimeout(run, Math.max(1000, nextGlobalReset(groupKey).getTime() - Date.now()));
+  };
+  schedule("normal");
+  schedule("mirage");
 });
 
 process.on("unhandledRejection", error => {
