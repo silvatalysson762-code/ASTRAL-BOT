@@ -183,6 +183,7 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
     const stock = await getStock();
     const state = readState();
     state.stockSignatures = state.stockSignatures || {};
+    state.latestStock = state.latestStock || {};
     const groups = [
       { key: "normal", type: "Normal", title: stockTitle("normal") },
       { key: "mirage", type: "Mirage", title: stockTitle("mirage") }
@@ -195,6 +196,7 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
 
       if (items.length && (force || !previous || sig !== previous)) {
         await postStock(items, true, group.title, group.key);
+        state.latestStock[group.key] = items;
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
         state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
       }
@@ -363,16 +365,21 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "stock") {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
-      const stock = await getStock();
-      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      // /stock mostra o mesmo stock que o bot publicou no canal configurado.
+      // Não consulta a API novamente, evitando gastar crédito e possíveis dados antigos.
+      const state = readState();
+      const latest = state.latestStock || {};
+      const normal = Array.isArray(latest.normal) ? latest.normal : [];
+      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
       const components = [];
       if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal"));
       if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage"));
-      if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL"));
+      if (!components.length) {
+        components.push(stockContainer([], "🍈 STOCK ATUAL", null));
+      }
       await interaction.editReply({ components });
     } catch (e) {
-      await interaction.editReply({ components: [stockContainer([], "Não consegui consultar o stock: " + e.message)] });
+      await interaction.editReply({ components: [stockContainer([], "Não consegui mostrar o stock: " + e.message)] });
     }
   } else if (interaction.commandName === "atualizar") {
     await interaction.deferReply({ ephemeral: true });
@@ -386,6 +393,9 @@ client.on("interactionCreate", async interaction => {
       if (mirage.length) await postStock(mirage, true, stockTitle("mirage"), "mirage");
       state.stockSignatures.normal = signature(normal);
       state.stockSignatures.mirage = signature(mirage);
+      state.latestStock = state.latestStock || {};
+      if (normal.length) state.latestStock.normal = normal;
+      if (mirage.length) state.latestStock.mirage = mirage;
       state.history.unshift({ at: new Date().toISOString(), stock });
       state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
       saveState(state);
