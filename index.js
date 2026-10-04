@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, REST, Routes,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 const OpenAI = require("openai");
@@ -171,6 +171,53 @@ function stockContainer(stock, title, groupKey = null) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
+function panelContainer() {
+  const state = readState();
+  const latest = state.latestStock || {};
+  const normal = Array.isArray(latest.normal) ? latest.normal : [];
+  const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
+  const normalNames = normal.length ? normal.map(item => `${fruitEmoji(item)} **${safeName(item)}**`).join(" • ") : "Nenhum stock normal publicado ainda.";
+  const mirageNames = mirage.length ? mirage.map(item => `${fruitEmoji(item)} **${safeName(item)}**`).join(" • ") : "Nenhum stock da Mirage publicado ainda.";
+  const normalBeli = normal.reduce((sum, item) => sum + (Number(beliPrice(item)) || 0), 0);
+  const mirageBeli = mirage.reduce((sum, item) => sum + (Number(beliPrice(item)) || 0), 0);
+  const lastNormal = state.history?.find(h => h.type === "Normal" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "normal"));
+  const lastMirage = state.history?.find(h => h.type === "Mirage" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "mirage"));
+  const body = [
+    "# 🌌 ASTRAL STOCK",
+    "",
+    "## 🟢 SISTEMA ONLINE",
+    "O painel está conectado e acompanhando o stock automaticamente.",
+    "",
+    "## 📦 STOCK NORMAL",
+    `**${normal.length}** frutas encontradas`,
+    normalNames,
+    `💰 Valor listado: **${normalBeli.toLocaleString("pt-BR")} Beli**`,
+    `<a:emoji_233:1556370328135925931> Próximo reset: <t:${Math.floor(nextGlobalReset("normal").getTime() / 1000)}:R>`,
+    lastNormal ? `🕒 Última alteração: <t:${Math.floor(new Date(lastNormal.at).getTime() / 1000)}:R>` : "",
+    "",
+    "## 🌙 STOCK DA MIRAGE",
+    `**${mirage.length}** frutas encontradas`,
+    mirageNames,
+    `💰 Valor listado: **${mirageBeli.toLocaleString("pt-BR")} Beli**`,
+    `<a:emoji_233:1556370328135925931> Próximo reset: <t:${Math.floor(nextGlobalReset("mirage").getTime() / 1000)}:R>`,
+    lastMirage ? `🕒 Última alteração: <t:${Math.floor(new Date(lastMirage.at).getTime() / 1000)}:R>` : "",
+    "",
+    "## 🤖 ASTRAL IA",
+    "Marque o bot no chat para conversar com a IA.",
+    "",
+    "-# Stock automático • Emojis personalizados • Cargos por fruta • IA integrada"
+  ].filter(Boolean).join("\n");
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("astral_panel_stock").setLabel("Ver Stock").setEmoji("📦").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("astral_panel_refresh").setLabel("Atualizar Painel").setEmoji("🔄").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("astral_panel_help").setLabel("Comandos").setEmoji("❓").setStyle(ButtonStyle.Secondary)
+  );
+  return new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body))
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addActionRowComponents(buttons);
+}
 async function postStock(stock, announce, title, groupKey = null) {
   const channel = await client.channels.fetch(process.env.CHANNEL_ID);
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
@@ -268,6 +315,7 @@ async function testStockContainers() {
 const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
 const commands = [
   new SlashCommandBuilder().setName("stock").setDescription("Mostra o stock atual de Blox Fruits"),
+  new SlashCommandBuilder().setName("painel").setDescription("Abre o painel completo do Astral Stock"),
   new SlashCommandBuilder().setName("ia").setDescription("Conversa com a IA do Astral Stock").addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
@@ -387,6 +435,34 @@ client.on("messageCreate", async message => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (interaction.isButton()) {
+    try {
+      if (interaction.customId === "astral_panel_stock") {
+        const state = readState();
+        const latest = state.latestStock || {};
+        const normal = Array.isArray(latest.normal) ? latest.normal : [];
+        const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
+        const components = [];
+        if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal"));
+        if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage"));
+        if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL", null));
+        await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+        return;
+      }
+      if (interaction.customId === "astral_panel_refresh") {
+        await interaction.update({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
+        return;
+      }
+      if (interaction.customId === "astral_panel_help") {
+        await interaction.reply({ content: "📚 **Comandos principais**\n`/painel` painel completo\n`/stock` stock atual\n`/ia` conversa com a IA\n`/historico` histórico\n`/testeestoque` teste das frutas\n`/atualizar` consulta e publica agora", ephemeral: true });
+        return;
+      }
+    } catch (error) {
+      console.error("Erro no botão do painel:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui executar essa ação.", ephemeral: true });
+    }
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "ia") {
@@ -401,6 +477,8 @@ client.on("interactionCreate", async interaction => {
     }
   } else if (interaction.commandName === "testeestoque") {
     await interaction.reply({ components: await testStockContainers(), flags: MessageFlags.IsComponentsV2 });
+  } else if (interaction.commandName === "painel") {
+    await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
     try {
       // /stock mostra o mesmo stock que o bot publicou no canal configurado.
