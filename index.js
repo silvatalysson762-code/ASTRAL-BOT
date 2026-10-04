@@ -119,6 +119,44 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
 }
 
 async function getStock() {
+  // Usa primeiro a API estruturada já configurada no Discloud.
+  // Isso evita o HTTP 403 causado pelo bloqueio da página da Wiki.
+  const stockApiUrl = process.env.STOCK_API_URL;
+  const stockApiKey = process.env.STOCK_API_KEY;
+
+  if (stockApiUrl && stockApiKey) {
+    const response = await fetch(stockApiUrl, {
+      headers: {
+        "Accept": "application/json",
+        "X-API-Key": stockApiKey,
+        "User-Agent": "AstralStockDiscordBot/1.0"
+      },
+      signal: AbortSignal.timeout(20000)
+    });
+    const responseText = await response.text();
+    if (!response.ok) {
+      let detail = responseText.slice(0, 250);
+      try {
+        const parsed = JSON.parse(responseText);
+        detail = parsed.message || parsed.error || detail;
+      } catch {}
+      throw new Error("API de stock respondeu HTTP " + response.status + (detail ? ": " + detail : ""));
+    }
+
+    let payload;
+    try { payload = JSON.parse(responseText); }
+    catch { throw new Error("A API de stock retornou uma resposta que não é JSON válido."); }
+
+    const stock = normalizeStock(payload);
+    const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+    const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+    if (!normal.length || !mirage.length) {
+      throw new Error("A API respondeu, mas não retornou as listas Normal e Mirage. O stock salvo foi preservado.");
+    }
+    return stock;
+  }
+
+  // Compatibilidade: usa a Wiki somente se a API não estiver configurada.
   const response = await fetch(WIKI_STOCK_URL, {
     headers: {
       "Accept": "text/html,application/xhtml+xml",
