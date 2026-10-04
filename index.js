@@ -163,23 +163,30 @@ const ALL_FRUITS = [
   "Control", "Dragon"
 ];
 
-function testStockContainer() {
+function testStockContainers() {
   const config = readConfig();
   const emojis = config.emojis || {};
-  const lines = ALL_FRUITS.map((name, index) => {
-    const emoji = emojis[fruitKey(name)] || "🍈";
-    return `**${String(index + 1).padStart(2, "0")}.** ${emoji} **${name}** | 🟢 Disponível`;
+  const groups = [
+    { title: "🟢 FRUTAS COMUNS", fruits: ["Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike"] },
+    { title: "🔵 FRUTAS RARAS", fruits: ["Flame", "Ice", "Sand", "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake"] },
+    { title: "🟣 FRUTAS LENDÁRIAS", fruits: ["Buddha", "Love", "Creation", "Spider", "Sound", "Phoenix", "Portal", "Lightning", "Pain", "Blizzard", "Gravity"] },
+    { title: "🟡 FRUTAS MÍTICAS", fruits: ["Mammoth", "T-Rex", "Dough", "Shadow", "Venom", "Gas", "Spirit", "Tiger", "Yeti", "Kitsune", "Control", "Dragon"] }
+  ];
+
+  return groups.map(group => {
+    const lines = group.fruits.map(name => {
+      const emoji = emojis[fruitKey(name)] || "🍈";
+      return `${emoji} **${name}** • 🟢 Disponível`;
+    });
+    const body = [
+      `# ${group.title}`,
+      "",
+      ...lines
+    ].join("\\n");
+    return new ContainerBuilder()
+      .setAccentColor(0x7c3aed)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
   });
-  const body = [
-    "# 🏪 TESTE DE ESTOQUE",
-    "",
-    ...lines,
-    "",
-    "-# Teste visual • mostra todas as frutas e os emojis configurados"
-  ].join("\\n");
-  return new ContainerBuilder()
-    .setAccentColor(0x7c3aed)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 
 const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
@@ -235,7 +242,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "testeestoque") {
-    await interaction.reply({ components: [testStockContainer()], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ components: testStockContainers(), flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
