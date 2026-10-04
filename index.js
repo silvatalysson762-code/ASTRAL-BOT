@@ -66,7 +66,7 @@ function normalizeStock(payload) {
   if (Array.isArray(data)) return data.map(x => typeof x === "string" ? { name: x } : x);
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
-const WIKI_STOCK_URL = process.env.WIKI_STOCK_URL || "https://blox-fruits-wiki.com/wiki/stock/";
+const WIKI_STOCK_URL = process.env.WIKI_STOCK_URL || "https://blox-fruits.fandom.com/wiki/Stock";
 
 function decodeHtmlEntities(value) {
   return String(value)
@@ -119,58 +119,21 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
 }
 
 async function getStock() {
-  // Usa primeiro a API estruturada já configurada no Discloud.
-  // Isso evita o HTTP 403 causado pelo bloqueio da página da Wiki.
-  const stockApiUrl = process.env.STOCK_API_URL;
-  const stockApiKey = process.env.STOCK_API_KEY;
-
-  if (stockApiUrl && stockApiKey) {
-    const response = await fetch(stockApiUrl, {
-      headers: {
-        "Accept": "application/json",
-        "X-API-Key": stockApiKey,
-        "User-Agent": "AstralStockDiscordBot/1.0"
-      },
-      signal: AbortSignal.timeout(20000)
-    });
-    const responseText = await response.text();
-    if (!response.ok) {
-      let detail = responseText.slice(0, 250);
-      try {
-        const parsed = JSON.parse(responseText);
-        detail = parsed.message || parsed.error || detail;
-      } catch {}
-      throw new Error("API de stock respondeu HTTP " + response.status + (detail ? ": " + detail : ""));
-    }
-
-    let payload;
-    try { payload = JSON.parse(responseText); }
-    catch { throw new Error("A API de stock retornou uma resposta que não é JSON válido."); }
-
-    const stock = normalizeStock(payload);
-    const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
-    const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-    if (!normal.length || !mirage.length) {
-      throw new Error("A API respondeu, mas não retornou as listas Normal e Mirage. O stock salvo foi preservado.");
-    }
-    return stock;
-  }
-
-  // Compatibilidade: usa a Wiki somente se a API não estiver configurada.
+  // Consulta diretamente a página pública da Fandom, sem consumir créditos de API.
   const response = await fetch(WIKI_STOCK_URL, {
     headers: {
       "Accept": "text/html,application/xhtml+xml",
-      "User-Agent": "AstralStockDiscordBot/1.0 (Blox Fruits stock tracker)"
+      "User-Agent": "Mozilla/5.0 (compatible; AstralStock/1.0; +https://github.com/)"
     },
     signal: AbortSignal.timeout(20000)
   });
-  if (!response.ok) throw new Error("Wiki de stock respondeu HTTP " + response.status);
+  if (!response.ok) throw new Error("Fandom respondeu HTTP " + response.status);
   const html = await response.text();
   const text = htmlToStockText(html);
   const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
   const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
   if (!normal.length || !mirage.length) {
-    throw new Error("A página da Wiki não retornou as duas listas de stock. Nenhum dado salvo foi alterado.");
+    throw new Error("A Fandom ainda não apresentou as listas completas de stock. Nenhum dado salvo foi alterado.");
   }
   return [...normal, ...mirage];
 }
