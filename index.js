@@ -211,7 +211,7 @@ const ALL_FRUITS = [
   "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake", "Buddha", "Love",
   "Creation", "Spider", "Sound", "Phoenix", "Portal", "Lightning", "Pain", "Blizzard", "Gravity",
   "Mammoth", "T-Rex", "Dough", "Shadow", "Venom", "Gas", "Spirit", "Tiger", "Yeti", "Kitsune",
-  "Control", "Dragon", "Magnet"
+  "Control", "Dragon", "Kitsune", "Magnet"
 ];
 
 async function testStockContainers() {
