@@ -601,8 +601,8 @@ process.on("uncaughtException", error => {
 const aiCooldown = new Map();
 
 function requestedStockGroups(question) {
-  const q = String(question || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
-  if (!/\\b(stock|estoque|frutas?)\\b/.test(q)) return null;
+  const q = String(question || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (!/\b(stock|estoque|frutas?)\b/.test(q)) return null;
 
   const asksMirage = /mirage|miragem/.test(q);
   const asksNormal = /normal|comum|regular/.test(q);
