@@ -1,5 +1,10 @@
 {
   "roles": {},
+  "emojis": {},
   "aliases": {},
+  "titles": {
+    "normal": "🏪 Blox Fruits | Stock normal atualizado",
+    "mirage": "🌙 Blox Fruits | Stock da Mirage atualizado"
+  },
   "historyLimit": 20
 }
