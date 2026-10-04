@@ -363,7 +363,6 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "testeestoque") {
     await interaction.reply({ components: await testStockContainers(), flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
-    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
       // /stock mostra o mesmo stock que o bot publicou no canal configurado.
       // Não consulta a API novamente, evitando gastar crédito e possíveis dados antigos.
@@ -377,9 +376,10 @@ client.on("interactionCreate", async interaction => {
       if (!components.length) {
         components.push(stockContainer([], "🍈 STOCK ATUAL", null));
       }
-      await interaction.editReply({ components });
+      await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
     } catch (e) {
-      await interaction.editReply({ components: [stockContainer([], "Não consegui mostrar o stock: " + e.message)] });
+      console.error("Erro no /stock:", e);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui mostrar o estoque agora.", ephemeral: true });
     }
   } else if (interaction.commandName === "atualizar") {
     await interaction.deferReply({ ephemeral: true });
