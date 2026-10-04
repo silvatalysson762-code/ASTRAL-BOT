@@ -76,7 +76,7 @@ function safeName(item) {
 function signature(stock) {
   return JSON.stringify(stock.map(x => ({
     name: safeName(x).toLowerCase(),
-    beli: x.money_price || x.price_beli || x.price || "",
+    beli: beliPrice(x) ?? "",
     robux: x.robux_price || "",
     type: x.type || ""
   })).sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name)));
@@ -151,9 +151,10 @@ async function resolveEmoji(input) {
   return value;
 }
 function stockContainer(stock, title, groupKey = null) {
-  const lines = stock.map(item =>
-    `${fruitEmoji(item)} **${safeName(item)}**${(item.money_price ?? item.price_beli ?? item.price) != null ? ` | <:emoji_232:1556366446257242112> \`${Number(item.money_price ?? item.price_beli ?? item.price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${item.robux_price} Robux` : ""}`
-  );
+  const lines = stock.map(item => {
+    const price = beliPrice(item);
+    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | <:emoji_232:1556366446257242112> \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${item.robux_price} Robux` : ""}`;
+  });
   const mentions = roleMentions(stock);
   const body = [
     `# ${title}`,
@@ -303,8 +304,8 @@ client.on("interactionCreate", async interaction => {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
       const stock = await getStock();
-      const normal = stock.filter(item => item.type === "Normal");
-      const mirage = stock.filter(item => item.type === "Mirage");
+      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
       const components = [];
       if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal"));
       if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage"));
@@ -319,8 +320,8 @@ client.on("interactionCreate", async interaction => {
       const stock = await getStock();
       const state = readState();
       state.stockSignatures = state.stockSignatures || {};
-      const normal = stock.filter(item => item.type === "Normal");
-      const mirage = stock.filter(item => item.type === "Mirage");
+      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
       if (normal.length) await postStock(normal, true, stockTitle("normal"), "normal");
       if (mirage.length) await postStock(mirage, true, stockTitle("mirage"), "mirage");
       state.stockSignatures.normal = signature(normal);
@@ -359,7 +360,7 @@ client.on("interactionCreate", async interaction => {
     await interaction.reply({ content: `Emoji ${emoji} configurado para **${fruit}**.`, ephemeral: true });
   } else if (interaction.commandName === "listar-emojis") {
     const emojis = readConfig().emojis || {};
-    const content = Object.entries(emojis).map(([fruit, emoji]) => `• ${emoji} **${fruit}**`).join("\\n");
+    const content = Object.entries(emojis).map(([fruit, emoji]) => `• ${emoji} **${fruit}**`).join("\n");
     await interaction.reply({ content: content || "Nenhum emoji personalizado configurado ainda.", ephemeral: true });
   } else if (interaction.commandName === "remover-emoji") {
     const fruit = fruitKey(interaction.options.getString("fruta"));
@@ -375,7 +376,7 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "listar-cargos") {
     const roles = readConfig().roles || {};
     const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
-    const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\\n");
+    const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\n");
     await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
   } else if (interaction.commandName === "remover-cargo") {
     const fruit = fruitKey(interaction.options.getString("fruta"));
