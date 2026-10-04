@@ -205,6 +205,7 @@ process.on("uncaughtException", error => {
 });
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  try {
   if (interaction.commandName === "stock") {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
@@ -289,6 +290,18 @@ client.on("interactionCreate", async interaction => {
       `**${i + 1}.** <t:${Math.floor(new Date(h.at).getTime() / 1000)}:R> • ${(h.stock || []).map(safeName).join(", ") || "Sem dados"}`
     ).join("\n");
     await interaction.reply({ content: content || "Ainda não há histórico de alterações.", ephemeral: true });
+  }
+  } catch (error) {
+    console.error(`Erro no comando /${interaction.commandName}:`, error);
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: `❌ Ocorreu um erro ao executar /${interaction.commandName}. Tente novamente.` });
+      } else {
+        await interaction.reply({ content: "❌ Ocorreu um erro ao executar este comando.", ephemeral: true });
+      }
+    } catch (replyError) {
+      console.error("Não foi possível responder à interação:", replyError);
+    }
   }
 });
 client.login(process.env.DISCORD_TOKEN);
