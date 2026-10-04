@@ -329,7 +329,9 @@ function buildFruitAnalytics(groupKey) {
   return [...stats.entries()].map(([name, dates]) => {
     const gaps = dates.slice(1).map((date, index) => date - dates[index]);
     const averageGap = gaps.length ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : null;
-    return { name, count: dates.length, lastSeen: dates[dates.length - 1], averageGap, nextEstimate: averageGap ? dates[dates.length - 1] + averageGap : null };
+    const displayName = ALL_FRUITS.find(fruit => fruitKey(fruit) === name) || name;
+    const frequency = snapshots.length ? (dates.length / snapshots.length) * 100 : 0;
+    return { name, displayName, count: dates.length, frequency, lastSeen: dates[dates.length - 1], averageGap, nextEstimate: averageGap ? dates[dates.length - 1] + averageGap : null };
   }).sort((a, b) => b.count - a.count);
 }
 function formatDuration(ms) {
@@ -338,6 +340,10 @@ function formatDuration(ms) {
   const days = Math.floor(hours / 24);
   return days + "d " + (hours % 24) + "h";
 }
+function percentageBar(percent) {
+  const filled = Math.max(0, Math.min(10, Math.round(percent / 10)));
+  return "▰".repeat(filled) + "▱".repeat(10 - filled);
+}
 function analyticsMessage(groupKey, prediction = false) {
   const snapshots = historySnapshots(groupKey);
   const stats = buildFruitAnalytics(groupKey);
@@ -345,19 +351,23 @@ function analyticsMessage(groupKey, prediction = false) {
   if (!snapshots.length) return "📊 Ainda não tenho histórico suficiente do Stock " + label + ". Deixe o bot registrar mais atualizações.";
   if (!prediction) {
     const top = stats.slice(0, 10).map((item, index) =>
-      "**" + (index + 1) + ". " + item.name + "** • apareceu em " + item.count + " registro(s)"
+      fruitEmoji({ name: item.displayName }) + " **" + (index + 1) + ". " + item.displayName + "**\n" +
+      "`" + item.frequency.toFixed(1) + "%` " + percentageBar(item.frequency) +
+      " • " + item.count + "/" + snapshots.length + " registros"
     );
-    return ["# 📊 Estatísticas do Stock " + label, "", "Registros analisados: **" + snapshots.length + "**", "", ...top, "", "-# Contagem baseada apenas nos estoques salvos pelo bot."].join("\n");
+    return ["# 📊 Estatísticas do Stock " + label, "", "Registros analisados: **" + snapshots.length + "**", "", ...top, "", "-# Percentual = frequência histórica nos registros do bot, não garantia de aparição futura."].join("\n");
   }
   const candidates = stats.filter(item => item.averageGap && item.count >= 2 && item.nextEstimate).sort((a, b) => a.nextEstimate - b.nextEstimate).slice(0, 8);
   if (!candidates.length) return "# 🔮 Previsão do Stock " + label + "\n\nAinda preciso registrar mais aparições repetidas para estimar intervalos. Continue deixando o bot atualizar o histórico.";
   const now = Date.now();
   const lines = candidates.map(item => {
     const remaining = item.nextEstimate - now;
-    const estimate = remaining <= 0 ? "pode estar perto de reaparecer (estimativa já passou)" : "estimativa em " + formatDuration(remaining);
-    return "• **" + item.name + "** • " + estimate + " • média entre aparições: " + formatDuration(item.averageGap);
+    const estimate = remaining <= 0 ? "estimativa de retorno já passou" : "estimativa em " + formatDuration(remaining);
+    return fruitEmoji({ name: item.displayName }) + " **" + item.displayName + "**\n" +
+      "`" + item.frequency.toFixed(1) + "%` " + percentageBar(item.frequency) +
+      " • frequência histórica\n↳ " + estimate + " • média: " + formatDuration(item.averageGap);
   });
-  return ["# 🔮 Previsão do Stock " + label, "", ...lines, "", "-# Estimativas matemáticas feitas com aparições anteriores. O stock é aleatório e pode não seguir esses intervalos."].join("\n");
+  return ["# 🔮 Previsão do Stock " + label, "", ...lines, "", "-# A porcentagem mostra a frequência nos registros anteriores. O horário é uma estimativa matemática, não uma chance garantida: o stock é aleatório."].join("\n");
 }
 async function testStockContainers() {
   const config = readConfig();
