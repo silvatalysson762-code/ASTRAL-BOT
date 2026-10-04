@@ -193,7 +193,7 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
       const sig = signature(items);
       const previous = state.stockSignatures[group.key];
 
-      if (items.length && (force || (previous && sig !== previous))) {
+      if (items.length && (force || !previous || sig !== previous)) {
         await postStock(items, true, group.title, group.key);
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
         state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
@@ -312,12 +312,24 @@ client.once("ready", async () => {
   nextStockAt.mirage = nextGlobalReset("mirage").getTime();
 
   console.log("Agendamento automático global: uma consulta a cada 2 horas para detectar Normal e Mirage.");
+
+  const checkAtReset = async () => {
+    // Algumas APIs demoram alguns segundos para atualizar depois do reset.
+    // Reconsultamos em pequenos intervalos; a assinatura evita mensagens duplicadas.
+    const delays = [0, 15000, 45000, 90000, 180000];
+    for (const delay of delays) {
+      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+      await checkStock(false, ["normal", "mirage"]);
+    }
+  };
+
   const schedule = () => {
     const next = nextGlobalReset("mirage");
     nextStockAt.mirage = next.getTime();
     nextStockAt.normal = nextGlobalReset("normal").getTime();
+
     setTimeout(async () => {
-      await checkStock(false, ["normal", "mirage"]);
+      await checkAtReset();
       schedule();
     }, Math.max(1000, next.getTime() - Date.now()));
   };
