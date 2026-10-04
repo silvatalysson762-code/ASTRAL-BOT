@@ -287,8 +287,8 @@ async function postStock(stock, announce, title, groupKey = null) {
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
   await channel.send({ components: [stockContainer(stock, title, groupKey)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
 }
-async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
-  if (checking) return;
+async function checkStock(force = false, onlyGroups = ["normal", "mirage"], throwOnError = false) {
+  if (checking) return false;
   checking = true;
   try {
     const stock = await getStock();
@@ -303,11 +303,11 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
     for (const group of groups) {
       const items = stock.filter(item => String(item.type || "").toLowerCase() === group.type.toLowerCase());
       const sig = signature(items);
-      const previous = state.stockSignatures[group.key];
 
-      if (items.length && (force || !previous || sig !== previous)) {
+      if (items.length && (force || !state.stockSignatures[group.key] || sig !== state.stockSignatures[group.key])) {
         await postStock(items, true, group.title, group.key);
         state.latestStock[group.key] = items;
+        state.history = Array.isArray(state.history) ? state.history : [];
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
         state.history = state.history.slice(0, Math.max(500, Number(readConfig().historyLimit || 500)));
       }
@@ -316,8 +316,11 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
 
     saveState(state);
     console.log(`Stock consultado: ${groups.map(g => `${g.type} ${stock.filter(x => String(x.type || "").toLowerCase() === g.type.toLowerCase()).length} frutas`).join("; ")}.`);
+    return true;
   } catch (error) {
     console.error("Erro ao consultar/enviar stock:", error.message);
+    if (throwOnError) throw error;
+    return false;
   } finally {
     checking = false;
   }
@@ -456,7 +459,7 @@ const commands = [
   new SlashCommandBuilder().setName("ia").setDescription("Conversa com a IA do Astral Stock").addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("imagem").setDescription("Gera uma imagem com inteligência artificial").addStringOption(option => option.setName("prompt").setDescription("Descreva a imagem que deseja criar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("atualizar").setDescription("Republica o último stock salvo sem consultar a API").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("atualizar").setDescription("Consulta a Wiki e publica o stock atual").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
   new SlashCommandBuilder().setName("previsao").setDescription("Estima possíveis retornos de frutas com base no histórico")
     .addStringOption(option => option.setName("estoque").setDescription("Qual estoque analisar").setRequired(true)
@@ -664,17 +667,15 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "atualizar") {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const latest = readState().latestStock || {};
-      const normal = Array.isArray(latest.normal) ? latest.normal : [];
-      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
-      if (!normal.length && !mirage.length) {
-        await interaction.editReply("Ainda não existe stock salvo. A primeira consulta automática será feita no próximo horário de atualização, sem gastar requisições extras.");
+      const completed = await checkStock(true, ["normal", "mirage"], true);
+      if (!completed) {
+        await interaction.editReply("⏳ Já existe uma consulta de stock em andamento. Tente novamente em alguns segundos.");
       } else {
-        if (normal.length) await postStock(normal, true, stockTitle("normal"), "normal");
-        if (mirage.length) await postStock(mirage, true, stockTitle("mirage"), "mirage");
-        await interaction.editReply("Último stock salvo republicado! Nenhuma requisição foi feita à API.");
+        await interaction.editReply("✅ Consultei a Wiki, salvei o stock mais recente e publiquei as listas no canal!");
       }
-    } catch (e) { await interaction.editReply(`Falha ao republicar: ${e.message}`); }
+    } catch (e) {
+      await interaction.editReply("❌ Não consegui consultar a Wiki: " + e.message + ". O último stock salvo foi preservado.");
+    }
   } else if (interaction.commandName === "configurar-titulo") {
     const groupKey = interaction.options.getString("estoque");
     const title = interaction.options.getString("titulo").trim();
