@@ -5,8 +5,9 @@ const {
   Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
+const OpenAI = require("openai");
 
-const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID", "CHANNEL_ID", "STOCK_API_URL", "STOCK_API_KEY"];
+const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID", "CHANNEL_ID", "STOCK_API_URL", "STOCK_API_KEY", "OPENAI_API_KEY"];
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`Configuração ausente: ${key}. Veja o arquivo .env.example.`);
@@ -16,6 +17,8 @@ for (const key of required) {
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const aiHistory = new Map();
 
 let checking = false;
 const BRASIL_TZ = "America/Sao_Paulo";
@@ -206,6 +209,39 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
     checking = false;
   }
 }
+
+
+async function askAI(userId, question) {
+  const history = aiHistory.get(userId) || [];
+  const stock = await getStock().catch(() => []);
+  const stockText = stock.map(item => {
+    const price = beliPrice(item);
+    return `${safeName(item)} (${item.type || "Stock"}, ${price != null ? Number(price).toLocaleString("pt-BR") + " Beli" : "preço não informado"})`;
+  }).join(", ") || "Stock indisponível no momento.";
+
+  const input = [
+    {
+      role: "developer",
+      content: "Você é o assistente oficial do servidor Astral Stock. Responda em português do Brasil, de forma amigável, curta e natural. Ajude com Blox Fruits, stock, frutas, preços e dúvidas gerais do servidor. Não invente informações sobre o stock. Quando perguntarem pelo stock atual, use somente os dados fornecidos abaixo. Não peça nem revele tokens, API keys ou outras credenciais. Evite assuntos impróprios para menores."
+    },
+    ...history.slice(-8),
+    {
+      role: "user",
+      content: question + "\n\nStock consultado agora: " + stockText
+    }
+  ];
+
+  const response = await openai.responses.create({
+    model: process.env.OPENAI_MODEL || "gpt-6-luna",
+    input
+  });
+
+  const answer = String(response.output_text || "Não consegui gerar uma resposta agora.").trim();
+  const updated = [...history, { role: "user", content: question }, { role: "assistant", content: answer }].slice(-10);
+  aiHistory.set(userId, updated);
+  return answer;
+}
+
 const ALL_FRUITS = [
   "Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike", "Flame", "Ice", "Sand",
   "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake", "Buddha", "Love",
@@ -230,6 +266,7 @@ async function testStockContainers() {
 const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
 const commands = [
   new SlashCommandBuilder().setName("stock").setDescription("Mostra o stock atual de Blox Fruits"),
+  new SlashCommandBuilder().setName("ia").setDescription("Conversa com a IA do Astral Stock").addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
@@ -260,7 +297,7 @@ const commands = [
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands.map(c => c.toJSON()) });
-  console.log("Comandos de stock, cargos e emojis registrados.");
+  console.log("Comandos de stock, IA, cargos e emojis registrados.");
 }
 client.once("ready", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
@@ -297,7 +334,17 @@ process.on("uncaughtException", error => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "testeestoque") {
+  if (interaction.commandName === "ia") {
+    await interaction.deferReply();
+    try {
+      const question = interaction.options.getString("pergunta");
+      const answer = await askAI(interaction.user.id, question);
+      await interaction.editReply(answer.slice(0, 2000));
+    } catch (e) {
+      console.error("Erro na IA:", e.message);
+      await interaction.editReply("❌ Não consegui falar com a IA agora. Verifique a configuração da OpenAI.");
+    }
+  } else if (interaction.commandName === "testeestoque") {
     await interaction.reply({ components: await testStockContainers(), flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
