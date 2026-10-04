@@ -222,7 +222,7 @@ async function testStockContainers() {
     const priceText = price != null ? "<:emoji_232:1556366446257242112> `" + Number(price).toLocaleString("en-US") + "`" : "<:emoji_232:1556366446257242112> `Valor não cadastrado`";
     return emoji + " **" + name + "** | " + priceText;
   });
-  const body = ["# 🍈 Blox Fruits", "", ...lines].join("\n");
+  const body = ["# <:emoji_001:1539652915050971226> Blox Fruits", "", ...lines].join("\n");
   return [new ContainerBuilder().setAccentColor(0x7c3aed).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
