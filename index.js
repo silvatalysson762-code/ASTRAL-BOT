@@ -18,7 +18,6 @@ const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 let checking = false;
-const STOCK_INTERVALS = { normal: 4 * 60 * 60 * 1000, mirage: 2 * 60 * 60 * 1000 };
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 
@@ -275,17 +274,17 @@ client.once("ready", async () => {
   nextStockAt.normal = nextGlobalReset("normal").getTime();
   nextStockAt.mirage = nextGlobalReset("mirage").getTime();
 
-  console.log("Agendamento automático baseado no relógio global, exibido em horário de Brasília.");
-  const schedule = (groupKey) => {
-    const run = () => {
-      nextStockAt[groupKey] = nextGlobalReset(groupKey).getTime();
-      checkStock(false, [groupKey]);
-      setTimeout(run, Math.max(1000, nextGlobalReset(groupKey).getTime() - Date.now()));
-    };
-    setTimeout(run, Math.max(1000, nextGlobalReset(groupKey).getTime() - Date.now()));
+  console.log("Agendamento automático global: uma consulta a cada 2 horas para detectar Normal e Mirage.");
+  const schedule = () => {
+    const next = nextGlobalReset("mirage");
+    nextStockAt.mirage = next.getTime();
+    nextStockAt.normal = nextGlobalReset("normal").getTime();
+    setTimeout(async () => {
+      await checkStock(false, ["normal", "mirage"]);
+      schedule();
+    }, Math.max(1000, next.getTime() - Date.now()));
   };
-  schedule("normal");
-  schedule("mirage");
+  schedule();
 });
 
 process.on("unhandledRejection", error => {
