@@ -13,11 +13,11 @@ for (const key of required) {
     process.exit(1);
   }
 }
-const POLL_SECONDS = Math.max(3600, Number(process.env.POLL_SECONDS || 14400));
+const POLL_SECONDS = Math.max(3600, Number(process.env.POLL_SECONDS || 7200));
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-let lastSignature = "";
+
 let checking = false;
 
 function readConfig() {
@@ -29,7 +29,7 @@ function saveConfig(config) {
 }
 function readState() {
   try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf8")); }
-  catch { return { history: [] }; }
+  catch { return { history: [], stockSignatures: {} }; }
 }
 function fruitKey(value) {
   return String(value || "").trim().toLowerCase().replace(/\\s+/g, " ");
@@ -90,7 +90,22 @@ function roleMentions(stock) {
 }
 function fruitEmoji(item) {
   const emojis = readConfig().emojis || {};
-  return emojis[fruitKey(safeName(item))] || "🍈";\n}\nfunction stockEmbed(stock, title = "🍈 Blox Fruits | Stock atual") {
+  return emojis[fruitKey(safeName(item))] || "🍈";
+}
+async function resolveEmoji(input) {
+  const value = String(input || "").trim();
+  if (/^<a?:[A-Za-z0-9_]+:\d{17,20}>$/.test(value) || /\p{Extended_Pictographic}/u.test(value)) return value;
+  const name = value.replace(/^:|:$/g, "");
+  try {
+    const appEmojis = await client.application.emojis.fetch();
+    const found = appEmojis.find(emoji => emoji.name === name);
+    if (found) return `${found.animated ? "<a" : "<"}:${found.name}:${found.id}>`;
+  } catch (error) {
+    console.warn("Não consegui consultar os emojis da aplicação:", error.message);
+  }
+  return value;
+}
+function stockEmbed(stock, title = "🍈 Blox Fruits | Stock atual") {
   const normal = stock.filter(x => x.type === "Normal");
   const mirage = stock.filter(x => x.type === "Mirage");
   const lines = [];
@@ -108,27 +123,36 @@ function fruitEmoji(item) {
     .setFooter({ text: "Dados de stock • Confira no jogo antes de negociar" })
     .setTimestamp();
 }
-async function postStock(stock, announce) {
+async function postStock(stock, announce, title = "🍈 Blox Fruits | Stock atualizado") {
   const channel = await client.channels.fetch(process.env.CHANNEL_ID);
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
   const content = announce ? roleMentions(stock) : "";
-  await channel.send({ content: content || undefined, embeds: [stockEmbed(stock)] });
+  await channel.send({ content: content || undefined, embeds: [stockEmbed(stock, title)] });
 }
 async function checkStock(force = false) {
   if (checking) return;
   checking = true;
   try {
     const stock = await getStock();
-    const sig = signature(stock);
-    if (force || (lastSignature && sig !== lastSignature)) {
-      await postStock(stock, true);
-      const state = readState();
-      state.history.unshift({ at: new Date().toISOString(), stock });
-      state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
-      saveState(state);
+    const state = readState();
+    state.stockSignatures = state.stockSignatures || {};
+    const groups = [
+      { key: "normal", type: "Normal", title: "🏪 Blox Fruits | Stock normal atualizado" },
+      { key: "mirage", type: "Mirage", title: "🌙 Blox Fruits | Stock da Mirage atualizado" }
+    ];
+    for (const group of groups) {
+      const items = stock.filter(item => String(item.type || "").toLowerCase() === group.type.toLowerCase());
+      const sig = signature(items);
+      const previous = state.stockSignatures[group.key];
+      if (items.length && (force || (previous && sig !== previous))) {
+        await postStock(items, true, group.title);
+        state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
+        state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
+      }
+      state.stockSignatures[group.key] = sig;
     }
-    lastSignature = sig;
-    console.log(`Stock consultado: ${stock.length} frutas.`);
+    saveState(state);
+    console.log(`Stock consultado: normal ${stock.filter(x => x.type === "Normal").length} frutas; Mirage ${stock.filter(x => x.type === "Mirage").length} frutas.`);
   } catch (error) {
     console.error("Erro ao consultar/enviar stock:", error.message);
   } finally { checking = false; }
@@ -160,7 +184,7 @@ const commands = [
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands.map(c => c.toJSON()) });
-  console.log("Comandos de stock e configuração de cargos registrados.");
+  console.log("Comandos de stock, cargos e emojis registrados.");
 }
 client.once("ready", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
@@ -178,9 +202,18 @@ client.on("interactionCreate", async interaction => {
     await interaction.deferReply({ ephemeral: true });
     try {
       const stock = await getStock();
-      lastSignature = signature(stock);
-      await postStock(stock, true);
-      await interaction.editReply("Stock consultado e publicado!");
+      const state = readState();
+      state.stockSignatures = state.stockSignatures || {};
+      const normal = stock.filter(item => item.type === "Normal");
+      const mirage = stock.filter(item => item.type === "Mirage");
+      if (normal.length) await postStock(normal, true, "🏪 Blox Fruits | Stock normal atualizado");
+      if (mirage.length) await postStock(mirage, true, "🌙 Blox Fruits | Stock da Mirage atualizado");
+      state.stockSignatures.normal = signature(normal);
+      state.stockSignatures.mirage = signature(mirage);
+      state.history.unshift({ at: new Date().toISOString(), stock });
+      state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
+      saveState(state);
+      await interaction.editReply("Stocks normal e Mirage consultados e publicados em mensagens separadas!");
     } catch (e) { await interaction.editReply(`Falha: ${e.message}`); }
   } else if (interaction.commandName === "configurar-fruta") {
     const fruit = fruitKey(interaction.options.getString("fruta"));
@@ -192,7 +225,7 @@ client.on("interactionCreate", async interaction => {
     await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
   } else if (interaction.commandName === "configurar-emoji") {
     const fruit = fruitKey(interaction.options.getString("fruta"));
-    const emoji = interaction.options.getString("emoji").trim();
+    const emoji = await resolveEmoji(interaction.options.getString("emoji"));
     const config = readConfig();
     config.emojis = config.emojis || {};
     config.emojis[fruit] = emoji;
