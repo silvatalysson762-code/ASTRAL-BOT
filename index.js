@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, EmbedBuilder, REST, Routes,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 
@@ -105,29 +105,27 @@ async function resolveEmoji(input) {
   }
   return value;
 }
-function stockEmbed(stock, title = "🍈 Blox Fruits | Stock atual") {
-  const normal = stock.filter(x => x.type === "Normal");
-  const mirage = stock.filter(x => x.type === "Mirage");
-  const lines = [];
-  if (normal.length) {
-    lines.push("**🏪 Dealer normal**");
-    for (const x of normal) lines.push(`${fruitEmoji(x)} **${safeName(x)}**${x.money_price ? ` | $ ${Number(x.money_price).toLocaleString("en-US")}` : ""}${x.robux_price ? ` | ${x.robux_price} Robux` : ""}`);
-  }
-  if (mirage.length) {
-    lines.push("**🌙 Dealer Mirage**");
-    for (const x of mirage) lines.push(`${fruitEmoji(x)} **${safeName(x)}**${x.money_price ? ` | $ ${Number(x.money_price).toLocaleString("en-US")}` : ""}${x.robux_price ? ` | ${x.robux_price} Robux` : ""}`);
-  }
-  if (!lines.length) for (const x of stock) lines.push(`${fruitEmoji(x)} **${safeName(x)}**`);
-  return new EmbedBuilder().setColor(0x7c3aed).setTitle(title)
-    .setDescription(lines.join("\n") || "Nenhuma fruta encontrada.")
-    .setFooter({ text: "Dados de stock • Confira no jogo antes de negociar" })
-    .setTimestamp();
+function stockContainer(stock, title) {
+  const lines = stock.map(item =>
+    `${fruitEmoji(item)} **${safeName(item)}**${item.money_price ? ` | $ ${Number(item.money_price).toLocaleString("en-US")}` : ""}${item.robux_price ? ` | ${item.robux_price} Robux` : ""}`
+  );
+  const mentions = roleMentions(stock);
+  const body = [
+    `# ${title}`,
+    "",
+    mentions,
+    ...(lines.length ? lines : ["Nenhuma fruta encontrada."]),
+    "",
+    "-# Dados de stock • Confira no jogo antes de negociar"
+  ].filter(Boolean).join("\n");
+  return new ContainerBuilder()
+    .setAccentColor(0x7c3aed)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 async function postStock(stock, announce, title = "🍈 Blox Fruits | Stock atualizado") {
   const channel = await client.channels.fetch(process.env.CHANNEL_ID);
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
-  const content = announce ? roleMentions(stock) : "";
-  await channel.send({ content: content || undefined, embeds: [stockEmbed(stock, title)] });
+  await channel.send({ components: [stockContainer(stock, title)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
 }
 async function checkStock(force = false) {
   if (checking) return;
@@ -195,9 +193,19 @@ client.once("ready", async () => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName === "stock") {
-    await interaction.deferReply();
-    try { await interaction.editReply({ embeds: [stockEmbed(await getStock())] }); }
-    catch (e) { await interaction.editReply(`Não consegui consultar o stock: ${e.message}`); }
+    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    try {
+      const stock = await getStock();
+      const normal = stock.filter(item => item.type === "Normal");
+      const mirage = stock.filter(item => item.type === "Mirage");
+      const components = [];
+      if (normal.length) components.push(stockContainer(normal, "🏪 ESTOQUE NORMAL"));
+      if (mirage.length) components.push(stockContainer(mirage, "🌙 ESTOQUE DA MIRAGE"));
+      if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL"));
+      await interaction.editReply({ components });
+    } catch (e) {
+      await interaction.editReply({ components: [stockContainer([], "Não consegui consultar o stock: " + e.message)] });
+    }
   } else if (interaction.commandName === "atualizar") {
     await interaction.deferReply({ ephemeral: true });
     try {
