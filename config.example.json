@@ -1,9 +1,5 @@
 {
-  "roles": {
-    "leopard": "ID_DO_CARGO_LEOPARD",
-    "dragon": "ID_DO_CARGO_DRAGON",
-    "kitsune": "ID_DO_CARGO_KITSUNE"
-  },
+  "roles": {},
   "aliases": {},
   "historyLimit": 20
 }
