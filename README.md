@@ -1,29 +1,35 @@
 # Blox Fruits Stock Bot
 
-Bot Discord que consulta uma API de stock, publica alterações, menciona cargos configurados e oferece /stock, /atualizar e /historico.
+Bot Discord que consulta o stock de Blox Fruits, publica alterações, menciona cargos configurados e oferece /stock, /atualizar e /historico.
 
 ## Requisitos
 - Node.js 20+
 - Aplicação/bot criado no Discord Developer Portal
-- URL de uma API de stock funcional e autorizada
+- Chave de API Parse (plano gratuito disponível)
 
 ## Instalação
 1. Copie .env.example para .env e preencha as variáveis.
-2. Copie config.example.json para config.json.
-3. Em config.json, substitua os valores de exemplo pelos IDs reais dos cargos. As chaves são nomes de frutas em letras minúsculas.
-4. Execute npm install e npm start.
+2. Crie uma conta no Parse e gere uma API key: https://parse.bot/
+3. Coloque a chave em STOCK_API_KEY no arquivo .env. Não coloque a chave no GitHub.
+4. Copie config.example.json para config.json.
+5. Em config.json, substitua os valores de exemplo pelos IDs reais dos cargos. As chaves são nomes de frutas em letras minúsculas.
+6. Execute npm install e npm start.
 
 ## Configuração do Discord
 Ative o bot e convide-o ao servidor com permissões View Channels, Send Messages, Embed Links e Use Application Commands. Dê permissão para mencionar os cargos que serão notificados. Copie os IDs com o Modo Desenvolvedor ativado.
 
 ## API de stock
-Defina STOCK_API_URL para um endpoint que retorne JSON. O bot aceita listas de frutas ou objetos com listas por categoria, mas cada API pode ter um formato diferente. A URL precisa ser testada antes de usar. O endereço antigo de exemplo pode estar fora do ar; não existe garantia de que uma API pública gratuita esteja disponível.
+O bot está configurado para usar o endpoint de stock da API comunitária baseada na wiki do Blox Fruits:
+https://api.parse.bot/scraper/78cf8155-3819-45d0-b799-92f840a94827/get_stock
+
+A chamada usa o cabeçalho X-API-Key. A API não é oficial do jogo. O plano gratuito listado oferece 200 créditos por mês; esta integração consulta automaticamente a cada 4 horas (cerca de 180 consultas em 30 dias). Comandos manuais /stock e /atualizar também fazem consultas e consomem créditos, então evite usá-los repetidamente.
 
 ## Hospedagem
-Mantenha o processo ligado em um host Node.js. Configure as variáveis de ambiente no painel do host. Nunca publique o token do bot no GitHub nem envie-o no chat.
+Mantenha o processo ligado em um host Node.js. Configure as variáveis de ambiente no painel do host. Nunca publique o token do bot nem a chave da API no GitHub ou no chat.
 
 ## Observações
-- O bot consulta a API a cada 5 minutos por padrão (mínimo 60 segundos).
-- O primeiro stock é consultável por /stock. Notificações automáticas são enviadas quando o resultado muda.
+- O bot consulta a API a cada 4 horas por padrão.
+- O primeiro stock pode ser visto com /stock. Notificações automáticas são enviadas quando o resultado muda.
 - /atualizar força uma publicação (requer Gerenciar servidor).
 - /historico mostra alterações salvas localmente.
+- A API e o bot ainda precisam ser iniciados e testados com as credenciais do servidor.
