@@ -155,9 +155,37 @@ async function checkStock(force = false) {
     console.error("Erro ao consultar/enviar stock:", error.message);
   } finally { checking = false; }
 }
+const ALL_FRUITS = [
+  "Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike", "Flame", "Ice", "Sand",
+  "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake", "Buddha", "Love",
+  "Creation", "Spider", "Sound", "Phoenix", "Portal", "Lightning", "Pain", "Blizzard", "Gravity",
+  "Mammoth", "T-Rex", "Dough", "Shadow", "Venom", "Gas", "Spirit", "Tiger", "Yeti", "Kitsune",
+  "Control", "Dragon"
+];
+
+function testStockContainer() {
+  const config = readConfig();
+  const emojis = config.emojis || {};
+  const lines = ALL_FRUITS.map((name, index) => {
+    const emoji = emojis[fruitKey(name)] || "🍈";
+    return `**${String(index + 1).padStart(2, "0")}.** ${emoji} **${name}** | 🟢 Disponível`;
+  });
+  const body = [
+    "# 🏪 TESTE DE ESTOQUE",
+    "",
+    ...lines,
+    "",
+    "-# Teste visual • mostra todas as frutas e os emojis configurados"
+  ].join("\\n");
+  return new ContainerBuilder()
+    .setAccentColor(0x7c3aed)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
+}
+
 const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
 const commands = [
   new SlashCommandBuilder().setName("stock").setDescription("Mostra o stock atual de Blox Fruits"),
+  new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
   new SlashCommandBuilder().setName("configurar-fruta").setDescription("Define o cargo que será mencionado para uma fruta")
@@ -206,7 +234,9 @@ process.on("uncaughtException", error => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "stock") {
+  if (interaction.commandName === "testeestoque") {
+    await interaction.reply({ components: [testStockContainer()], flags: MessageFlags.IsComponentsV2 });
+  } else if (interaction.commandName === "stock") {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
       const stock = await getStock();
