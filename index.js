@@ -22,6 +22,7 @@ const aiHistory = new Map();
 const imageCooldown = new Map();
 
 let checking = false;
+let apiCooldownUntil = 0;
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 
@@ -66,10 +67,25 @@ function normalizeStock(payload) {
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
 async function getStock() {
+  if (Date.now() < apiCooldownUntil) {
+    const minutes = Math.ceil((apiCooldownUntil - Date.now()) / 60000);
+    throw new Error(`API em pausa por limite de requisições. Tente novamente em aproximadamente ${minutes} min.`);
+  }
   const response = await fetch(process.env.STOCK_API_URL, {
     headers: { "Accept": "application/json", "X-API-Key": process.env.STOCK_API_KEY },
     signal: AbortSignal.timeout(15000)
   });
+  if (response.status === 429) {
+    const retryAfter = response.headers.get("retry-after");
+    const seconds = Number(retryAfter);
+    const retryMs = retryAfter && Number.isFinite(seconds)
+      ? Math.max(60000, seconds * 1000)
+      : retryAfter
+        ? Math.max(60000, Date.parse(retryAfter) - Date.now())
+        : 10 * 60 * 1000;
+    apiCooldownUntil = Date.now() + (Number.isFinite(retryMs) && retryMs > 0 ? retryMs : 10 * 60 * 1000);
+    throw new Error(`API bloqueou novas consultas (HTTP 429). Vou aguardar ${Math.ceil((apiCooldownUntil - Date.now()) / 60000)} min antes de tentar novamente.`);
+  }
   if (!response.ok) throw new Error(`API respondeu HTTP ${response.status}`);
   return normalizeStock(await response.json());
 }
