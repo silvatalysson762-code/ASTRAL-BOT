@@ -13,7 +13,6 @@ for (const key of required) {
     process.exit(1);
   }
 }
-const POLL_SECONDS = Math.max(60, Number(process.env.POLL_SECONDS || 7200));
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -127,7 +126,7 @@ async function postStock(stock, announce, title = "🍈 Blox Fruits | Stock atua
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
   await channel.send({ components: [stockContainer(stock, title)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
 }
-async function checkStock(force = false) {
+async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
   if (checking) return;
   checking = true;
   try {
@@ -137,11 +136,13 @@ async function checkStock(force = false) {
     const groups = [
       { key: "normal", type: "Normal", title: "🏪 Blox Fruits | Stock normal atualizado" },
       { key: "mirage", type: "Mirage", title: "🌙 Blox Fruits | Stock da Mirage atualizado" }
-    ];
+    ].filter(group => onlyGroups.includes(group.key));
+
     for (const group of groups) {
       const items = stock.filter(item => String(item.type || "").toLowerCase() === group.type.toLowerCase());
       const sig = signature(items);
       const previous = state.stockSignatures[group.key];
+
       if (items.length && (force || (previous && sig !== previous))) {
         await postStock(items, true, group.title);
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
@@ -149,11 +150,14 @@ async function checkStock(force = false) {
       }
       state.stockSignatures[group.key] = sig;
     }
+
     saveState(state);
-    console.log(`Stock consultado: normal ${stock.filter(x => x.type === "Normal").length} frutas; Mirage ${stock.filter(x => x.type === "Mirage").length} frutas.`);
+    console.log(`Stock consultado: ${groups.map(g => `${g.type} ${stock.filter(x => String(x.type || "").toLowerCase() === g.type.toLowerCase()).length} frutas`).join("; ")}.`);
   } catch (error) {
     console.error("Erro ao consultar/enviar stock:", error.message);
-  } finally { checking = false; }
+  } finally {
+    checking = false;
+  }
 }
 const ALL_FRUITS = [
   "Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike", "Flame", "Ice", "Sand",
@@ -225,12 +229,17 @@ client.once("ready", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
   try {
     await registerCommands();
-    await checkStock(false);
+    await checkStock(false, ["normal", "mirage"]);
   } catch (error) {
     console.error("Erro na inicialização do Astral Stock:", error);
   }
-  console.log(`Próxima verificação automática em ${Math.round(POLL_SECONDS / 60)} minutos.`);
-  setInterval(() => checkStock(false), POLL_SECONDS * 1000);
+
+  const NORMAL_INTERVAL = 4 * 60 * 60 * 1000;
+  const MIRAGE_INTERVAL = 2 * 60 * 60 * 1000;
+
+  console.log("Agendamento automático: Stock normal a cada 4 horas; Stock da Mirage a cada 2 horas.");
+  setInterval(() => checkStock(false, ["normal"]), NORMAL_INTERVAL);
+  setInterval(() => checkStock(false, ["mirage"]), MIRAGE_INTERVAL);
 });
 
 process.on("unhandledRejection", error => {
