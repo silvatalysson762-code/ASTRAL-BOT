@@ -246,7 +246,7 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
         await postStock(items, true, group.title, group.key);
         state.latestStock[group.key] = items;
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
-        state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
+        state.history = state.history.slice(0, Math.max(500, Number(readConfig().historyLimit || 500)));
       }
       state.stockSignatures[group.key] = sig;
     }
@@ -300,6 +300,65 @@ const ALL_FRUITS = [
   "Magnet", "Kitsune", "Control", "Dragon"
 ];
 
+function historySnapshots(groupKey) {
+  const targetType = groupKey === "mirage" ? "mirage" : "normal";
+  const history = readState().history || [];
+  const snapshots = [];
+  for (const entry of history) {
+    const at = new Date(entry.at).getTime();
+    if (!Number.isFinite(at)) continue;
+    const items = Array.isArray(entry.stock) ? entry.stock : [];
+    let matching = items.filter(item => String(item.type || "").toLowerCase() === targetType);
+    if (entry.type && String(entry.type).toLowerCase() === (targetType === "mirage" ? "mirage" : "normal")) {
+      matching = items;
+    }
+    if (matching.length) snapshots.push({ at, names: [...new Set(matching.map(item => fruitKey(safeName(item))))] });
+  }
+  return snapshots.sort((a, b) => a.at - b.at);
+}
+function buildFruitAnalytics(groupKey) {
+  const snapshots = historySnapshots(groupKey);
+  const stats = new Map();
+  for (const snapshot of snapshots) {
+    for (const name of snapshot.names) {
+      if (!stats.has(name)) stats.set(name, []);
+      const dates = stats.get(name);
+      if (!dates.length || dates[dates.length - 1] !== snapshot.at) dates.push(snapshot.at);
+    }
+  }
+  return [...stats.entries()].map(([name, dates]) => {
+    const gaps = dates.slice(1).map((date, index) => date - dates[index]);
+    const averageGap = gaps.length ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : null;
+    return { name, count: dates.length, lastSeen: dates[dates.length - 1], averageGap, nextEstimate: averageGap ? dates[dates.length - 1] + averageGap : null };
+  }).sort((a, b) => b.count - a.count);
+}
+function formatDuration(ms) {
+  const hours = Math.max(0, Math.round(ms / 3600000));
+  if (hours < 24) return hours + "h";
+  const days = Math.floor(hours / 24);
+  return days + "d " + (hours % 24) + "h";
+}
+function analyticsMessage(groupKey, prediction = false) {
+  const snapshots = historySnapshots(groupKey);
+  const stats = buildFruitAnalytics(groupKey);
+  const label = groupKey === "mirage" ? "Mirage" : "Normal";
+  if (!snapshots.length) return "📊 Ainda não tenho histórico suficiente do Stock " + label + ". Deixe o bot registrar mais atualizações.";
+  if (!prediction) {
+    const top = stats.slice(0, 10).map((item, index) =>
+      "**" + (index + 1) + ". " + item.name + "** • apareceu em " + item.count + " registro(s)"
+    );
+    return ["# 📊 Estatísticas do Stock " + label, "", "Registros analisados: **" + snapshots.length + "**", "", ...top, "", "-# Contagem baseada apenas nos estoques salvos pelo bot."].join("\n");
+  }
+  const candidates = stats.filter(item => item.averageGap && item.count >= 2 && item.nextEstimate).sort((a, b) => a.nextEstimate - b.nextEstimate).slice(0, 8);
+  if (!candidates.length) return "# 🔮 Previsão do Stock " + label + "\n\nAinda preciso registrar mais aparições repetidas para estimar intervalos. Continue deixando o bot atualizar o histórico.";
+  const now = Date.now();
+  const lines = candidates.map(item => {
+    const remaining = item.nextEstimate - now;
+    const estimate = remaining <= 0 ? "pode estar perto de reaparecer (estimativa já passou)" : "estimativa em " + formatDuration(remaining);
+    return "• **" + item.name + "** • " + estimate + " • média entre aparições: " + formatDuration(item.averageGap);
+  });
+  return ["# 🔮 Previsão do Stock " + label, "", ...lines, "", "-# Estimativas matemáticas feitas com aparições anteriores. O stock é aleatório e pode não seguir esses intervalos."].join("\n");
+}
 async function testStockContainers() {
   const config = readConfig();
   const emojis = config.emojis || {};
@@ -322,6 +381,12 @@ const commands = [
   new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
+  new SlashCommandBuilder().setName("previsao").setDescription("Estima possíveis retornos de frutas com base no histórico")
+    .addStringOption(option => option.setName("estoque").setDescription("Qual estoque analisar").setRequired(true)
+      .addChoices({ name: "Stock Normal", value: "normal" }, { name: "Stock da Mirage", value: "mirage" })),
+  new SlashCommandBuilder().setName("estatisticas").setDescription("Mostra as frutas mais frequentes no histórico")
+    .addStringOption(option => option.setName("estoque").setDescription("Qual estoque analisar").setRequired(true)
+      .addChoices({ name: "Stock Normal", value: "normal" }, { name: "Stock da Mirage", value: "mirage" })),
   new SlashCommandBuilder().setName("configurar-fruta").setDescription("Define o cargo que será mencionado para uma fruta")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
@@ -608,6 +673,10 @@ client.on("interactionCreate", async interaction => {
       saveConfig(config);
       await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
     }
+  } else if (interaction.commandName === "previsao" || interaction.commandName === "estatisticas") {
+    const groupKey = interaction.options.getString("estoque", true);
+    const isPrediction = interaction.commandName === "previsao";
+    await interaction.reply({ content: analyticsMessage(groupKey, isPrediction), ephemeral: true });
   } else if (interaction.commandName === "historico") {
     const history = readState().history || [];
     const content = history.slice(0, 5).map((h, i) =>
