@@ -122,7 +122,7 @@ async function resolveEmoji(input) {
 }
 function stockContainer(stock, title, groupKey = null) {
   const lines = stock.map(item =>
-    `${fruitEmoji(item)} **${safeName(item)}**${(item.money_price ?? item.price_beli ?? item.price) != null ? ` | <:emoji_232:1556366446257242112> ${Number(item.money_price ?? item.price_beli ?? item.price).toLocaleString("en-US")}` : ""}${item.robux_price != null ? ` | ${item.robux_price} Robux` : ""}`
+    `${fruitEmoji(item)} **${safeName(item)}**${(item.money_price ?? item.price_beli ?? item.price) != null ? ` | <:emoji_232:1556366446257242112> `${Number(item.money_price ?? item.price_beli ?? item.price).toLocaleString("en-US")}`` : ""}${item.robux_price != null ? ` | ${item.robux_price} Robux` : ""}`
   );
   const mentions = roleMentions(stock);
   const body = [
@@ -202,7 +202,7 @@ async function testStockContainers() {
     const lines = group.fruits.map(name => {
       const emoji = emojis[fruitKey(name)] || "🍈";
       const price = priceByFruit.get(fruitKey(name));
-      const priceText = price ? `<:emoji_232:1556366446257242112> ${Number(price).toLocaleString("en-US")}` : "<:emoji_232:1556366446257242112> Valor não retornado pela API";
+      const priceText = price ? `<:emoji_232:1556366446257242112> `${Number(price).toLocaleString("en-US")}`` : "<:emoji_232:1556366446257242112> `Valor não retornado pela API`";
       return `${emoji} **${name}** • ${priceText}`;
     });
     const body = [`# ${group.title}`, "", ...lines].join("\\n");
