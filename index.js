@@ -165,7 +165,7 @@ function stockContainer(stock, title, groupKey = null) {
     "-# Dados de stock • Confira no jogo antes de negociar"
   ].filter(Boolean).join("\n");
   return new ContainerBuilder()
-    .setAccentColor(0x7c3aed)
+    .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 async function postStock(stock, announce, title, groupKey = null) {
@@ -224,7 +224,7 @@ async function testStockContainers() {
     return emoji + " **" + name + "** | " + priceText;
   });
   const body = ["# <:emoji_001:1539652915050971226> Blox Fruits", "", ...lines].join("\n");
-  return [new ContainerBuilder().setAccentColor(0x7c3aed).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
+  return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
 const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
