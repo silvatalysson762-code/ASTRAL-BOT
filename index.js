@@ -279,7 +279,11 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
 
 async function askAI(userId, question) {
   const history = aiHistory.get(userId) || [];
-  const stock = await getStock().catch(() => []);
+  const cached = readState().latestStock || {};
+  const stock = [
+    ...(Array.isArray(cached.normal) ? cached.normal : []),
+    ...(Array.isArray(cached.mirage) ? cached.mirage : [])
+  ];
   const stockText = stock.map(item => {
     const price = beliPrice(item);
     return `${safeName(item)} (${item.type || "Stock"}, ${price != null ? Number(price).toLocaleString("pt-BR") + " Beli" : "preço não informado"})`;
@@ -405,7 +409,7 @@ const commands = [
   new SlashCommandBuilder().setName("ia").setDescription("Conversa com a IA do Astral Stock").addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("imagem").setDescription("Gera uma imagem com inteligência artificial").addStringOption(option => option.setName("prompt").setDescription("Descreva a imagem que deseja criar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("atualizar").setDescription("Republica o último stock salvo sem consultar a API").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
   new SlashCommandBuilder().setName("previsao").setDescription("Estima possíveis retornos de frutas com base no histórico")
     .addStringOption(option => option.setName("estoque").setDescription("Qual estoque analisar").setRequired(true)
@@ -446,25 +450,14 @@ client.once("ready", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
   try {
     await registerCommands();
-    await checkStock(false, ["normal", "mirage"]);
   } catch (error) {
-    console.error("Erro na inicialização do Astral Stock:", error);
+    console.error("Erro ao registrar comandos do Astral Stock:", error);
   }
 
   nextStockAt.normal = nextGlobalReset("normal").getTime();
   nextStockAt.mirage = nextGlobalReset("mirage").getTime();
 
   console.log("Agendamento automático global: uma consulta a cada 2 horas para detectar Normal e Mirage.");
-
-  const checkAtReset = async () => {
-    // Algumas APIs demoram alguns segundos para atualizar depois do reset.
-    // Reconsultamos em pequenos intervalos; a assinatura evita mensagens duplicadas.
-    const delays = [0, 15000, 45000, 90000, 180000];
-    for (const delay of delays) {
-      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
-      await checkStock(false, ["normal", "mirage"]);
-    }
-  };
 
   const schedule = () => {
     const next = nextGlobalReset("mirage");
@@ -624,23 +617,17 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "atualizar") {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const stock = await getStock();
-      const state = readState();
-      state.stockSignatures = state.stockSignatures || {};
-      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (normal.length) await postStock(normal, true, stockTitle("normal"), "normal");
-      if (mirage.length) await postStock(mirage, true, stockTitle("mirage"), "mirage");
-      state.stockSignatures.normal = signature(normal);
-      state.stockSignatures.mirage = signature(mirage);
-      state.latestStock = state.latestStock || {};
-      if (normal.length) state.latestStock.normal = normal;
-      if (mirage.length) state.latestStock.mirage = mirage;
-      state.history.unshift({ at: new Date().toISOString(), stock });
-      state.history = state.history.slice(0, Math.max(500, Number(readConfig().historyLimit || 500)));
-      saveState(state);
-      await interaction.editReply("Stocks normal e Mirage consultados e publicados em mensagens separadas!");
-    } catch (e) { await interaction.editReply(`Falha: ${e.message}`); }
+      const latest = readState().latestStock || {};
+      const normal = Array.isArray(latest.normal) ? latest.normal : [];
+      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
+      if (!normal.length && !mirage.length) {
+        await interaction.editReply("Ainda não existe stock salvo. A primeira consulta automática será feita no próximo horário de atualização, sem gastar requisições extras.");
+      } else {
+        if (normal.length) await postStock(normal, true, stockTitle("normal"), "normal");
+        if (mirage.length) await postStock(mirage, true, stockTitle("mirage"), "mirage");
+        await interaction.editReply("Último stock salvo republicado! Nenhuma requisição foi feita à API.");
+      }
+    } catch (e) { await interaction.editReply(`Falha ao republicar: ${e.message}`); }
   } else if (interaction.commandName === "configurar-titulo") {
     const groupKey = interaction.options.getString("estoque");
     const title = interaction.options.getString("titulo").trim();
