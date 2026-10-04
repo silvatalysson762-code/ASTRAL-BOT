@@ -13,7 +13,7 @@ for (const key of required) {
     process.exit(1);
   }
 }
-const POLL_SECONDS = 7200;
+const POLL_SECONDS = Math.max(60, Number(process.env.POLL_SECONDS || 7200));
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -186,9 +186,22 @@ async function registerCommands() {
 }
 client.once("ready", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
-  await registerCommands();
-  await checkStock(false);
+  try {
+    await registerCommands();
+    await checkStock(false);
+  } catch (error) {
+    console.error("Erro na inicialização do Astral Stock:", error);
+  }
+  console.log(`Próxima verificação automática em ${Math.round(POLL_SECONDS / 60)} minutos.`);
   setInterval(() => checkStock(false), POLL_SECONDS * 1000);
+});
+
+process.on("unhandledRejection", error => {
+  console.error("Promise rejeitada sem tratamento:", error);
+});
+
+process.on("uncaughtException", error => {
+  console.error("Erro não tratado:", error);
 });
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
