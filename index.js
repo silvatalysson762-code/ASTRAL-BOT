@@ -88,7 +88,9 @@ function roleMentions(stock) {
   }
   return [...new Set(mentions)].join(" ");
 }
-function fruitEmoji(item) {\n  const emojis = readConfig().emojis || {};\n  return emojis[fruitKey(safeName(item))] || "🍈";\n}\nfunction stockEmbed(stock, title = "🍈 Blox Fruits | Stock atual") {
+function fruitEmoji(item) {
+  const emojis = readConfig().emojis || {};
+  return emojis[fruitKey(safeName(item))] || "🍈";\n}\nfunction stockEmbed(stock, title = "🍈 Blox Fruits | Stock atual") {
   const normal = stock.filter(x => x.type === "Normal");
   const mirage = stock.filter(x => x.type === "Mirage");
   const lines = [];
@@ -140,7 +142,16 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
     .addRoleOption(option => option.setName("cargo").setDescription("Cargo que será mencionado").setRequired(true)),
-  new SlashCommandBuilder().setName("configurar-emoji").setDescription("Define o emoji que aparece ao lado de uma fruta")\n    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)\n    .addStringOption(fruitOption)\n    .addStringOption(option => option.setName("emoji").setDescription("Emoji padrão ou emoji personalizado do servidor").setRequired(true)),\n  new SlashCommandBuilder().setName("listar-emojis").setDescription("Lista os emojis configurados para as frutas")\n    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),\n  new SlashCommandBuilder().setName("remover-emoji").setDescription("Remove o emoji personalizado de uma fruta")\n    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)\n    .addStringOption(fruitOption),\n  new SlashCommandBuilder().setName("listar-cargos").setDescription("Lista os cargos configurados para as frutas")
+  new SlashCommandBuilder().setName("configurar-emoji").setDescription("Define o emoji que aparece ao lado de uma fruta")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption)
+    .addStringOption(option => option.setName("emoji").setDescription("Emoji padrão ou emoji personalizado do servidor").setRequired(true)),
+  new SlashCommandBuilder().setName("listar-emojis").setDescription("Lista os emojis configurados para as frutas")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("remover-emoji").setDescription("Remove o emoji personalizado de uma fruta")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption),
+  new SlashCommandBuilder().setName("listar-cargos").setDescription("Lista os cargos configurados para as frutas")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("remover-cargo").setDescription("Remove o cargo configurado para uma fruta")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
@@ -179,7 +190,30 @@ client.on("interactionCreate", async interaction => {
     config.roles[fruit] = role.id;
     saveConfig(config);
     await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
-  } else if (interaction.commandName === "configurar-emoji") {\n    const fruit = fruitKey(interaction.options.getString("fruta"));\n    const emoji = interaction.options.getString("emoji").trim();\n    const config = readConfig();\n    config.emojis = config.emojis || {};\n    config.emojis[fruit] = emoji;\n    saveConfig(config);\n    await interaction.reply({ content: `Emoji ${emoji} configurado para **${fruit}**.`, ephemeral: true });\n  } else if (interaction.commandName === "listar-emojis") {\n    const emojis = readConfig().emojis || {};\n    const content = Object.entries(emojis).map(([fruit, emoji]) => `• ${emoji} **${fruit}**`).join("\\n");\n    await interaction.reply({ content: content || "Nenhum emoji personalizado configurado ainda.", ephemeral: true });\n  } else if (interaction.commandName === "remover-emoji") {\n    const fruit = fruitKey(interaction.options.getString("fruta"));\n    const config = readConfig();\n    config.emojis = config.emojis || {};\n    if (!config.emojis[fruit]) {\n      await interaction.reply({ content: `Não há emoji personalizado para **${fruit}**.`, ephemeral: true });\n    } else {\n      delete config.emojis[fruit];\n      saveConfig(config);\n      await interaction.reply({ content: `Emoji personalizado removido para **${fruit}**.`, ephemeral: true });\n    }\n  } else if (interaction.commandName === "listar-cargos") {
+  } else if (interaction.commandName === "configurar-emoji") {
+    const fruit = fruitKey(interaction.options.getString("fruta"));
+    const emoji = interaction.options.getString("emoji").trim();
+    const config = readConfig();
+    config.emojis = config.emojis || {};
+    config.emojis[fruit] = emoji;
+    saveConfig(config);
+    await interaction.reply({ content: `Emoji ${emoji} configurado para **${fruit}**.`, ephemeral: true });
+  } else if (interaction.commandName === "listar-emojis") {
+    const emojis = readConfig().emojis || {};
+    const content = Object.entries(emojis).map(([fruit, emoji]) => `• ${emoji} **${fruit}**`).join("\\n");
+    await interaction.reply({ content: content || "Nenhum emoji personalizado configurado ainda.", ephemeral: true });
+  } else if (interaction.commandName === "remover-emoji") {
+    const fruit = fruitKey(interaction.options.getString("fruta"));
+    const config = readConfig();
+    config.emojis = config.emojis || {};
+    if (!config.emojis[fruit]) {
+      await interaction.reply({ content: `Não há emoji personalizado para **${fruit}**.`, ephemeral: true });
+    } else {
+      delete config.emojis[fruit];
+      saveConfig(config);
+      await interaction.reply({ content: `Emoji personalizado removido para **${fruit}**.`, ephemeral: true });
+    }
+  } else if (interaction.commandName === "listar-cargos") {
     const roles = readConfig().roles || {};
     const entries = Object.entries(roles).filter(([, id]) => /^\\d{17,20}$/.test(String(id)));
     const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\\n");
