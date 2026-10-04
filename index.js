@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, REST, Routes,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, REST, Routes, AttachmentBuilder,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 const OpenAI = require("openai");
@@ -19,6 +19,7 @@ const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const aiHistory = new Map();
+const imageCooldown = new Map();
 
 let checking = false;
 const BRASIL_TZ = "America/Sao_Paulo";
@@ -317,6 +318,7 @@ const commands = [
   new SlashCommandBuilder().setName("stock").setDescription("Mostra o stock atual de Blox Fruits"),
   new SlashCommandBuilder().setName("painel").setDescription("Abre o painel completo do Astral Stock"),
   new SlashCommandBuilder().setName("ia").setDescription("Conversa com a IA do Astral Stock").addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar").setRequired(true).setMaxLength(1000)),
+  new SlashCommandBuilder().setName("imagem").setDescription("Gera uma imagem com inteligência artificial").addStringOption(option => option.setName("prompt").setDescription("Descreva a imagem que deseja criar").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
@@ -465,7 +467,37 @@ client.on("interactionCreate", async interaction => {
   }
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "ia") {
+  if (interaction.commandName === "imagem") {
+    const now = Date.now();
+    const last = imageCooldown.get(interaction.user.id) || 0;
+    const waitMs = 45000 - (now - last);
+    if (waitMs > 0) {
+      await interaction.reply({ content: "⏳ Aguarde " + Math.ceil(waitMs / 1000) + " segundos antes de gerar outra imagem.", ephemeral: true });
+      return;
+    }
+    imageCooldown.set(interaction.user.id, now);
+    await interaction.deferReply();
+    try {
+      const prompt = interaction.options.getString("prompt", true).trim();
+      const result = await openai.images.generate({
+        model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini",
+        prompt,
+        size: "1024x1024",
+        quality: "low",
+        n: 1
+      });
+      const imageBase64 = result.data?.[0]?.b64_json;
+      if (!imageBase64) throw new Error("A API não retornou a imagem.");
+      const file = new AttachmentBuilder(Buffer.from(imageBase64, "base64"), { name: "astral-imagem.png" });
+      await interaction.editReply({ content: "🎨 Imagem criada para " + interaction.user + "!", files: [file], allowedMentions: { users: [interaction.user.id] } });
+    } catch (error) {
+      console.error("Erro ao gerar imagem:", error);
+      const message = /billing|quota|insufficient/i.test(error.message || "")
+        ? "❌ A conta da API está sem saldo ou atingiu o limite de uso. Confira o faturamento da OpenAI."
+        : "❌ Não consegui gerar essa imagem. Tente outra descrição ou verifique a chave e o acesso ao modelo.";
+      await interaction.editReply({ content: message });
+    }
+  } else if (interaction.commandName === "ia") {
     await interaction.deferReply();
     try {
       const question = interaction.options.getString("pergunta");
