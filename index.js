@@ -163,9 +163,13 @@ const ALL_FRUITS = [
   "Control", "Dragon"
 ];
 
-function testStockContainers() {
+async function testStockContainers() {
   const config = readConfig();
   const emojis = config.emojis || {};
+  const liveStock = await getStock();
+  const priceByFruit = new Map(
+    liveStock.map(item => [fruitKey(safeName(item)), item.money_price || item.price_beli || item.price || null])
+  );
   const groups = [
     { title: "🟢 FRUTAS COMUNS", fruits: ["Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike"] },
     { title: "🔵 FRUTAS RARAS", fruits: ["Flame", "Ice", "Sand", "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake"] },
@@ -176,13 +180,11 @@ function testStockContainers() {
   return groups.map(group => {
     const lines = group.fruits.map(name => {
       const emoji = emojis[fruitKey(name)] || "🍈";
-      return `${emoji} **${name}** • 🟢 Disponível`;
+      const price = priceByFruit.get(fruitKey(name));
+      const priceText = price ? `💰 ${Number(price).toLocaleString("en-US")} Beli` : "💰 Valor não retornado pela API";
+      return `${emoji} **${name}** • ${priceText}`;
     });
-    const body = [
-      `# ${group.title}`,
-      "",
-      ...lines
-    ].join("\\n");
+    const body = [`# ${group.title}`, "", ...lines].join("\\n");
     return new ContainerBuilder()
       .setAccentColor(0x7c3aed)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
@@ -242,7 +244,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "testeestoque") {
-    await interaction.reply({ components: testStockContainers(), flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ components: await testStockContainers(), flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
     await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
     try {
