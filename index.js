@@ -325,11 +325,11 @@ async function postStock(stock, announce, title, groupKey = null) {
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
   await channel.send({ components: [stockContainer(stock, title, groupKey)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
 }
-async function checkStock(force = false, onlyGroups = ["normal", "mirage"], throwOnError = false) {
+async function checkStock(force = false, onlyGroups = ["normal", "mirage"], throwOnError = false, providedStock = null) {
   if (checking) return false;
   checking = true;
   try {
-    const stock = await getStock();
+    const stock = providedStock || await getStock();
     const state = readState();
     state.stockSignatures = state.stockSignatures || {};
     state.latestStock = state.latestStock || {};
@@ -361,6 +361,51 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
     return false;
   } finally {
     checking = false;
+  }
+}
+
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function runScheduledStockCycle(groupKeys) {
+  const pending = new Set(groupKeys);
+  const baseline = {};
+  const initialState = readState();
+  for (const key of pending) baseline[key] = initialState.stockSignatures?.[key] || null;
+
+  // A primeira consulta acontece 1 minuto após o horário previsto do reset.
+  await wait(60000);
+  console.log("Iniciando captura pós-reset para: " + [...pending].join(", "));
+
+  while (pending.size) {
+    try {
+      const stock = await getStock();
+      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normal.length || !mirage.length) throw new Error("A fonte não retornou as duas listas completas.");
+
+      const readyGroups = [];
+      for (const key of pending) {
+        const items = key === "normal" ? normal : mirage;
+        const currentSignature = signature(items);
+        // Só considera pronto quando o conteúdo muda em relação ao estoque anterior.
+        if (baseline[key] === null || currentSignature !== baseline[key]) readyGroups.push(key);
+      }
+
+      if (readyGroups.length) {
+        const ok = await checkStock(false, readyGroups, false, stock);
+        if (ok) {
+          for (const key of readyGroups) pending.delete(key);
+          console.log("Captura concluída para: " + readyGroups.join(", "));
+        }
+      } else {
+        console.log("Stock ainda não mudou na Fandom; nova tentativa em 1 minuto.");
+      }
+    } catch (error) {
+      console.warn("Ainda não foi possível capturar o stock: " + error.message);
+    }
+
+    if (pending.size) await wait(60000);
   }
 }
 
@@ -545,19 +590,26 @@ client.once("ready", async () => {
   nextStockAt.normal = nextGlobalReset("normal").getTime();
   nextStockAt.mirage = nextGlobalReset("mirage").getTime();
 
-  console.log("Agendamento automático global: uma consulta a cada 2 horas para detectar Normal e Mirage.");
+  console.log("Agendamento automático: captura 1 minuto após cada reset e tenta novamente a cada minuto até detectar um stock novo.");
 
   const schedule = () => {
-    const next = nextGlobalReset("mirage");
-    nextStockAt.mirage = next.getTime();
-    nextStockAt.normal = nextGlobalReset("normal").getTime();
+    const now = Date.now();
+    nextStockAt.normal = nextGlobalReset("normal", new Date(now)).getTime();
+    nextStockAt.mirage = nextGlobalReset("mirage", new Date(now)).getTime();
+    const nextAt = Math.min(nextStockAt.normal, nextStockAt.mirage);
+    const delay = Math.max(1000, nextAt - now);
 
     setTimeout(async () => {
-      // Aguarda 1 minuto após o reset para evitar consultar a API enquanto ela ainda atualiza.
-      await new Promise(resolve => setTimeout(resolve, 60000));
-      await checkStock(false, ["normal", "mirage"]);
+      const dueGroups = [];
+      const current = Date.now();
+      if (nextStockAt.normal <= current + 1000) dueGroups.push("normal");
+      if (nextStockAt.mirage <= current + 1000) dueGroups.push("mirage");
+
+      if (dueGroups.length) {
+        await runScheduledStockCycle(dueGroups);
+      }
       schedule();
-    }, Math.max(1000, next.getTime() - Date.now()));
+    }, delay);
   };
   schedule();
 });
