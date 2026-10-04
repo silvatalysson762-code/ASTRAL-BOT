@@ -600,6 +600,36 @@ process.on("uncaughtException", error => {
 });
 const aiCooldown = new Map();
 
+function requestedStockGroups(question) {
+  const q = String(question || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+  if (!/\\b(stock|estoque|frutas?)\\b/.test(q)) return null;
+
+  const asksMirage = /mirage|miragem/.test(q);
+  const asksNormal = /normal|comum|regular/.test(q);
+  if (asksMirage && !asksNormal) return ["mirage"];
+  if (asksNormal && !asksMirage) return ["normal"];
+  return ["normal", "mirage"];
+}
+
+async function sendSavedStock(channel, groups) {
+  const latest = readState().latestStock || {};
+  const components = [];
+  for (const key of groups) {
+    const items = Array.isArray(latest[key]) ? latest[key] : [];
+    if (items.length) components.push(stockContainer(items, stockTitle(key), key));
+  }
+  if (!components.length) {
+    await channel.send("Ainda não tenho um estoque válido salvo da Fandom. Assim que conseguir capturar a próxima atualização, vou poder mostrar aqui.");
+    return false;
+  }
+  await channel.send({
+    components,
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: ["roles"] }
+  });
+  return true;
+}
+
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.guild) return;
   if (!client.user || !message.mentions.users.has(client.user.id)) return;
@@ -622,6 +652,12 @@ client.on("messageCreate", async message => {
   }
 
   try {
+    const stockGroups = requestedStockGroups(question);
+    if (stockGroups) {
+      await sendSavedStock(message.channel, stockGroups);
+      return;
+    }
+
     await message.channel.sendTyping();
     const answer = await askAI(message.author.id, question);
     await message.reply({
