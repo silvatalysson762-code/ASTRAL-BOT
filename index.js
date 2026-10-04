@@ -24,9 +24,15 @@ function readConfig() {
   try { return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")); }
   catch { return { roles: {}, aliases: {}, historyLimit: 20 }; }
 }
+function saveConfig(config) {
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+}
 function readState() {
   try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf8")); }
   catch { return { history: [] }; }
+}
+function fruitKey(value) {
+  return String(value || "").trim().toLowerCase().replace(/\\s+/g, " ");
 }
 function saveState(state) {
   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
@@ -77,7 +83,7 @@ function roleMentions(stock) {
   const roles = readConfig().roles || {};
   const mentions = [];
   for (const item of stock) {
-    const id = roles[safeName(item).toLowerCase()];
+    const id = roles[fruitKey(safeName(item))];
     if (id && /^\d{17,20}$/.test(String(id))) mentions.push(`<@&${id}>`);
   }
   return [...new Set(mentions)].join(" ");
@@ -125,15 +131,25 @@ async function checkStock(force = false) {
     console.error("Erro ao consultar/enviar stock:", error.message);
   } finally { checking = false; }
 }
+const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
 const commands = [
   new SlashCommandBuilder().setName("stock").setDescription("Mostra o stock atual de Blox Fruits"),
   new SlashCommandBuilder().setName("atualizar").setDescription("Consulta e publica o stock agora").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock")
+  new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
+  new SlashCommandBuilder().setName("configurar-fruta").setDescription("Define o cargo que será mencionado para uma fruta")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption)
+    .addRoleOption(option => option.setName("cargo").setDescription("Cargo que será mencionado").setRequired(true)),
+  new SlashCommandBuilder().setName("listar-cargos").setDescription("Lista os cargos configurados para as frutas")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("remover-cargo").setDescription("Remove o cargo configurado para uma fruta")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption)
 ];
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands.map(c => c.toJSON()) });
-  console.log("Comandos /stock, /atualizar e /historico registrados.");
+  console.log("Comandos de stock e configuração de cargos registrados.");
 }
 client.once("ready", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
@@ -155,6 +171,30 @@ client.on("interactionCreate", async interaction => {
       await postStock(stock, true);
       await interaction.editReply("Stock consultado e publicado!");
     } catch (e) { await interaction.editReply(`Falha: ${e.message}`); }
+  } else if (interaction.commandName === "configurar-fruta") {
+    const fruit = fruitKey(interaction.options.getString("fruta"));
+    const role = interaction.options.getRole("cargo");
+    const config = readConfig();
+    config.roles = config.roles || {};
+    config.roles[fruit] = role.id;
+    saveConfig(config);
+    await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
+  } else if (interaction.commandName === "listar-cargos") {
+    const roles = readConfig().roles || {};
+    const entries = Object.entries(roles).filter(([, id]) => /^\\d{17,20}$/.test(String(id)));
+    const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\\n");
+    await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
+  } else if (interaction.commandName === "remover-cargo") {
+    const fruit = fruitKey(interaction.options.getString("fruta"));
+    const config = readConfig();
+    config.roles = config.roles || {};
+    if (!config.roles[fruit]) {
+      await interaction.reply({ content: `Não há cargo configurado para **${fruit}**.`, ephemeral: true });
+    } else {
+      delete config.roles[fruit];
+      saveConfig(config);
+      await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
+    }
   } else if (interaction.commandName === "historico") {
     const history = readState().history || [];
     const content = history.slice(0, 5).map((h, i) =>
