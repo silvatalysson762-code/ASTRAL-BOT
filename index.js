@@ -13,7 +13,7 @@ for (const key of required) {
     process.exit(1);
   }
 }
-const POLL_SECONDS = Math.max(3600, Number(process.env.POLL_SECONDS || 7200));
+const POLL_SECONDS = 7200;
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
