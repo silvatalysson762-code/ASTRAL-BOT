@@ -600,27 +600,35 @@ process.on("uncaughtException", error => {
 });
 const aiCooldown = new Map();
 
-function requestedStockGroups(question) {
-  const q = String(question || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[!?.,]+/g, " ")
-    .replace(/\\s+/g, " ")
-    .trim();
+async function detectStockIntent(userId, question) {
+  const history = aiHistory.get(userId) || [];
+  const response = await openai.responses.create({
+    model: process.env.OPENAI_MODEL || "gpt-5.4-nano",
+    input: [
+      {
+        role: "developer",
+        content: [
+          "Classifique a intenção da mensagem de um usuário que marcou o bot Astral Stock.",
+          "Considere a mensagem atual e o histórico recente para entender o contexto.",
+          "Responda com exatamente UMA destas opções: STOCK_NORMAL, STOCK_MIRAGE, STOCK_BOTH ou CHAT.",
+          "Use STOCK_NORMAL quando a pessoa pedir claramente para ver/consultar o stock normal atual ou perguntar quais frutas estão disponíveis agora no stock normal.",
+          "Use STOCK_MIRAGE quando pedir claramente o stock atual da Mirage.",
+          "Use STOCK_BOTH quando pedir o stock atual sem especificar o tipo.",
+          "Use CHAT para dúvidas, explicações, comentários, conversas ou qualquer mensagem que apenas mencione stock, frutas ou Mirage sem pedir os dados atuais.",
+          "Exemplos: 'como funciona o stock?' = CHAT; 'por que o stock muda?' = CHAT; 'qual é o horário do stock?' = CHAT; 'me mostra o stock' = STOCK_BOTH; 'quais frutas estão no stock agora?' = STOCK_BOTH; 'mostra o stock normal' = STOCK_NORMAL; 'tem o que na Mirage agora?' = STOCK_MIRAGE.",
+          "Na dúvida, escolha CHAT. Nunca classifique como pedido de stock só porque o usuário marcou o bot."
+        ].join(" ")
+      },
+      ...history.slice(-6),
+      { role: "user", content: question }
+    ]
+  });
 
-  // Só intercepta pedidos diretos para VER/CONSULTAR o estoque.
-  // Menções ao assunto em conversas normais continuam indo para a IA.
-  const directRequest =
-    /^(?:(?:me )?(?:mostra|mostrar|manda|mande|envia|enviar|ver|ve|consulta|consultar|exibe|exibir|quero ver) (?:pra mim )?(?:o )?(?:stock|estoque)(?: (?:da )?(?:mirage|miragem|normal|comum))?|(?:qual (?:e )?(?:o )?)?(?:stock|estoque)(?: (?:da )?(?:mirage|miragem|normal|comum))?|(?:stock|estoque) (?:da )?(?:mirage|miragem|normal|comum))$/.test(q);
-
-  if (!directRequest) return null;
-
-  const asksMirage = /mirage|miragem/.test(q);
-  const asksNormal = /normal|comum/.test(q);
-  if (asksMirage && !asksNormal) return ["mirage"];
-  if (asksNormal && !asksMirage) return ["normal"];
-  return ["normal", "mirage"];
+  const intent = String(response.output_text || "").trim().toUpperCase();
+  if (intent === "STOCK_NORMAL") return ["normal"];
+  if (intent === "STOCK_MIRAGE") return ["mirage"];
+  if (intent === "STOCK_BOTH") return ["normal", "mirage"];
+  return null;
 }
 
 async function sendSavedStock(channel, groups) {
@@ -664,7 +672,7 @@ client.on("messageCreate", async message => {
   }
 
   try {
-    const stockGroups = requestedStockGroups(question);
+    const stockGroups = await detectStockIntent(message.author.id, question);
     if (stockGroups) {
       await sendSavedStock(message.channel, stockGroups);
       return;
