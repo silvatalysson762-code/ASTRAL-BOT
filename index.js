@@ -18,7 +18,8 @@ const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 let checking = false;
-const STOCK_INTERVALS = { normal: 4 * 60 * 60 * 1000, mirage: 2 * 60 * 60 * 1000 };\nconst BRASIL_TZ = "America/Sao_Paulo";
+const STOCK_INTERVALS = { normal: 4 * 60 * 60 * 1000, mirage: 2 * 60 * 60 * 1000 };
+const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 
 function readConfig() {
