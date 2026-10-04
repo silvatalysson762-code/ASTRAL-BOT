@@ -16,7 +16,7 @@ for (const key of required) {
 }
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const aiHistory = new Map();
 
@@ -347,6 +347,45 @@ process.on("unhandledRejection", error => {
 process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
+const aiCooldown = new Map();
+
+client.on("messageCreate", async message => {
+  if (message.author.bot || !message.guild) return;
+  if (!client.user || !message.mentions.users.has(client.user.id)) return;
+
+  const now = Date.now();
+  const last = aiCooldown.get(message.author.id) || 0;
+  if (now - last < 5000) {
+    await message.reply("⏳ Calma aí! Espere alguns segundos antes de me chamar de novo.");
+    return;
+  }
+  aiCooldown.set(message.author.id, now);
+
+  const question = message.content
+    .replace(new RegExp(`<@!?\\${client.user.id}>`, "g"), "")
+    .trim();
+
+  if (!question) {
+    await message.reply("👋 Me marque e escreva sua pergunta. Ex.: `@Astral Stock qual é o stock atual?`");
+    return;
+  }
+
+  try {
+    await message.channel.sendTyping();
+    const answer = await askAI(message.author.id, question);
+    await message.reply({
+      content: answer.slice(0, 2000),
+      allowedMentions: { repliedUser: false }
+    });
+  } catch (error) {
+    console.error("Erro na IA pelo chat:", error.message);
+    await message.reply({
+      content: "❌ Não consegui responder agora. Tente novamente em alguns segundos.",
+      allowedMentions: { repliedUser: false }
+    });
+  }
+});
+
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
