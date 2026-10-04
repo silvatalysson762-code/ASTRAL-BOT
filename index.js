@@ -98,9 +98,9 @@ const SAVED_BELI_PRICES = {
   Flame: 250000, Ice: 350000, Sand: 420000, Dark: 500000, Eagle: 550000, Diamond: 600000, Light: 650000,
   Rubber: 750000, Ghost: 940000, Magma: 960000, Quake: 1000000, Buddha: 1200000, Love: 1300000,
   Creation: 1400000, Spider: 1500000, Sound: 1700000, Phoenix: 1800000, Portal: 1900000, Lightning: 2100000,
-  Pain: 2300000, Blizzard: 2400000, Gravity: 2500000, Mammoth: 2500000, "T-Rex": 2500000, Dough: 2800000,
-  Shadow: 2900000, Venom: 3000000, Gas: 3000000, Spirit: 3000000, Tiger: 3000000, Yeti: 3000000,
-  Kitsune: 4000000, Control: 4000000, Dragon: 5000000
+  Pain: 2300000, Blizzard: 2400000, Gravity: 2500000, Mammoth: 2700000, "T-Rex": 2700000, Dough: 2800000,
+  Shadow: 2900000, Venom: 3000000, Gas: 3200000, Spirit: 3400000, Tiger: 5000000, Yeti: 5000000,
+  Kitsune: 8000000, Control: 9000000, Dragon: 15000000
 };
 function savedBeliPrice(name) {
   const key = Object.keys(SAVED_BELI_PRICES).find(k => fruitKey(k) === fruitKey(name));
