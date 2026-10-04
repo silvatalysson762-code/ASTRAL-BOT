@@ -18,10 +18,12 @@ const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 let checking = false;
+const STOCK_INTERVALS = { normal: 4 * 60 * 60 * 1000, mirage: 2 * 60 * 60 * 1000 };
+const nextStockAt = { normal: null, mirage: null };
 
 function readConfig() {
   try { return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")); }
-  catch { return { roles: {}, emojis: {}, aliases: {}, historyLimit: 20 }; }
+  catch { return { roles: {}, emojis: {}, aliases: {}, titles: {}, historyLimit: 20 }; }
 }
 function saveConfig(config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
@@ -91,6 +93,20 @@ function fruitEmoji(item) {
   const emojis = readConfig().emojis || {};
   return emojis[fruitKey(safeName(item))] || "🍈";
 }
+function stockTitle(groupKey) {
+  const config = readConfig();
+  const defaults = {
+    normal: "🏪 Blox Fruits | Stock normal atualizado",
+    mirage: "🌙 Blox Fruits | Stock da Mirage atualizado"
+  };
+  return config.titles?.[groupKey] || defaults[groupKey] || "🍈 Blox Fruits | Stock atualizado";
+}
+function stockCountdown(groupKey) {
+  const next = nextStockAt[groupKey];
+  if (!next) return "";
+  const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock normal";
+  return `⏱️ **Próximo ${label}:** <t:${Math.floor(next / 1000)}:R>`;
+}
 async function resolveEmoji(input) {
   const value = String(input || "").trim();
   if (/^<a?:[A-Za-z0-9_]+:\d{17,20}>$/.test(value) || /\p{Extended_Pictographic}/u.test(value)) return value;
@@ -104,7 +120,7 @@ async function resolveEmoji(input) {
   }
   return value;
 }
-function stockContainer(stock, title) {
+function stockContainer(stock, title, groupKey = null) {
   const lines = stock.map(item =>
     `${fruitEmoji(item)} **${safeName(item)}**${(item.money_price ?? item.price_beli ?? item.price) != null ? ` | 💰 ${Number(item.money_price ?? item.price_beli ?? item.price).toLocaleString("en-US")} Beli` : ""}${item.robux_price != null ? ` | ${item.robux_price} Robux` : ""}`
   );
@@ -115,16 +131,17 @@ function stockContainer(stock, title) {
     mentions,
     ...(lines.length ? lines : ["Nenhuma fruta encontrada."]),
     "",
+    groupKey ? stockCountdown(groupKey) : "",
     "-# Dados de stock • Confira no jogo antes de negociar"
   ].filter(Boolean).join("\n");
   return new ContainerBuilder()
     .setAccentColor(0x7c3aed)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
-async function postStock(stock, announce, title = "🍈 Blox Fruits | Stock atualizado") {
+async function postStock(stock, announce, title, groupKey = null) {
   const channel = await client.channels.fetch(process.env.CHANNEL_ID);
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
-  await channel.send({ components: [stockContainer(stock, title)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
+  await channel.send({ components: [stockContainer(stock, title, groupKey)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
 }
 async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
   if (checking) return;
@@ -134,8 +151,8 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
     const state = readState();
     state.stockSignatures = state.stockSignatures || {};
     const groups = [
-      { key: "normal", type: "Normal", title: "🏪 Blox Fruits | Stock normal atualizado" },
-      { key: "mirage", type: "Mirage", title: "🌙 Blox Fruits | Stock da Mirage atualizado" }
+      { key: "normal", type: "Normal", title: stockTitle("normal") },
+      { key: "mirage", type: "Mirage", title: stockTitle("mirage") }
     ].filter(group => onlyGroups.includes(group.key));
 
     for (const group of groups) {
@@ -144,7 +161,7 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"]) {
       const previous = state.stockSignatures[group.key];
 
       if (items.length && (force || (previous && sig !== previous))) {
-        await postStock(items, true, group.title);
+        await postStock(items, true, group.title, group.key);
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
         state.history = state.history.slice(0, Number(readConfig().historyLimit || 20));
       }
@@ -209,6 +226,11 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
     .addStringOption(option => option.setName("emoji").setDescription("Emoji Unicode ou nome de um emoji da aplicação").setRequired(true)),
+  new SlashCommandBuilder().setName("configurar-titulo").setDescription("Edita o título do estoque normal ou Mirage")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(option => option.setName("estoque").setDescription("Qual estoque deseja editar").setRequired(true)
+      .addChoices({ name: "Stock Normal", value: "normal" }, { name: "Stock da Mirage", value: "mirage" }))
+    .addStringOption(option => option.setName("titulo").setDescription("Novo título que aparecerá na mensagem").setRequired(true).setMaxLength(100)),
   new SlashCommandBuilder().setName("listar-emojis").setDescription("Lista os emojis configurados para as frutas")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("remover-emoji").setDescription("Remove o emoji personalizado de uma fruta")
@@ -234,12 +256,18 @@ client.once("ready", async () => {
     console.error("Erro na inicialização do Astral Stock:", error);
   }
 
-  const NORMAL_INTERVAL = 4 * 60 * 60 * 1000;
-  const MIRAGE_INTERVAL = 2 * 60 * 60 * 1000;
+  nextStockAt.normal = Date.now() + STOCK_INTERVALS.normal;
+  nextStockAt.mirage = Date.now() + STOCK_INTERVALS.mirage;
 
   console.log("Agendamento automático: Stock normal a cada 4 horas; Stock da Mirage a cada 2 horas.");
-  setInterval(() => checkStock(false, ["normal"]), NORMAL_INTERVAL);
-  setInterval(() => checkStock(false, ["mirage"]), MIRAGE_INTERVAL);
+  setInterval(() => {
+    nextStockAt.normal = Date.now() + STOCK_INTERVALS.normal;
+    checkStock(false, ["normal"]);
+  }, STOCK_INTERVALS.normal);
+  setInterval(() => {
+    nextStockAt.mirage = Date.now() + STOCK_INTERVALS.mirage;
+    checkStock(false, ["mirage"]);
+  }, STOCK_INTERVALS.mirage);
 });
 
 process.on("unhandledRejection", error => {
@@ -261,8 +289,8 @@ client.on("interactionCreate", async interaction => {
       const normal = stock.filter(item => item.type === "Normal");
       const mirage = stock.filter(item => item.type === "Mirage");
       const components = [];
-      if (normal.length) components.push(stockContainer(normal, "🏪 ESTOQUE NORMAL"));
-      if (mirage.length) components.push(stockContainer(mirage, "🌙 ESTOQUE DA MIRAGE"));
+      if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal"));
+      if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage"));
       if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL"));
       await interaction.editReply({ components });
     } catch (e) {
@@ -276,8 +304,8 @@ client.on("interactionCreate", async interaction => {
       state.stockSignatures = state.stockSignatures || {};
       const normal = stock.filter(item => item.type === "Normal");
       const mirage = stock.filter(item => item.type === "Mirage");
-      if (normal.length) await postStock(normal, true, "🏪 Blox Fruits | Stock normal atualizado");
-      if (mirage.length) await postStock(mirage, true, "🌙 Blox Fruits | Stock da Mirage atualizado");
+      if (normal.length) await postStock(normal, true, stockTitle("normal"), "normal");
+      if (mirage.length) await postStock(mirage, true, stockTitle("mirage"), "mirage");
       state.stockSignatures.normal = signature(normal);
       state.stockSignatures.mirage = signature(mirage);
       state.history.unshift({ at: new Date().toISOString(), stock });
@@ -285,6 +313,17 @@ client.on("interactionCreate", async interaction => {
       saveState(state);
       await interaction.editReply("Stocks normal e Mirage consultados e publicados em mensagens separadas!");
     } catch (e) { await interaction.editReply(`Falha: ${e.message}`); }
+  } else if (interaction.commandName === "configurar-titulo") {
+    const groupKey = interaction.options.getString("estoque");
+    const title = interaction.options.getString("titulo").trim();
+    const config = readConfig();
+    config.titles = config.titles || {};
+    config.titles[groupKey] = title;
+    saveConfig(config);
+    await interaction.reply({
+      content: `Título do ${groupKey === "mirage" ? "Stock da Mirage" : "Stock Normal"} alterado para **${title}**.`,
+      ephemeral: true
+    });
   } else if (interaction.commandName === "configurar-fruta") {
     const fruit = fruitKey(interaction.options.getString("fruta"));
     const role = interaction.options.getRole("cargo");
