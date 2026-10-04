@@ -93,6 +93,23 @@ function fruitEmoji(item) {
   const emojis = readConfig().emojis || {};
   return emojis[fruitKey(safeName(item))] || "🍈";
 }
+const SAVED_BELI_PRICES = {
+  Rocket: 5000, Spin: 7500, Blade: 30000, Spring: 60000, Bomb: 80000, Smoke: 100000, Spike: 180000,
+  Flame: 250000, Ice: 350000, Sand: 420000, Dark: 500000, Eagle: 550000, Diamond: 600000, Light: 650000,
+  Rubber: 750000, Ghost: 940000, Magma: 960000, Quake: 1000000, Buddha: 1200000, Love: 1300000,
+  Creation: 1400000, Spider: 1500000, Sound: 1700000, Phoenix: 1800000, Portal: 1900000, Lightning: 2100000,
+  Pain: 2300000, Blizzard: 2400000, Gravity: 2500000, Mammoth: 2500000, "T-Rex": 2500000, Dough: 2800000,
+  Shadow: 2900000, Venom: 3000000, Gas: 3000000, Spirit: 3000000, Tiger: 3000000, Yeti: 3000000,
+  Kitsune: 4000000, Control: 4000000, Dragon: 5000000
+};
+function savedBeliPrice(name) {
+  const key = Object.keys(SAVED_BELI_PRICES).find(k => fruitKey(k) === fruitKey(name));
+  return key ? SAVED_BELI_PRICES[key] : null;
+}
+function beliPrice(item) {
+  const apiPrice = item?.money_price ?? item?.price_beli ?? item?.price;
+  return apiPrice != null && apiPrice !== "" ? apiPrice : savedBeliPrice(safeName(item));
+}
 function stockTitle(groupKey) {
   const config = readConfig();
   const defaults = {
@@ -187,29 +204,14 @@ const ALL_FRUITS = [
 async function testStockContainers() {
   const config = readConfig();
   const emojis = config.emojis || {};
-  const liveStock = await getStock();
-  const priceByFruit = new Map(
-    liveStock.map(item => [fruitKey(safeName(item)), item.money_price || item.price_beli || item.price || null])
-  );
-  const groups = [
-    { title: "🟢 FRUTAS COMUNS", fruits: ["Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike"] },
-    { title: "🔵 FRUTAS RARAS", fruits: ["Flame", "Ice", "Sand", "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake"] },
-    { title: "🟣 FRUTAS LENDÁRIAS", fruits: ["Buddha", "Love", "Creation", "Spider", "Sound", "Phoenix", "Portal", "Lightning", "Pain", "Blizzard", "Gravity"] },
-    { title: "🟡 FRUTAS MÍTICAS", fruits: ["Mammoth", "T-Rex", "Dough", "Shadow", "Venom", "Gas", "Spirit", "Tiger", "Yeti", "Kitsune", "Control", "Dragon"] }
-  ];
-
-  return groups.map(group => {
-    const lines = group.fruits.map(name => {
-      const emoji = emojis[fruitKey(name)] || "🍈";
-      const price = priceByFruit.get(fruitKey(name));
-      const priceText = price ? `<:emoji_232:1556366446257242112> \`${Number(price).toLocaleString("en-US")}\`` : "<:emoji_232:1556366446257242112> \`Valor não retornado pela API\`";
-      return `${emoji} **${name}** • ${priceText}`;
-    });
-    const body = [`# ${group.title}`, "", ...lines].join("\\n");
-    return new ContainerBuilder()
-      .setAccentColor(0x7c3aed)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
+  const lines = ALL_FRUITS.map(name => {
+    const emoji = emojis[fruitKey(name)] || "🍈";
+    const price = savedBeliPrice(name);
+    const priceText = price != null ? "<:emoji_232:1556366446257242112> `" + Number(price).toLocaleString("en-US") + "`" : "<:emoji_232:1556366446257242112> `Valor não cadastrado`";
+    return emoji + " **" + name + "** | " + priceText;
   });
+  const body = ["# 🍈 Blox Fruits", "", ...lines].join("\n");
+  return [new ContainerBuilder().setAccentColor(0x7c3aed).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
 const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
