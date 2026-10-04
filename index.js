@@ -105,7 +105,7 @@ function stockCountdown(groupKey) {
   const next = nextStockAt[groupKey];
   if (!next) return "";
   const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock normal";
-  return `⏱️ **Próximo ${label}:** <t:${Math.floor(next / 1000)}:R>`;
+  return `<a:emoji_233:1556370328135925931> **Próximo ${label}:** <t:${Math.floor(next / 1000)}:R>`;
 }
 async function resolveEmoji(input) {
   const value = String(input || "").trim();
