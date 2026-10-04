@@ -601,11 +601,23 @@ process.on("uncaughtException", error => {
 const aiCooldown = new Map();
 
 function requestedStockGroups(question) {
-  const q = String(question || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (!/\b(stock|estoque|frutas?)\b/.test(q)) return null;
+  const q = String(question || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[!?.,]+/g, " ")
+    .replace(/\\s+/g, " ")
+    .trim();
+
+  // Só intercepta pedidos diretos para VER/CONSULTAR o estoque.
+  // Menções ao assunto em conversas normais continuam indo para a IA.
+  const directRequest =
+    /^(?:(?:me )?(?:mostra|mostrar|manda|mande|envia|enviar|ver|ve|consulta|consultar|exibe|exibir|quero ver) (?:pra mim )?(?:o )?(?:stock|estoque)(?: (?:da )?(?:mirage|miragem|normal|comum))?|(?:qual (?:e )?(?:o )?)?(?:stock|estoque)(?: (?:da )?(?:mirage|miragem|normal|comum))?|(?:stock|estoque) (?:da )?(?:mirage|miragem|normal|comum))$/.test(q);
+
+  if (!directRequest) return null;
 
   const asksMirage = /mirage|miragem/.test(q);
-  const asksNormal = /normal|comum|regular/.test(q);
+  const asksNormal = /normal|comum/.test(q);
   if (asksMirage && !asksNormal) return ["mirage"];
   if (asksNormal && !asksMirage) return ["normal"];
   return ["normal", "mirage"];
