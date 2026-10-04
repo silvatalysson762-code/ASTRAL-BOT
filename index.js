@@ -329,7 +329,9 @@ client.once("ready", async () => {
     nextStockAt.normal = nextGlobalReset("normal").getTime();
 
     setTimeout(async () => {
-      await checkAtReset();
+      // Aguarda 1 minuto após o reset para evitar consultar a API enquanto ela ainda atualiza.
+      await new Promise(resolve => setTimeout(resolve, 60000));
+      await checkStock(false, ["normal", "mirage"]);
       schedule();
     }, Math.max(1000, next.getTime() - Date.now()));
   };
