@@ -32,7 +32,7 @@ function readState() {
   catch { return { history: [], stockSignatures: {} }; }
 }
 function fruitKey(value) {
-  return String(value || "").trim().toLowerCase().replace(/\\s+/g, " ");
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 function saveState(state) {
   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
@@ -248,7 +248,7 @@ client.on("interactionCreate", async interaction => {
     }
   } else if (interaction.commandName === "listar-cargos") {
     const roles = readConfig().roles || {};
-    const entries = Object.entries(roles).filter(([, id]) => /^\\d{17,20}$/.test(String(id)));
+    const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
     const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\\n");
     await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
   } else if (interaction.commandName === "remover-cargo") {
