@@ -100,7 +100,7 @@ const SAVED_BELI_PRICES = {
   Creation: 1400000, Spider: 1500000, Sound: 1700000, Phoenix: 1800000, Portal: 1900000, Lightning: 2100000,
   Pain: 2300000, Blizzard: 2400000, Gravity: 2500000, Mammoth: 2700000, "T-Rex": 2700000, Dough: 2800000,
   Shadow: 2900000, Venom: 3000000, Gas: 3200000, Spirit: 3400000, Tiger: 5000000, Yeti: 5000000,
-  Kitsune: 8000000, Control: 9000000, Dragon: 15000000
+  Kitsune: 8000000, Control: 9000000, Dragon: 15000000, Magnet: 6000000
 };
 function savedBeliPrice(name) {
   const key = Object.keys(SAVED_BELI_PRICES).find(k => fruitKey(k) === fruitKey(name));
@@ -210,7 +210,7 @@ const ALL_FRUITS = [
   "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake", "Buddha", "Love",
   "Creation", "Spider", "Sound", "Phoenix", "Portal", "Lightning", "Pain", "Blizzard", "Gravity",
   "Mammoth", "T-Rex", "Dough", "Shadow", "Venom", "Gas", "Spirit", "Tiger", "Yeti", "Kitsune",
-  "Control", "Dragon"
+  "Control", "Dragon", "Magnet"
 ];
 
 async function testStockContainers() {
