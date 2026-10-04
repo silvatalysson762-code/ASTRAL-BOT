@@ -169,7 +169,7 @@ const commands = [
   new SlashCommandBuilder().setName("configurar-emoji").setDescription("Define o emoji que aparece ao lado de uma fruta")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
-    .addStringOption(option => option.setName("emoji").setDescription("Emoji padrão ou emoji personalizado do servidor").setRequired(true)),
+    .addStringOption(option => option.setName("emoji").setDescription("Emoji Unicode ou nome de um emoji da aplicação").setRequired(true)),
   new SlashCommandBuilder().setName("listar-emojis").setDescription("Lista os emojis configurados para as frutas")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("remover-emoji").setDescription("Remove o emoji personalizado de uma fruta")
