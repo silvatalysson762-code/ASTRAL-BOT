@@ -123,53 +123,89 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
 }
 
 async function getStock() {
-  const failures = [];
   const apiKeys = [
     process.env.STOCK_API_KEY_1,
     process.env.STOCK_API_KEY_2,
     process.env.STOCK_API_KEY_3
   ].filter(Boolean);
 
-  for (const sourceUrl of STOCK_SOURCES) {
-    const attempts = apiKeys.length ? apiKeys : [null];
+  const stockApiUrl = process.env.STOCK_API_URL;
 
-    for (let keyIndex = 0; keyIndex < attempts.length; keyIndex++) {
-      const apiKey = attempts[keyIndex];
+  if (stockApiUrl && apiKeys.length) {
+    const failures = [];
+
+    for (let i = 0; i < apiKeys.length; i++) {
+      const apiKey = apiKeys[i];
       try {
-        console.log("[STOCK] Consultando fonte:", sourceUrl + (apiKey ? " (key " + (keyIndex + 1) + ")" : ""));
-
-        const headers = {
-          "Accept": "text/html,application/xhtml+xml",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
-        };
-
-        // Só envia a chave se a fonte estiver configurada para autenticação.
-        if (apiKey) headers.Authorization = "Bearer " + apiKey;
-
-        const response = await fetch(sourceUrl, {
-          headers,
-          signal: AbortSignal.timeout(15000)
+        console.log("[STOCK API] Consultando API com key " + (i + 1) + ".");
+        const response = await fetch(stockApiUrl, {
+          headers: {
+            "Accept": "application/json",
+            "X-API-Key": apiKey,
+            "User-Agent": "AstralStockDiscordBot/1.0"
+          },
+          signal: AbortSignal.timeout(20000)
         });
 
-        if (!response.ok) throw new Error("HTTP " + response.status);
+        const responseText = await response.text();
 
-        const html = await response.text();
-        const text = htmlToStockText(html);
-        const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
-        const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-
-        if (!normal.length || !mirage.length) {
-          throw new Error("A página não retornou as duas listas de stock.");
+        if (!response.ok) {
+          let detail = responseText.slice(0, 250);
+          try {
+            const parsed = JSON.parse(responseText);
+            detail = parsed.message || parsed.error || detail;
+          } catch {}
+          throw new Error("HTTP " + response.status + (detail ? ": " + detail : ""));
         }
 
-        console.log("[STOCK] Captura válida pela fonte " + sourceUrl +
+        let payload;
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          throw new Error("A API retornou uma resposta que não é JSON válido.");
+        }
+
+        const stock = normalizeStock(payload);
+        const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+        const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+
+        if (!normal.length || !mirage.length) {
+          throw new Error("A API não retornou as listas Normal e Mirage.");
+        }
+
+        console.log("[STOCK API] Captura válida com key " + (i + 1) +
           " (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
-        return [...normal, ...mirage];
+        return stock;
       } catch (error) {
-        const label = apiKey ? "key " + (keyIndex + 1) : "sem key";
-        failures.push(sourceUrl + " [" + label + "]: " + error.message);
-        console.warn("[STOCK] Falha com " + label + "; tentando a próxima opção:", error.message);
+        failures.push("key " + (i + 1) + ": " + error.message);
+        console.warn("[STOCK API] Falha com key " + (i + 1) + "; tentando a próxima:", error.message);
       }
+    }
+
+    throw new Error("Todas as STOCK_API_KEY falharam. " + failures.join(" | "));
+  }
+
+  // Compatibilidade: se nenhuma API estiver configurada, tenta as fontes públicas.
+  const failures = [];
+  for (const sourceUrl of STOCK_SOURCES) {
+    try {
+      console.log("[STOCK] Consultando fonte pública:", sourceUrl);
+      const response = await fetch(sourceUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
+        },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const html = await response.text();
+      const text = htmlToStockText(html);
+      const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
+      const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+      if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
+      return [...normal, ...mirage];
+    } catch (error) {
+      failures.push(sourceUrl + ": " + error.message);
     }
   }
 
