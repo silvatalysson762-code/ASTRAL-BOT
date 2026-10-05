@@ -197,7 +197,7 @@ async function sendStockAlerts(stock, groupKey) {
 
 const APPLICATION_UI_EMOJIS = {
   beli: "<:59965:1556626992588267630>",
-  clock: "<:59971:1556626990893629470>",
+  clock: "<a:59971:1556626990893629470>",
   stockTitle: "<:60172:1556626988587639892>",
   mirageTitle: "<:60171:1556626985487306752>",
   rocket: "<:60170:1556626983147012116>",
@@ -322,7 +322,7 @@ async function resolveEmoji(input) {
 function stockContainer(stock, title, groupKey = null) {
   const lines = stock.map(item => {
     const price = beliPrice(item);
-    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${item.robux_price} <:emoji_217:1550603330722467922>` : ""}`;
+    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${item.robux_price} <:59965:1556626992588267630>` : ""}`;
   });
   const mentions = roleMentions(stock);
   const body = [
@@ -635,10 +635,10 @@ async function testStockContainers() {
   const lines = ALL_FRUITS.map(name => {
     const emoji = fruitEmoji({ name });
     const price = savedBeliPrice(name);
-    const priceText = price != null ? "<:emoji_232:1556366446257242112> `" + Number(price).toLocaleString("en-US") + "`" : "<:emoji_232:1556366446257242112> `Valor não cadastrado`";
+    const priceText = price != null ? "<:59965:1556626992588267630> `" + Number(price).toLocaleString("en-US") + "`" : "<:59965:1556626992588267630> `Valor não cadastrado`";
     return emoji + " **" + name + "** | " + priceText;
   });
-  const body = ["# <:emoji_001:1539652915050971226> Blox Fruits", "", ...lines].join("\n");
+  const body = ["# <<:60119:1556621255984029706>1539652915050971226> Blox Fruits", "", ...lines].join("\n");
   return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
