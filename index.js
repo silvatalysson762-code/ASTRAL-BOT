@@ -205,7 +205,7 @@ const APPLICATION_UI_EMOJIS = {
   spring: "<:spring:1556626976813613086>",
   bomb: "<:bomb:1556626975236558918>",
   smoke: "<:smoke:1556626973558710342>",
-  spike: "<:spike:1556626971843362877>"
+  spike: "<:spike:1556626971843362877>",
   robux: "<:robux:1556626988578639892>",
 };
 
