@@ -1029,7 +1029,22 @@ async function registerCommands() {
     }
   }
 
+  // Substitui a lista global inteira, removendo qualquer versão antiga de /ask e /generate-image.
   await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: globalCommands });
+
+  // Confere os comandos globais publicados e apaga explicitamente qualquer comando de IA
+  // que tenha ficado de versões anteriores. Assim a IA não aparece em outros servidores.
+  try {
+    const globalRegistered = await rest.get(Routes.applicationCommands(process.env.CLIENT_ID));
+    for (const command of globalRegistered) {
+      if (aiCommandNames.has(command.name)) {
+        await rest.delete(Routes.applicationCommand(process.env.CLIENT_ID, command.id));
+        console.log("[COMMANDS] Comando global de IA removido: " + command.name + ".");
+      }
+    }
+  } catch (error) {
+    console.warn("[COMMANDS] Não foi possível verificar comandos globais antigos:", error.message);
+  }
 
   // IA fica registrada exclusivamente no servidor do dono.
   const ownerAiCommands = allCommands.filter(c => aiCommandNames.has(c.name));
