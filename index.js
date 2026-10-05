@@ -350,7 +350,7 @@ function panelContainer() {
   const lastNormal = state.history?.find(h => h.type === "Normal" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "normal"));
   const lastMirage = state.history?.find(h => h.type === "Mirage" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "mirage"));
   const body = [
-    "# ${APPLICATION_UI_EMOJIS.stockTitle} ASTRAL STOCK",
+    `# ${APPLICATION_UI_EMOJIS.stockTitle} ASTRAL STOCK`,
     "",
     "## 🟢 SISTEMA ONLINE",
     "O painel está conectado e acompanhando o stock automaticamente.",
