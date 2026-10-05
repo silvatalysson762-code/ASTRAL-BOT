@@ -15,7 +15,7 @@ for (const key of required) {
 }
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 let checking = false;
 let apiCooldownUntil = 0;
@@ -935,7 +935,7 @@ async function registerCommands() {
 
   // Publica somente os comandos atuais globalmente.
   await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
-  console.log("[COMMANDS] Comandos gerais globais registrados. IA e painel removidos.");
+  console.log("[COMMANDS] Comandos globais registrados.");
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
