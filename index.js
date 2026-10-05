@@ -314,11 +314,17 @@ async function syncApplicationEmojis() {
 
     for (const emoji of emojis.values()) {
       const wantedName = APPLICATION_EMOJI_RENAMES[emoji.id];
-      if (wantedName && emoji.name !== wantedName) {
+      if (!wantedName || emoji.name === wantedName) continue;
+
+      let renamed = false;
+      for (let attempt = 1; attempt <= 3 && !renamed; attempt++) {
         try {
           await emoji.setName(wantedName);
+          renamed = true;
+          console.log(`[EMOJIS] Renomeado ${emoji.id}: ${wantedName}`);
         } catch (error) {
-          console.warn(`[EMOJIS] Não consegui renomear ${emoji.id}: ${error.message}`);
+          console.warn(`[EMOJIS] Falha ao renomear ${emoji.id} para ${wantedName} (tentativa ${attempt}/3): ${error.message}`);
+          if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 1200));
         }
       }
     }
