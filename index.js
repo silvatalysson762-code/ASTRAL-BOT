@@ -195,6 +195,20 @@ async function sendStockAlerts(stock, groupKey) {
   });
 }
 
+const APPLICATION_UI_EMOJIS = {
+  beli: "<:59965:1556626992588267630>",
+  clock: "<:59971:1556626990893629470>",
+  stockTitle: "<:60172:1556626988587639892>",
+  mirageTitle: "<:60171:1556626985487306752>",
+  rocket: "<:60170:1556626983147012116>",
+  spin: "<:60169:1556626981012111360>",
+  blade: "<:60168:1556626979149713538>",
+  spring: "<:60167:1556626976813613086>",
+  bomb: "<:60166:1556626975236558918>",
+  smoke: "<:60165:1556626973558710342>",
+  spike: "<:60164:1556626971843362877>"
+};
+
 const APPLICATION_FRUIT_EMOJIS = {
   rocket: APPLICATION_UI_EMOJIS.rocket,
   spin: APPLICATION_UI_EMOJIS.spin,
@@ -261,20 +275,6 @@ function beliPrice(item) {
   const apiPrice = item?.money_price ?? item?.price_beli ?? item?.price;
   return apiPrice != null && apiPrice !== "" ? apiPrice : savedBeliPrice(safeName(item));
 }
-const APPLICATION_UI_EMOJIS = {
-  beli: "<:59965:1556626992588267630>",
-  clock: "<:59971:1556626990893629470>",
-  stockTitle: "<:60172:1556626988587639892>",
-  mirageTitle: "<:60171:1556626985487306752>",
-  rocket: "<:60170:1556626983147012116>",
-  spin: "<:60169:1556626981012111360>",
-  blade: "<:60168:1556626979149713538>",
-  spring: "<:60167:1556626976813613086>",
-  bomb: "<:60166:1556626975236558918>",
-  smoke: "<:60165:1556626973558710342>",
-  spike: "<:60164:1556626971843362877>"
-};
-
 
 function stockTitle(groupKey) {
   const config = readConfig();
