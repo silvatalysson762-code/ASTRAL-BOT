@@ -960,66 +960,6 @@ process.on("unhandledRejection", error => {
 process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
-const aiCooldown = new Map();
-
-async function detectStockIntent(userId, question) {
-  const history = aiHistory.get(userId) || [];
-  try {
-    const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.4-nano",
-      input: [
-        {
-          role: "developer",
-          content: [
-            "Classifique a intenção da mensagem de um usuário que marcou o bot Astral Stock.",
-            "Considere a mensagem atual e o histórico recente para entender o contexto.",
-            "Responda com exatamente UMA destas opções: STOCK_NORMAL, STOCK_MIRAGE, STOCK_BOTH ou CHAT.",
-            "Use STOCK_NORMAL quando a pessoa pedir claramente para ver/consultar o stock normal atual ou perguntar quais frutas estão disponíveis agora no stock normal.",
-            "Use STOCK_MIRAGE quando pedir claramente o stock atual da Mirage.",
-            "Use STOCK_BOTH quando pedir o stock atual sem especificar o tipo.",
-            "Use CHAT para dúvidas, explicações, comentários, conversas ou qualquer mensagem que apenas mencione stock, frutas ou Mirage sem pedir os dados atuais.",
-            "Uma palavra isolada como 'stock', 'estoque', 'fruta', 'Mirage' ou uma saudação NUNCA é pedido suficiente para enviar o estoque. Classifique como CHAT.",
-            "Só envie estoque quando a pessoa pedir claramente os dados disponíveis AGORA, com intenção explícita de consultar/ver/mostrar/listar o estoque.",
-            "Exemplos: 'stock' = CHAT; 'estoque?' = CHAT; 'oi @Astral' = CHAT; 'como funciona o stock?' = CHAT; 'por que o stock muda?' = CHAT; 'qual é o horário do stock?' = CHAT; 'me mostra o stock atual' = STOCK_BOTH; 'quais frutas estão disponíveis agora?' = STOCK_BOTH; 'mostra o stock normal de agora' = STOCK_NORMAL; 'me mostra a Mirage atual' = STOCK_MIRAGE.",
-            "Na dúvida, escolha CHAT. Nunca classifique como pedido de stock só porque o usuário marcou o bot."
-          ].join(" ")
-        },
-        ...history.slice(-6),
-        { role: "user", content: question }
-      ]
-    });
-
-    const intent = String(response.output_text || "").trim().toUpperCase();
-    if (intent === "STOCK_NORMAL") return ["normal"];
-    if (intent === "STOCK_MIRAGE") return ["mirage"];
-    if (intent === "STOCK_BOTH") return ["normal", "mirage"];
-    return null;
-  } catch (error) {
-    // Falha na classificação não pode bloquear a conversa normal com a IA.
-    console.warn("Não foi possível classificar pedido de stock; seguindo para a IA:", error.message);
-    return null;
-  }
-}
-
-async function sendSavedStock(channel, groups) {
-  const latest = readState().latestStock || {};
-  const components = [];
-  for (const key of groups) {
-    const items = Array.isArray(latest[key]) ? latest[key] : [];
-    if (items.length) components.push(stockContainer(items, stockTitle(key), key));
-  }
-  if (!components.length) {
-    await channel.send("Ainda não tenho um estoque válido salvo da Fandom. Assim que conseguir capturar a próxima atualização, vou poder mostrar aqui.");
-    return false;
-  }
-  await channel.send({
-    components,
-    flags: MessageFlags.IsComponentsV2,
-    allowedMentions: { parse: ["roles"] }
-  });
-  return true;
-}
-
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
