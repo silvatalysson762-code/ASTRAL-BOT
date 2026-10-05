@@ -503,8 +503,10 @@ async function resolveEmoji(input) {
 }
 function stockContainer(stock, title, groupKey = null) {
   const lines = stock.map(item => {
+    const name = safeName(item);
     const price = beliPrice(item);
-    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${APPLICATION_UI_EMOJIS.robux} \`${Number(item.robux_price).toLocaleString("en-US")}\` Robux` : ""}`;
+    const robuxPrice = item.robux_price ?? PERMANENT_ROBUX_PRICES[fruitKey(name)];
+    return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPrice != null ? ` | ${APPLICATION_UI_EMOJIS.robux} \`${Number(robuxPrice).toLocaleString("en-US")}\` Robux` : ""}`;
   });
   const mentions = roleMentions(stock);
   const body = [
