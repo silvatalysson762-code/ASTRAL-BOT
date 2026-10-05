@@ -18,6 +18,7 @@ const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45000, maxRetries: 0 });
+const OWNER_GUILD_ID = "1528047581845000353";
 const aiHistory = new Map();
 const imageCooldown = new Map();
 
@@ -921,7 +922,6 @@ const stockTypeOption = (option) => option.setName("stock_type").setDescription(
 const commands = [
   // General
   new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock"),
-  new SlashCommandBuilder().setName("dashboard").setDescription("Open the full Astral Stock dashboard"),
   new SlashCommandBuilder().setName("ask").setDescription("Chat with Astral Stock AI")
     .addStringOption(option => option.setName("question").setDescription("What would you like to ask?").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("generate-image").setDescription("Generate an image with AI")
@@ -972,10 +972,11 @@ const commands = [
 ];
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  const body = commands.map(c => c.toJSON());
+  const allCommands = commands.map(c => c.toJSON());
+  const aiCommandNames = new Set(["ask", "generate-image"]);
+  const globalCommands = allCommands.filter(c => !aiCommandNames.has(c.name));
 
-  // Os comandos antigos foram registrados por servidor em versões anteriores.
-  // Limpa esses registros locais para não aparecerem duplicados junto dos comandos globais.
+  // Remove registros antigos por servidor e publica somente os comandos gerais globalmente.
   const guilds = [...client.guilds.cache.values()];
   for (const guild of guilds) {
     try {
@@ -986,8 +987,16 @@ async function registerCommands() {
     }
   }
 
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body });
-  console.log("Comandos globais registrados para todos os servidores do bot.");
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: globalCommands });
+
+  // IA fica registrada exclusivamente no servidor do dono.
+  const ownerAiCommands = allCommands.filter(c => aiCommandNames.has(c.name));
+  await rest.put(
+    Routes.applicationGuildCommands(process.env.CLIENT_ID, OWNER_GUILD_ID),
+    { body: ownerAiCommands }
+  );
+
+  console.log("[COMMANDS] Comandos gerais globais registrados. IA registrada somente no servidor do dono.");
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
@@ -1074,6 +1083,7 @@ async function sendSavedStock(channel, groups) {
 
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.guild || !client.user) return;
+  if (message.guild.id !== OWNER_GUILD_ID) return;
   if (!message.mentions.users.has(client.user.id)) return;
 
   const question = String(message.content || "")
