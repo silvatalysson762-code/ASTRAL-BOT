@@ -272,14 +272,21 @@ async function hydrateApplicationEmojis() {
       return byId.get(match[2]) || byName.get(match[1].toLowerCase()) || null;
     };
 
+    const applicationEmojiMarkup = emoji => {
+      if (!emoji) return null;
+      return emoji.animated
+        ? `<a:${emoji.name}:${emoji.id}>`
+        : `<:${emoji.name}:${emoji.id}>`;
+    };
+
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
       const emoji = resolveApplicationEmoji(value);
-      if (emoji) APPLICATION_UI_EMOJIS[key] = emoji.toString();
+      if (emoji) APPLICATION_UI_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
       const emoji = resolveApplicationEmoji(value);
-      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.toString();
+      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
     const testEmoji = byId.get("1556626983147012116") || byName.get("60170");
