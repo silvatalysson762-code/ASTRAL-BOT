@@ -697,16 +697,22 @@ client.on("messageCreate", async message => {
     await message.channel.sendTyping();
     const answer = await askAI(message.author.id, question);
     console.log("[CHAT] IA respondeu; enviando resposta ao Discord.");
-    await message.reply({
-      content: answer.slice(0, 2000),
+    const finalAnswer = String(answer || "").trim() || "Não consegui gerar uma resposta. Pode repetir a pergunta?";
+    await message.channel.send({
+      content: finalAnswer.slice(0, 2000),
       allowedMentions: { repliedUser: false }
     });
+    console.log("[CHAT] Resposta enviada ao canal.");
   } catch (error) {
-    console.error("Erro na IA pelo chat:", error.message);
-    await message.reply({
-      content: "❌ Não consegui responder agora. Tente novamente em alguns segundos.",
-      allowedMentions: { repliedUser: false }
-    });
+    console.error("Erro na IA pelo chat:", error?.stack || error);
+    try {
+      await message.channel.send({
+        content: "❌ Tive um problema ao responder. Tente novamente em alguns segundos.",
+        allowedMentions: { repliedUser: false }
+      });
+    } catch (sendError) {
+      console.error("[CHAT] Também não consegui enviar a mensagem de erro:", sendError?.stack || sendError);
+    }
   }
 });
 
