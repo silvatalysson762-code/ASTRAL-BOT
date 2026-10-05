@@ -972,7 +972,21 @@ const commands = [
 ];
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands.map(c => c.toJSON()) });
+  const body = commands.map(c => c.toJSON());
+
+  // Os comandos antigos foram registrados por servidor em versões anteriores.
+  // Limpa esses registros locais para não aparecerem duplicados junto dos comandos globais.
+  const guilds = [...client.guilds.cache.values()];
+  for (const guild of guilds) {
+    try {
+      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guild.id), { body: [] });
+      console.log("[COMMANDS] Comandos locais antigos removidos de " + guild.name + ".");
+    } catch (error) {
+      console.warn("[COMMANDS] Não foi possível limpar comandos locais de " + guild.name + ": " + error.message);
+    }
+  }
+
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body });
   console.log("Comandos globais registrados para todos os servidores do bot.");
 }
 client.once("ready", async () => {
