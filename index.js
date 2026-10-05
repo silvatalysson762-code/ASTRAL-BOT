@@ -990,13 +990,24 @@ client.on("interactionCreate", async interaction => {
     }
   } else if (interaction.commandName === "test-stock") {
     const testText = [
-      "# " + APPLICATION_UI_EMOJIS.stockTitle + " Emoji Test",
+      "# " + APPLICATION_UI_EMOJIS.stockTitle + " Container V2 Test",
       "",
-      APPLICATION_UI_EMOJIS.rocket + " Rocket | " + APPLICATION_UI_EMOJIS.beli + " \`5,000\`",
-      APPLICATION_FRUIT_EMOJIS.dragon + " Dragon | " + APPLICATION_UI_EMOJIS.beli + " \`15,000,000\`",
-      APPLICATION_UI_EMOJIS.clock + " Clock test"
+      APPLICATION_UI_EMOJIS.rocket + " **Rocket** | " + APPLICATION_UI_EMOJIS.beli + " \`5,000\`",
+      APPLICATION_FRUIT_EMOJIS.dragon + " **Dragon** | " + APPLICATION_UI_EMOJIS.beli + " \`15,000,000\`",
+      APPLICATION_UI_EMOJIS.clock + " **Clock test**"
     ].join("\n");
-    await interaction.reply({ content: testText, allowedMentions: { parse: [] } });
+
+    const testContainer = new ContainerBuilder()
+      .setAccentColor(0x00FFFF)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(testText)
+      );
+
+    await interaction.reply({
+      components: [testContainer],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] }
+    });
   } else if (interaction.commandName === "dashboard") {
     await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
