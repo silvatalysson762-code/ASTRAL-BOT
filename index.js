@@ -658,64 +658,6 @@ async function sendSavedStock(channel, groups) {
   return true;
 }
 
-client.on("messageCreate", async message => {
-  if (message.author.bot || !message.guild) return;
-  console.log("[CHAT] Mensagem recebida em #" + (message.channel?.name || "canal") + " de " + message.author.tag);
-
-  if (!client.user) {
-    console.warn("[CHAT] client.user ainda não está disponível.");
-    return;
-  }
-  const botMentionPattern = new RegExp("<@!?" + client.user.id + ">");
-  const hasBotMention = message.mentions.users.has(client.user.id) || botMentionPattern.test(String(message.content || ""));
-  if (!hasBotMention) {
-    console.log("[CHAT] Mensagem ignorada: não contém menção direta ao bot.");
-    return;
-  }
-  console.log("[CHAT] Menção detectada; iniciando processamento.");
-
-  const now = Date.now();
-  const last = aiCooldown.get(message.author.id) || 0;
-  if (now - last < 5000) {
-    await message.reply("⏳ Calma aí! Espere alguns segundos antes de me chamar de novo.");
-    return;
-  }
-  aiCooldown.set(message.author.id, now);
-
-  const question = String(message.content || "")
-    .replace(new RegExp("<@!?" + client.user.id + ">", "g"), "")
-    .trim();
-  console.log("[CHAT] Texto após remover menção: " + (question || "(vazio)"));
-
-  if (!question) {
-    await message.reply("👋 Me marque e escreva sua pergunta. Ex.: `@Astral Stock qual é o stock atual?`");
-    return;
-  }
-
-  try {
-
-    await message.channel.sendTyping();
-    const answer = await askAI(message.author.id, question);
-    console.log("[CHAT] IA respondeu; enviando resposta ao Discord.");
-    const finalAnswer = String(answer || "").trim() || "Não consegui gerar uma resposta. Pode repetir a pergunta?";
-    await message.channel.send({
-      content: finalAnswer.slice(0, 2000),
-      allowedMentions: { repliedUser: false }
-    });
-    console.log("[CHAT] Resposta enviada ao canal.");
-  } catch (error) {
-    console.error("Erro na IA pelo chat:", error?.stack || error);
-    try {
-      await message.channel.send({
-        content: "❌ Tive um problema ao responder. Tente novamente em alguns segundos.",
-        allowedMentions: { repliedUser: false }
-      });
-    } catch (sendError) {
-      console.error("[CHAT] Também não consegui enviar a mensagem de erro:", sendError?.stack || sendError);
-    }
-  }
-});
-
 client.on("interactionCreate", async interaction => {
   if (interaction.isButton()) {
     try {
