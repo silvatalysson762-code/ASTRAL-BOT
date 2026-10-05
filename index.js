@@ -206,6 +206,7 @@ const APPLICATION_UI_EMOJIS = {
   bomb: "<:bomb:1556626975236558918>",
   smoke: "<:smoke:1556626973558710342>",
   spike: "<:spike:1556626971843362877>"
+  robux: "<:robux:1556626988578639892>",
 };
 
 const APPLICATION_FRUIT_EMOJIS = {
@@ -422,7 +423,7 @@ async function resolveEmoji(input) {
 function stockContainer(stock, title, groupKey = null) {
   const lines = stock.map(item => {
     const price = beliPrice(item);
-    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${item.robux_price} <:59965:1556626992588267630>` : ""}`;
+    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${APPLICATION_UI_EMOJIS.robux} \`${Number(item.robux_price).toLocaleString("en-US")}` Robux` : ""}`;
   });
   const mentions = roleMentions(stock);
   const body = [
@@ -1007,7 +1008,7 @@ client.on("interactionCreate", async interaction => {
       ...lines,
       "",
       APPLICATION_UI_EMOJIS.clock + " **Clock test**",
-      "💸 **Robux** test"
+      APPLICATION_UI_EMOJIS.robux + " **Robux** 2,400"
     ].join("\n");
 
     const testContainer = new ContainerBuilder()
