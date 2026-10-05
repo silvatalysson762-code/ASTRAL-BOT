@@ -989,12 +989,25 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply("❌ Não consegui falar com a IA agora. Verifique a configuração da OpenAI.");
     }
   } else if (interaction.commandName === "test-stock") {
+    const lines = ALL_FRUITS.map(name => {
+      const emoji = fruitEmoji({ name });
+      const price = savedBeliPrice(name);
+      const robux = {
+        "Permanent Rocket": 50,
+        "Permanent Spin": 75
+      };
+      const priceText = price != null
+        ? APPLICATION_UI_EMOJIS.beli + " \`" + Number(price).toLocaleString("en-US") + "\`"
+        : APPLICATION_UI_EMOJIS.beli + " \`Valor não cadastrado\`";
+      return emoji + " **" + name + "** | " + priceText;
+    });
     const testText = [
-      "# " + APPLICATION_UI_EMOJIS.stockTitle + " Container V2 Test",
+      "# " + APPLICATION_FRUIT_EMOJIS.dragon + " Blox Fruits",
       "",
-      APPLICATION_UI_EMOJIS.rocket + " **Rocket** | " + APPLICATION_UI_EMOJIS.beli + " \`5,000\`",
-      APPLICATION_FRUIT_EMOJIS.dragon + " **Dragon** | " + APPLICATION_UI_EMOJIS.beli + " \`15,000,000\`",
-      APPLICATION_UI_EMOJIS.clock + " **Clock test**"
+      ...lines,
+      "",
+      APPLICATION_UI_EMOJIS.clock + " **Clock test**",
+      "💸 **Robux** test"
     ].join("\n");
 
     const testContainer = new ContainerBuilder()
