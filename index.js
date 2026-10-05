@@ -506,7 +506,7 @@ function stockContainer(stock, title, groupKey = null) {
     const name = safeName(item);
     const price = beliPrice(item);
     const robuxPrice = item.robux_price ?? PERMANENT_ROBUX_PRICES[fruitKey(name)];
-    return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPrice != null ? ` | ${APPLICATION_UI_EMOJIS.robux} \`${Number(robuxPrice).toLocaleString("en-US")}\` Robux` : ""}`;
+    return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPrice != null ? ` | ${Number(robuxPrice).toLocaleString("en-US")} ${APPLICATION_UI_EMOJIS.robux}` : ""}`;
   });
   const mentions = roleMentions(stock);
   const body = [
