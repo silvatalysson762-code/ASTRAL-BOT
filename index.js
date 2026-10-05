@@ -848,25 +848,68 @@ async function getRobloxAvatar(username) {
   const user = userData.data?.[0];
   if (!user?.id) throw new Error("Usuário do Roblox não encontrado.");
 
+  const jsonFetch = async (url, fallback) => {
+    try {
+      const response = await fetch(url, {
+        headers: { "Accept": "application/json" },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) return fallback;
+      return await response.json();
+    } catch {
+      return fallback;
+    }
+  };
+
   const avatarUrl =
     "https://thumbnails.roblox.com/v1/users/avatar" +
     "?userIds=" + encodeURIComponent(user.id) +
     "&size=720x720&format=Png&isCircular=false";
 
-  const avatarResponse = await fetch(avatarUrl, {
-    headers: { "Accept": "application/json" },
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!avatarResponse.ok) throw new Error("Não consegui carregar a imagem do avatar.");
-  const avatarData = await avatarResponse.json();
+  const [avatarData, details, friends, followers, following] = await Promise.all([
+    jsonFetch(avatarUrl, { data: [] }),
+    jsonFetch("https://users.roblox.com/v1/users/" + user.id, {}),
+    jsonFetch("https://friends.roblox.com/v1/users/" + user.id + "/friends/count", {}),
+    jsonFetch("https://friends.roblox.com/v1/users/" + user.id + "/followers/count", {}),
+    jsonFetch("https://friends.roblox.com/v1/users/" + user.id + "/followings/count", {})
+  ]);
+
   const imageUrl = avatarData.data?.[0]?.imageUrl;
   if (!imageUrl) throw new Error("O Roblox não retornou a imagem desse avatar.");
+
+  // Roblox não fornece um total direto de jogos favoritos. Contamos as páginas,
+  // com um limite de segurança para evitar consultas excessivas.
+  let favoriteGames = 0;
+  let cursor = null;
+  let favoritesComplete = true;
+  for (let page = 0; page < 40; page++) {
+    const params = new URLSearchParams({ sortOrder: "Desc", limit: "50" });
+    if (cursor) params.set("cursor", cursor);
+    const pageData = await jsonFetch(
+      "https://games.roblox.com/v2/users/" + user.id + "/favorite/games?" + params.toString(),
+      null
+    );
+    if (!pageData) {
+      favoritesComplete = false;
+      break;
+    }
+    favoriteGames += Array.isArray(pageData.data) ? pageData.data.length : 0;
+    cursor = pageData.nextPageCursor || null;
+    if (!cursor) break;
+    if (page === 39) favoritesComplete = false;
+  }
 
   return {
     id: user.id,
     username: user.name,
     displayName: user.displayName || user.name,
-    imageUrl
+    imageUrl,
+    created: details.created || null,
+    friends: Number(friends.count ?? 0),
+    followers: Number(followers.count ?? 0),
+    following: Number(following.count ?? 0),
+    favoriteGames,
+    favoritesComplete
   };
 }
 
@@ -969,6 +1012,24 @@ client.on("interactionCreate", async interaction => {
       const username = interaction.options.getString("username", true);
       const avatar = await getRobloxAvatar(username);
 
+      const createdText = avatar.created
+        ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: BRASIL_TZ }).format(new Date(avatar.created))
+        : "Não informado";
+      const favoriteText = avatar.favoritesComplete
+        ? String(avatar.favoriteGames)
+        : String(avatar.favoriteGames) + "+";
+
+      const info = [
+        "🆔 **ID:** " + avatar.id,
+        "📅 **Conta criada:** " + createdText,
+        "👥 **Amigos:** " + avatar.friends.toLocaleString("pt-BR"),
+        "👣 **Seguidores:** " + avatar.followers.toLocaleString("pt-BR"),
+        "➡️ **Seguindo:** " + avatar.following.toLocaleString("pt-BR"),
+        "⭐ **Jogos favoritos:** " + favoriteText
+      ].join("\n");
+
+      // Container V2: título grande, @username menor e a imagem do avatar
+      // continuam exatamente nessa ordem, com as informações abaixo da imagem.
       const container = new ContainerBuilder()
         .setAccentColor(0x00FFFF)
         .addTextDisplayComponents(
@@ -980,6 +1041,12 @@ client.on("interactionCreate", async interaction => {
           new MediaGalleryBuilder().addItems(
             new MediaGalleryItemBuilder().setURL(avatar.imageUrl)
           )
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(info)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent("-# Roblox • Perfil público")
         );
 
       await interaction.editReply({
