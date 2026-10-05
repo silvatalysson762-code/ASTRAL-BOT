@@ -4,8 +4,8 @@ Bot Discord para publicar automaticamente o stock de Blox Fruits, separar Stock 
 
 ## O que o bot faz
 
-- Consulta a API de stock do Blox Fruits.
-- Faz uma consulta automática a cada 2 horas.
+- Consulta o stock em uma fonte pública de Wiki, com uma segunda fonte automática de reserva.
+- Verifica o stock após cada reset, com tentativas a cada minuto até detectar a nova rotação.
 - Detecta Stock Normal e Stock da Mirage na mesma consulta.
 - Publica Normal e Mirage em mensagens separadas.
 - Normal: ciclo global de 4 horas.
@@ -77,8 +77,9 @@ DISCORD_TOKEN=TOKEN_DO_BOT
 CLIENT_ID=ID_DA_APLICACAO
 GUILD_ID=ID_DO_SERVIDOR
 CHANNEL_ID=ID_DO_CANAL
-STOCK_API_URL=https://api.parse.bot/scraper/78cf8155-3819-45d0-b799-92f840a94827/get_stock
-STOCK_API_KEY=CHAVE_DA_API
+WIKI_STOCK_URL=https://blox-fruits-wiki.com/wiki/stock/
+
+WIKI_STOCK_URL é opcional. Se não for definida, o bot tenta a Wiki pública alternativa e depois a Fandom.
 
 Nunca coloque DISCORD_TOKEN ou STOCK_API_KEY no GitHub.
 
@@ -104,17 +105,9 @@ Para criar emojis da Application:
 3. Crie os emojis.
 4. Use os nomes/IDs gerados no bot.
 
-## API
+## Fonte de stock
 
-Endpoint configurado:
-
-https://api.parse.bot/scraper/78cf8155-3819-45d0-b799-92f840a94827/get_stock
-
-A chave é enviada no cabeçalho:
-
-X-API-Key
-
-A API é externa ao jogo. Se ela estiver fora do ar, com limite atingido ou mudar o formato da resposta, o bot registra o erro no log e continua tentando no próximo ciclo.
+O bot consulta primeiro a fonte pública configurada em WIKI_STOCK_URL (quando definida), depois tenta https://blox-fruits-wiki.com/wiki/stock/ e usa a Fandom como última alternativa. Se uma fonte falhar, o bot tenta a próxima e registra o resultado nos logs. Nenhuma chave de API é necessária para essas páginas públicas.
 
 ## Estrutura de arquivos
 
@@ -171,7 +164,7 @@ node index.js
 - Token e API key ficam somente em variáveis de ambiente.
 - O .gitignore bloqueia arquivos sensíveis.
 - O bot não entra em loop rápido de API.
-- O bot faz uma única consulta a cada 2 horas e usa essa resposta para verificar Normal e Mirage.
+- O bot agenda Normal nos horários 00h, 04h, 08h, 12h, 16h e 20h UTC e Mirage nas horas ímpares UTC. Após cada reset, aguarda 1 minuto e tenta novamente a cada minuto até detectar a nova rotação.
 - Um erro de API não encerra o processo.
 - Um erro de interação não encerra o processo.
 - Assinaturas impedem republicação do mesmo stock.
