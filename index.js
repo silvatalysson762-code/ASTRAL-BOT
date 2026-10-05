@@ -137,8 +137,7 @@ async function getStock() {
       if (!response.ok) throw new Error("HTTP " + response.status);
       const html = await response.text();
       const text = htmlToStockText(html);
-      const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
-      const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+      const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");      const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
       if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
       console.log("[STOCK] Captura válida pela fonte " + sourceUrl +
         " (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
@@ -277,9 +276,9 @@ async function hydrateApplicationEmojis() {
       const emoji = byId.get(match[1]);
       if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.toString();
     }
-
     console.log("[EMOJIS] Emojis da aplicação carregados:", appEmojis.size);
-    const testEmoji = byId.get("1556626983147012116");\n    console.log("[EMOJIS] Teste Rocket:", testEmoji ? testEmoji.toString() : "NÃO ENCONTRADO");
+    const testEmoji = byId.get("1556626983147012116");
+    console.log("[EMOJIS] Teste Rocket:", testEmoji ? testEmoji.toString() : "NÃO ENCONTRADO");
   } catch (error) {
     console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
   }
