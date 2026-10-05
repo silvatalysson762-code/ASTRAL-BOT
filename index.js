@@ -658,7 +658,17 @@ async function sendSavedStock(channel, groups) {
 
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.guild) return;
-  if (!client.user || !message.mentions.users.has(client.user.id)) return;
+  console.log("[CHAT] Mensagem recebida em #" + (message.channel?.name || "canal") + " de " + message.author.tag);
+
+  if (!client.user) {
+    console.warn("[CHAT] client.user ainda não está disponível.");
+    return;
+  }
+  if (!message.mentions.users.has(client.user.id)) {
+    console.log("[CHAT] Mensagem ignorada: não contém menção direta ao bot.");
+    return;
+  }
+  console.log("[CHAT] Menção detectada; iniciando processamento.");
 
   const now = Date.now();
   const last = aiCooldown.get(message.author.id) || 0;
@@ -668,9 +678,10 @@ client.on("messageCreate", async message => {
   }
   aiCooldown.set(message.author.id, now);
 
-  const question = message.content
-    .replace(new RegExp(`<@!?\\${client.user.id}>`, "g"), "")
+  const question = String(message.content || "")
+    .replace(new RegExp("<@!?" + client.user.id + ">", "g"), "")
     .trim();
+  console.log("[CHAT] Texto após remover menção: " + (question || "(vazio)"));
 
   if (!question) {
     await message.reply("👋 Me marque e escreva sua pergunta. Ex.: `@Astral Stock qual é o stock atual?`");
@@ -678,14 +689,18 @@ client.on("messageCreate", async message => {
   }
 
   try {
+    console.log("[CHAT] Analisando intenção da mensagem.");
     const stockGroups = await detectStockIntent(message.author.id, question);
+    console.log("[CHAT] Análise concluída: " + (stockGroups ? stockGroups.join(",") : "conversa normal"));
     if (stockGroups) {
       await sendSavedStock(message.channel, stockGroups);
       return;
     }
 
+    console.log("[CHAT] Enviando pergunta para a IA.");
     await message.channel.sendTyping();
     const answer = await askAI(message.author.id, question);
+    console.log("[CHAT] IA respondeu; enviando resposta ao Discord.");
     await message.reply({
       content: answer.slice(0, 2000),
       allowedMentions: { repliedUser: false }
