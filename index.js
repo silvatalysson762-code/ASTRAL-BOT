@@ -272,7 +272,7 @@ async function hydrateApplicationEmojis() {
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
-      const match = String(value).match(/^<a?:[^:>]+:(\\d+)>$/);
+      const match = String(value).match(/^<a?:[^:>]+:(\d+)>$/);
       if (!match) continue;
       const emoji = byId.get(match[1]);
       if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.toString();
