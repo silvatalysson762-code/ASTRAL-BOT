@@ -268,17 +268,17 @@ async function hydrateApplicationEmojis() {
       const match = String(value).match(/^<a?:[^:>]+:(\\d+)>$/);
       if (!match) continue;
       const emoji = byId.get(match[1]);
-      if (emoji) APPLICATION_UI_EMOJIS[key] = `${emoji.animated ? "<a" : "<"}:${emoji.name}:${emoji.id}>`;
+      if (emoji) APPLICATION_UI_EMOJIS[key] = emoji.toString();
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
       const match = String(value).match(/^<a?:[^:>]+:(\\d+)>$/);
       if (!match) continue;
       const emoji = byId.get(match[1]);
-      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = `${emoji.animated ? "<a" : "<"}:${emoji.name}:${emoji.id}>`;
+      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.toString();
     }
 
-    console.log("[EMOJIS] Emojis da aplicação carregados:", appEmojis.size);
+    console.log("[EMOJIS] Emojis da aplicação carregados:", appEmojis.size);\n    const testEmoji = byId.get("1556626983147012116");\n    console.log("[EMOJIS] Teste Rocket:", testEmoji ? testEmoji.toString() : "NÃO ENCONTRADO");
   } catch (error) {
     console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
   }
@@ -338,7 +338,7 @@ async function resolveEmoji(input) {
   try {
     const appEmojis = await client.application.emojis.fetch();
     const found = appEmojis.find(emoji => emoji.name === name);
-    if (found) return `${found.animated ? "<a" : "<"}:${found.name}:${found.id}>`;
+    if (found) return found.toString();
   } catch (error) {
     console.warn("Não consegui consultar os emojis da aplicação:", error.message);
   }
