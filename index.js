@@ -611,19 +611,10 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
     .addRoleOption(option => option.setName("role").setDescription("Role to mention").setRequired(true)),
-  new SlashCommandBuilder().setName("set-fruit-emoji").setDescription("Set the emoji displayed next to a fruit")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(fruitOption)
-    .addStringOption(option => option.setName("emoji").setDescription("Unicode emoji or application emoji name").setRequired(true)),
   new SlashCommandBuilder().setName("set-stock-title").setDescription("Edit the Normal or Mirage stock message title")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(stockTypeOption)
     .addStringOption(option => option.setName("title").setDescription("New message title").setRequired(true).setMaxLength(100)),
-  new SlashCommandBuilder().setName("list-emojis").setDescription("List configured fruit emojis")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("remove-emoji").setDescription("Remove a custom fruit emoji")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(fruitOption),
   new SlashCommandBuilder().setName("list-roles").setDescription("List configured fruit roles")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("remove-role").setDescription("Remove a configured fruit role")
@@ -631,11 +622,11 @@ const commands = [
     .addStringOption(fruitOption),
 
   // Stock alerts: one command handles channel and fruit alert setup/removal
-  new SlashCommandBuilder().setName("stock-alert").setDescription("Add or remove an alert channel or fruit alert")
+  new SlashCommandBuilder().setName("stock-alert").setDescription("Manage alert channel and fruit alerts in one command")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(option => option.setName("action").setDescription("What do you want to configure?")
+    .addStringOption(option => option.setName("action").setDescription("Choose an action: add or remove")
       .setRequired(true).addChoices(
-        { name: "Set alert channel", value: "set_channel" },
+        { name: "Add / change alert channel", value: "set_channel" },
         { name: "Remove alert channel", value: "remove_channel" },
         { name: "Add fruit alert", value: "add_fruit" },
         { name: "Remove fruit alert", value: "remove_fruit" }
@@ -892,29 +883,6 @@ client.on("interactionCreate", async interaction => {
     config.roles[fruit] = role.id;
     saveConfig(config);
     await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
-  } else if (interaction.commandName === "set-fruit-emoji") {
-    const fruit = fruitKey(interaction.options.getString("fruit"));
-    const emoji = await resolveEmoji(interaction.options.getString("emoji"));
-    const config = readConfig();
-    config.emojis = config.emojis || {};
-    config.emojis[fruit] = emoji;
-    saveConfig(config);
-    await interaction.reply({ content: `Emoji ${emoji} configurado para **${fruit}**.`, ephemeral: true });
-  } else if (interaction.commandName === "list-emojis") {
-    const emojis = readConfig().emojis || {};
-    const content = Object.entries(emojis).map(([fruit, emoji]) => `• ${emoji} **${fruit}**`).join("\n");
-    await interaction.reply({ content: content || "Nenhum emoji personalizado configurado ainda.", ephemeral: true });
-  } else if (interaction.commandName === "remove-emoji") {
-    const fruit = fruitKey(interaction.options.getString("fruit"));
-    const config = readConfig();
-    config.emojis = config.emojis || {};
-    if (!config.emojis[fruit]) {
-      await interaction.reply({ content: `Não há emoji personalizado para **${fruit}**.`, ephemeral: true });
-    } else {
-      delete config.emojis[fruit];
-      saveConfig(config);
-      await interaction.reply({ content: `Emoji personalizado removido para **${fruit}**.`, ephemeral: true });
-    }
   } else if (interaction.commandName === "list-roles") {
     const roles = readConfig().roles || {};
     const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
