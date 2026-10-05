@@ -7,7 +7,7 @@ const {
 } = require("discord.js");
 const OpenAI = require("openai");
 
-const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID", "CHANNEL_ID", "OPENAI_API_KEY"];
+const required = ["DISCORD_TOKEN", "CLIENT_ID", "OPENAI_API_KEY"];
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`Configuração ausente: ${key}. Veja o arquivo .env.example.`);
@@ -26,12 +26,52 @@ let apiCooldownUntil = 0;
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 
+function defaultGuildConfig() {
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {} };
+}
 function readConfig() {
-  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")); }
-  catch { return { roles: {}, emojis: {}, aliases: {}, titles: {}, historyLimit: 20 }; }
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+    config.guilds = config.guilds || {};
+    return config;
+  } catch {
+    return { guilds: {}, historyLimit: 20 };
+  }
 }
 function saveConfig(config) {
+  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+}
+function getGuildConfig(guildId) {
+  const config = readConfig();
+  if (!guildId) return defaultGuildConfig();
+  config.guilds = config.guilds || {};
+  if (!config.guilds[guildId]) {
+    config.guilds[guildId] = defaultGuildConfig();
+    saveConfig(config);
+  }
+  return { ...defaultGuildConfig(), ...config.guilds[guildId], roles: config.guilds[guildId].roles || {}, titles: config.guilds[guildId].titles || {}, stockAlerts: config.guilds[guildId].stockAlerts || {} };
+}
+function updateGuildConfig(guildId, updater) {
+  if (!guildId) throw new Error("Este comando só pode ser usado dentro de um servidor.");
+  const config = readConfig();
+  config.guilds = config.guilds || {};
+  config.guilds[guildId] = { ...defaultGuildConfig(), ...(config.guilds[guildId] || {}) };
+  updater(config.guilds[guildId]);
+  saveConfig(config);
+  return config.guilds[guildId];
+}
+function migrateLegacyConfig() {
+  const config = readConfig();
+  const legacyGuild = process.env.GUILD_ID;
+  const legacyChannel = process.env.CHANNEL_ID;
+  const hasLegacy = legacyChannel || ["roles","emojis","aliases","titles","stockAlertChannelId","stockAlerts"].some(k => config[k] !== undefined);
+  if (legacyGuild && hasLegacy && !config.guilds[legacyGuild]) {
+    config.guilds[legacyGuild] = { ...defaultGuildConfig(), channelId: legacyChannel || null, roles: config.roles || {}, emojis: config.emojis || {}, aliases: config.aliases || {}, titles: config.titles || {}, stockAlertChannelId: config.stockAlertChannelId || null, stockAlerts: config.stockAlerts || {} };
+    for (const key of ["roles","emojis","aliases","titles","stockAlertChannelId","stockAlerts"]) delete config[key];
+    saveConfig(config);
+    console.log("[CONFIG] Configuração antiga migrada para o servidor " + legacyGuild + ".");
+  }
 }
 function readState() {
   try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf8")); }
@@ -230,8 +270,8 @@ function signature(stock) {
     type: x.type || ""
   })).sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name)));
 }
-function roleMentions(stock) {
-  const roles = readConfig().roles || {};
+function roleMentions(stock, guildConfig = defaultGuildConfig()) {
+  const roles = guildConfig.roles || {};
   const mentions = [];
   for (const item of stock) {
     const id = roles[fruitKey(safeName(item))];
@@ -239,20 +279,20 @@ function roleMentions(stock) {
   }
   return [...new Set(mentions)].join(" ");
 }
-function stockAlertMentions(stock) {
-  const alerts = readConfig().stockAlerts || {};
+function stockAlertMentions(stock, guildConfig = defaultGuildConfig()) {
+  const alerts = guildConfig.stockAlerts || {};
   const mentions = [];
   for (const item of stock) {
     const id = alerts[fruitKey(safeName(item))];
-    if (id && /^\\d{17,20}$/.test(String(id))) mentions.push(id);
+    if (id && /^\d{17,20}$/.test(String(id))) mentions.push(id);
   }
   return [...new Set(mentions)];
 }
 
-async function sendStockAlerts(stock, groupKey) {
-  const channelId = readConfig().stockAlertChannelId;
+async function sendStockAlerts(stock, groupKey, guildConfig) {
+  const channelId = guildConfig?.stockAlertChannelId;
   if (!channelId) return;
-  const roleIds = stockAlertMentions(stock);
+  const roleIds = stockAlertMentions(stock, guildConfig);
   if (!roleIds.length) return;
   const channel = await client.channels.fetch(channelId);
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("Canal de alertas indisponível.");
@@ -458,13 +498,12 @@ function beliPrice(item) {
   return apiPrice != null && apiPrice !== "" ? apiPrice : savedBeliPrice(safeName(item));
 }
 
-function stockTitle(groupKey) {
-  const config = readConfig();
+function stockTitle(groupKey, guildConfig = defaultGuildConfig()) {
   const defaults = {
     normal: "<:60119:1556621255984029706> Blox Fruits | Stock normal atualizado",
     mirage: APPLICATION_UI_EMOJIS.mirageTitle + " Blox Fruits | Stock da Mirage atualizado"
   };
-  return config.titles?.[groupKey] || defaults[groupKey] || APPLICATION_UI_EMOJIS.stockTitle + " Blox Fruits | Stock atualizado";
+  return guildConfig.titles?.[groupKey] || defaults[groupKey] || APPLICATION_UI_EMOJIS.stockTitle + " Blox Fruits | Stock atualizado";
 }
 function nextGlobalReset(groupKey, now = new Date()) {
   // Horários globais em UTC: Normal a cada 4 horas;
@@ -501,14 +540,14 @@ async function resolveEmoji(input) {
   }
   return value;
 }
-function stockContainer(stock, title, groupKey = null) {
+function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuildConfig()) {
   const lines = stock.map(item => {
     const name = safeName(item);
     const price = beliPrice(item);
     const robuxPrice = item.robux_price ?? PERMANENT_ROBUX_PRICES[fruitKey(name)];
     return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPrice != null ? ` | ${Number(robuxPrice).toLocaleString("en-US")} ${APPLICATION_UI_EMOJIS.robux}` : ""}`;
   });
-  const mentions = roleMentions(stock);
+  const mentions = roleMentions(stock, guildConfig);
   const body = [
     `# ${title}`,
     "",
@@ -570,13 +609,37 @@ function panelContainer() {
     .addActionRowComponents(buttons);
 }
 async function postStock(stock, announce, title, groupKey = null) {
-  const channel = await client.channels.fetch(process.env.CHANNEL_ID);
-  if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
-  await channel.send({ components: [stockContainer(stock, title, groupKey)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
-  if (groupKey) {
-    try { await sendStockAlerts(stock, groupKey); }
-    catch (error) { console.error("[ALERTAS] Falha ao enviar alerta:", error.message); }
+  const config = readConfig();
+  const entries = Object.entries(config.guilds || {}).filter(([, guildConfig]) => guildConfig?.channelId);
+  if (!entries.length) {
+    console.warn("[STOCK] Nenhum servidor configurou um canal de stock. Use /set-stock-channel.");
+    return false;
   }
+  let sent = 0;
+  for (const [guildId, rawGuildConfig] of entries) {
+    const guildConfig = { ...defaultGuildConfig(), ...rawGuildConfig };
+    try {
+      const channel = await client.channels.fetch(guildConfig.channelId);
+      if (!channel || !channel.isTextBased() || !channel.send) {
+        console.warn("[STOCK] Canal do servidor " + guildId + " não está acessível.");
+        continue;
+      }
+      await channel.send({
+        components: [stockContainer(stock, stockTitle(groupKey, guildConfig), groupKey, guildConfig)],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: ["roles"] }
+      });
+      sent++;
+      if (groupKey) {
+        try { await sendStockAlerts(stock, groupKey, guildConfig); }
+        catch (error) { console.error("[ALERTAS] Falha no servidor " + guildId + ":", error.message); }
+      }
+    } catch (error) {
+      console.error("[STOCK] Falha ao publicar no servidor " + guildId + ":", error.message);
+    }
+  }
+  console.log("[STOCK] Publicação concluída: " + sent + "/" + entries.length + " servidores. Uma única consulta foi usada para todos.");
+  return sent > 0;
 }
 async function checkStock(force = false, onlyGroups = ["normal", "mirage"], throwOnError = false, providedStock = null) {
   if (checking) return false;
@@ -587,8 +650,8 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
     state.stockSignatures = state.stockSignatures || {};
     state.latestStock = state.latestStock || {};
     const groups = [
-      { key: "normal", type: "Normal", title: stockTitle("normal") },
-      { key: "mirage", type: "Mirage", title: stockTitle("mirage") }
+      { key: "normal", type: "Normal" },
+      { key: "mirage", type: "Mirage" }
     ].filter(group => onlyGroups.includes(group.key));
 
     for (const group of groups) {
@@ -876,6 +939,9 @@ const commands = [
     .addStringOption(stockTypeOption),
 
   // Server configuration
+  new SlashCommandBuilder().setName("set-stock-channel").setDescription("Choose where automatic stock messages will be posted")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addChannelOption(option => option.setName("channel").setDescription("Text channel for automatic stock").setRequired(true)),
   new SlashCommandBuilder().setName("set-fruit-role").setDescription("Set the role to mention when a fruit appears")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
@@ -906,10 +972,11 @@ const commands = [
 ];
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands.map(c => c.toJSON()) });
-  console.log("Comandos de stock, IA, cargos e emojis registrados.");
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands.map(c => c.toJSON()) });
+  console.log("Comandos globais registrados para todos os servidores do bot.");
 }
 client.once("ready", async () => {
+  migrateLegacyConfig();
   await syncApplicationEmojis();
   console.log(`Bot conectado como ${client.user.tag}`);
   try {
@@ -1037,9 +1104,9 @@ client.on("interactionCreate", async interaction => {
         const normal = Array.isArray(latest.normal) ? latest.normal : [];
         const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
         const components = [];
-        if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal"));
-        if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage"));
-        if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL", null));
+        if (normal.length) components.push(stockContainer(normal, stockTitle("normal", getGuildConfig(interaction.guildId)), "normal", getGuildConfig(interaction.guildId)));
+        if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage", getGuildConfig(interaction.guildId)), "mirage", getGuildConfig(interaction.guildId)));
+        if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL", null, getGuildConfig(interaction.guildId)));
         await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
         return;
       }
@@ -1141,10 +1208,10 @@ client.on("interactionCreate", async interaction => {
       const normal = Array.isArray(latest.normal) ? latest.normal : [];
       const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
       const components = [];
-      if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal"));
-      if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage"));
+      if (normal.length) components.push(stockContainer(normal, stockTitle("normal", getGuildConfig(interaction.guildId)), "normal", getGuildConfig(interaction.guildId)));
+      if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage", getGuildConfig(interaction.guildId)), "mirage", getGuildConfig(interaction.guildId)));
       if (!components.length) {
-        components.push(stockContainer([], "🍈 STOCK ATUAL", null));
+        components.push(stockContainer([], "🍈 STOCK ATUAL", null, getGuildConfig(interaction.guildId)));
       }
       await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
     } catch (e) {
@@ -1163,13 +1230,21 @@ client.on("interactionCreate", async interaction => {
     } catch (e) {
       await interaction.editReply("❌ Não consegui consultar a Wiki: " + e.message + ". O último stock salvo foi preservado.");
     }
+  } else if (interaction.commandName === "set-stock-channel") {
+    const channel = interaction.options.getChannel("channel", true);
+    if (!channel.isTextBased() || !channel.send) {
+      await interaction.reply({ content: "❌ Escolha um canal de texto.", ephemeral: true });
+      return;
+    }
+    updateGuildConfig(interaction.guildId, config => { config.channelId = channel.id; });
+    await interaction.reply({ content: "✅ Canal de stock configurado para " + channel + ".", ephemeral: true });
   } else if (interaction.commandName === "set-stock-title") {
     const groupKey = interaction.options.getString("stock_type");
     const title = interaction.options.getString("title").trim();
-    const config = readConfig();
-    config.titles = config.titles || {};
-    config.titles[groupKey] = title;
-    saveConfig(config);
+    updateGuildConfig(interaction.guildId, config => {
+      config.titles = config.titles || {};
+      config.titles[groupKey] = title;
+    });
     await interaction.reply({
       content: `Título do ${groupKey === "mirage" ? "Stock da Mirage" : "Stock Normal"} alterado para **${title}**.`,
       ephemeral: true
@@ -1177,66 +1252,60 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "set-fruit-role") {
     const fruit = fruitKey(interaction.options.getString("fruit"));
     const role = interaction.options.getRole("role");
-    const config = readConfig();
-    config.roles = config.roles || {};
-    config.roles[fruit] = role.id;
-    saveConfig(config);
+    updateGuildConfig(interaction.guildId, config => {
+      config.roles = config.roles || {};
+      config.roles[fruit] = role.id;
+    });
     await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
   } else if (interaction.commandName === "list-roles") {
-    const roles = readConfig().roles || {};
+    const roles = getGuildConfig(interaction.guildId).roles || {};
     const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
     const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\n");
     await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
   } else if (interaction.commandName === "remove-role") {
     const fruit = fruitKey(interaction.options.getString("fruit"));
-    const config = readConfig();
-    config.roles = config.roles || {};
+    const config = getGuildConfig(interaction.guildId);
     if (!config.roles[fruit]) {
       await interaction.reply({ content: `Não há cargo configurado para **${fruit}**.`, ephemeral: true });
     } else {
-      delete config.roles[fruit];
-      saveConfig(config);
+      updateGuildConfig(interaction.guildId, config => { delete config.roles[fruit]; });
       await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
     }
   } else if (interaction.commandName === "stock-alert") {
     const action = interaction.options.getString("action", true);
-    const config = readConfig();
-    config.stockAlerts = config.stockAlerts || {};
-
+    const guildConfig = getGuildConfig(interaction.guildId);
     if (action === "set_channel") {
       const channel = interaction.options.getChannel("channel", true);
       if (!channel.isTextBased() || !channel.send) {
-        await interaction.reply({ content: "❌ Please select a text channel.", ephemeral: true });
+        await interaction.reply({ content: "❌ Escolha um canal de texto.", ephemeral: true });
         return;
       }
-      config.stockAlertChannelId = channel.id;
-      saveConfig(config);
-      await interaction.reply({ content: `✅ Stock alert channel set to ${channel}.`, ephemeral: true });
+      updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = channel.id; });
+      await interaction.reply({ content: "✅ Canal de alertas definido como " + channel + ".", ephemeral: true });
     } else if (action === "remove_channel") {
-      if (!config.stockAlertChannelId) {
-        await interaction.reply({ content: "There is no stock alert channel configured.", ephemeral: true });
+      if (!guildConfig.stockAlertChannelId) {
+        await interaction.reply({ content: "Não há canal de alertas configurado.", ephemeral: true });
       } else {
-        delete config.stockAlertChannelId;
-        saveConfig(config);
-        await interaction.reply({ content: "🔕 Stock alert channel removed.", ephemeral: true });
+        updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = null; });
+        await interaction.reply({ content: "🔕 Canal de alertas removido.", ephemeral: true });
       }
     } else if (action === "add_fruit") {
       const fruit = fruitKey(interaction.options.getString("fruit", true));
       const role = interaction.options.getRole("role", true);
-      config.stockAlerts[fruit] = role.id;
-      saveConfig(config);
-      await interaction.reply({ content: `🔔 Alert enabled for **${fruit}**. I will mention ${role} in the alert channel when it appears in stock.`, ephemeral: true });
+      updateGuildConfig(interaction.guildId, config => {
+        config.stockAlerts = config.stockAlerts || {};
+        config.stockAlerts[fruit] = role.id;
+      });
+      await interaction.reply({ content: "🔔 Alerta ativado para **" + fruit + "**. Vou mencionar " + role + " no canal de alertas quando aparecer.", ephemeral: true });
     } else if (action === "remove_fruit") {
       const fruit = fruitKey(interaction.options.getString("fruit", true));
-      if (!config.stockAlerts[fruit]) {
-        await interaction.reply({ content: `There is no alert configured for **${fruit}**.`, ephemeral: true });
+      if (!guildConfig.stockAlerts?.[fruit]) {
+        await interaction.reply({ content: "Não há alerta configurado para **" + fruit + "**.", ephemeral: true });
       } else {
-        delete config.stockAlerts[fruit];
-        saveConfig(config);
-        await interaction.reply({ content: `🔕 Alert removed for **${fruit}**.`, ephemeral: true });
+        updateGuildConfig(interaction.guildId, config => { delete config.stockAlerts[fruit]; });
+        await interaction.reply({ content: "🔕 Alerta removido para **" + fruit + "**.", ephemeral: true });
       }
-    }
-  } else if (interaction.commandName === "stock-prediction" || interaction.commandName === "stock-statistics") {
+    }  } else if (interaction.commandName === "stock-prediction" || interaction.commandName === "stock-statistics") {
     const groupKey = interaction.options.getString("stock_type", true);
     const isPrediction = interaction.commandName === "stock-prediction";
     await interaction.reply({ content: analyticsMessage(groupKey, isPrediction), ephemeral: true });
