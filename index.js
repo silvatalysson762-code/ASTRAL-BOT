@@ -693,15 +693,7 @@ client.on("messageCreate", async message => {
   }
 
   try {
-    console.log("[CHAT] Analisando intenção da mensagem.");
-    const stockGroups = await detectStockIntent(message.author.id, question);
-    console.log("[CHAT] Análise concluída: " + (stockGroups ? stockGroups.join(",") : "conversa normal"));
-    if (stockGroups) {
-      await sendSavedStock(message.channel, stockGroups);
-      return;
-    }
 
-    console.log("[CHAT] Enviando pergunta para a IA.");
     await message.channel.sendTyping();
     const answer = await askAI(message.author.id, question);
     console.log("[CHAT] IA respondeu; enviando resposta ao Discord.");
