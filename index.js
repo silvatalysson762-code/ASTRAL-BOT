@@ -965,7 +965,8 @@ async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   const registeredCommands = commands.map(c => c.toJSON());
 
-  // Limpa comandos locais antigos de todos os servidores para remover versões antigas.
+  // Remove qualquer comando antigo, inclusive comandos de IA/painel,
+  // antes de publicar somente os comandos que existem neste código.
   const guilds = [...client.guilds.cache.values()];
   for (const guild of guilds) {
     try {
@@ -976,9 +977,9 @@ async function registerCommands() {
     }
   }
 
-  // Publica somente os comandos atuais globalmente.
+  // Bulk overwrite global: qualquer comando global antigo é substituído.
   await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
-  console.log("[COMMANDS] Comandos globais registrados.");
+  console.log("[COMMANDS] Apenas os comandos atuais foram registrados globalmente.");
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
