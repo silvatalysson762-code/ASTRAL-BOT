@@ -423,7 +423,7 @@ async function resolveEmoji(input) {
 function stockContainer(stock, title, groupKey = null) {
   const lines = stock.map(item => {
     const price = beliPrice(item);
-    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${APPLICATION_UI_EMOJIS.robux} \`${Number(item.robux_price).toLocaleString("en-US")}` Robux` : ""}`;
+    return `${fruitEmoji(item)} **${safeName(item)}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${item.robux_price != null ? ` | ${APPLICATION_UI_EMOJIS.robux} \`${Number(item.robux_price).toLocaleString("en-US")}\` Robux` : ""}`;
   });
   const mentions = roleMentions(stock);
   const body = [
