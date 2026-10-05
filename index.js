@@ -66,7 +66,11 @@ function normalizeStock(payload) {
   if (Array.isArray(data)) return data.map(x => typeof x === "string" ? { name: x } : x);
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
-const WIKI_STOCK_URL = process.env.WIKI_STOCK_URL || "https://blox-fruits.fandom.com/wiki/Blox_Fruits_%22Stock%22";
+const STOCK_SOURCES = [...new Set([
+  process.env.WIKI_STOCK_URL,
+  "https://blox-fruits-wiki.com/wiki/stock/",
+  "https://blox-fruits.fandom.com/wiki/Blox_Fruits_%22Stock%22"
+].filter(Boolean))];
 
 function decodeHtmlEntities(value) {
   return String(value)
@@ -119,23 +123,32 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
 }
 
 async function getStock() {
-  // Consulta diretamente a página pública da Fandom, sem consumir créditos de API.
-  const response = await fetch(WIKI_STOCK_URL, {
-    headers: {
-      "Accept": "text/html,application/xhtml+xml",
-      "User-Agent": "Mozilla/5.0 (compatible; AstralStock/1.0; +https://github.com/)"
-    },
-    signal: AbortSignal.timeout(20000)
-  });
-  if (!response.ok) throw new Error("Fandom respondeu HTTP " + response.status);
-  const html = await response.text();
-  const text = htmlToStockText(html);
-  const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
-  const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-  if (!normal.length || !mirage.length) {
-    throw new Error("A Fandom ainda não apresentou as listas completas de stock. Nenhum dado salvo foi alterado.");
+  const failures = [];
+  for (const sourceUrl of STOCK_SOURCES) {
+    try {
+      console.log("[STOCK] Consultando fonte:", sourceUrl);
+      const response = await fetch(sourceUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
+        },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const html = await response.text();
+      const text = htmlToStockText(html);
+      const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
+      const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+      if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
+      console.log("[STOCK] Captura válida pela fonte " + sourceUrl +
+        " (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
+      return [...normal, ...mirage];
+    } catch (error) {
+      failures.push(sourceUrl + ": " + error.message);
+      console.warn("[STOCK] Fonte indisponível; tentando a próxima:", error.message);
+    }
   }
-  return [...normal, ...mirage];
+  throw new Error("Nenhuma fonte de stock respondeu corretamente. " + failures.join(" | "));
 }
 function safeName(item) {
   return String(item.name || item.Name || item.fruit || item.Fruit || "Fruta desconhecida");
@@ -187,14 +200,18 @@ function stockTitle(groupKey) {
   return config.titles?.[groupKey] || defaults[groupKey] || "🍈 Blox Fruits | Stock atualizado";
 }
 function nextGlobalReset(groupKey, now = new Date()) {
+  // Horários globais em UTC: Normal às horas múltiplas de 4;
+  // Mirage nas horas ímpares, duas horas depois de cada reset normal.
   const intervalHours = groupKey === "mirage" ? 2 : 4;
-  const d = new Date(now.getTime());
-  const hour = d.getUTCHours();
-  let nextHour = hour + (intervalHours - (hour % intervalHours));
-  if (nextHour === hour && (d.getUTCMinutes() || d.getUTCSeconds() || d.getUTCMilliseconds())) nextHour += intervalHours;
-  if (nextHour >= 24) { d.setUTCDate(d.getUTCDate() + 1); nextHour -= 24; }
-  d.setUTCHours(nextHour, 0, 0, 0);
-  return d;
+  const offset = groupKey === "mirage" ? 1 : 0;
+  const candidate = new Date(now.getTime());
+  candidate.setUTCHours(candidate.getUTCHours(), 0, 0, 0);
+  for (let i = 0; i <= 24; i++) {
+    const hour = candidate.getUTCHours();
+    if (((hour - offset + 24) % intervalHours) === 0 && candidate.getTime() > now.getTime()) return candidate;
+    candidate.setUTCHours(candidate.getUTCHours() + 1);
+  }
+  throw new Error("Não foi possível calcular o próximo reset de " + groupKey + ".");
 }
 function brasilTime(timestamp) {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: BRASIL_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(timestamp));
