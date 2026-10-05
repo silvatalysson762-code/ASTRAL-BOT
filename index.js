@@ -258,6 +258,31 @@ function fruitEmoji(item) {
   const key = fruitKey(safeName(item));
   return APPLICATION_FRUIT_EMOJIS[key] || readConfig().emojis?.[key] || "🍈";
 }
+
+async function hydrateApplicationEmojis() {
+  try {
+    const appEmojis = await client.application.emojis.fetch();
+    const byId = new Map(appEmojis.map(emoji => [emoji.id, emoji]));
+
+    for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
+      const match = String(value).match(/^<a?:[^:>]+:(\\d+)>$/);
+      if (!match) continue;
+      const emoji = byId.get(match[1]);
+      if (emoji) APPLICATION_UI_EMOJIS[key] = `${emoji.animated ? "<a" : "<"}:${emoji.name}:${emoji.id}>`;
+    }
+
+    for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
+      const match = String(value).match(/^<a?:[^:>]+:(\\d+)>$/);
+      if (!match) continue;
+      const emoji = byId.get(match[1]);
+      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = `${emoji.animated ? "<a" : "<"}:${emoji.name}:${emoji.id}>`;
+    }
+
+    console.log("[EMOJIS] Emojis da aplicação carregados:", appEmojis.size);
+  } catch (error) {
+    console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
+  }
+}
 const SAVED_BELI_PRICES = {
   Rocket: 5000, Spin: 7500, Blade: 30000, Spring: 60000, Bomb: 80000, Smoke: 100000, Spike: 180000,
   Flame: 250000, Ice: 350000, Sand: 420000, Dark: 500000, Eagle: 550000, Diamond: 600000, Light: 650000,
@@ -630,15 +655,13 @@ function analyticsMessage(groupKey, prediction = false) {
   return ["# 🔮 Previsão do Stock " + label, "", ...lines, "", "-# A porcentagem mostra a frequência nos registros anteriores. O horário é uma estimativa matemática, não uma chance garantida: o stock é aleatório."].join("\n");
 }
 async function testStockContainers() {
-  const config = readConfig();
-  const emojis = config.emojis || {};
   const lines = ALL_FRUITS.map(name => {
     const emoji = fruitEmoji({ name });
     const price = savedBeliPrice(name);
-    const priceText = price != null ? "<:59965:1556626992588267630> `" + Number(price).toLocaleString("en-US") + "`" : "<:59965:1556626992588267630> `Valor não cadastrado`";
+    const priceText = price != null ? APPLICATION_UI_EMOJIS.beli + " `" + Number(price).toLocaleString("en-US") + "`" : APPLICATION_UI_EMOJIS.beli + " `Valor não cadastrado`";
     return emoji + " **" + name + "** | " + priceText;
   });
-  const body = ["# <<:60119:1556621255984029706>1539652915050971226> Blox Fruits", "", ...lines].join("\n");
+  const body = ["# <:60119:1556621255984029706> Blox Fruits", "", ...lines].join("\n");
   return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
@@ -707,6 +730,8 @@ client.once("ready", async () => {
   } catch (error) {
     console.error("Erro ao registrar comandos do Astral Stock:", error);
   }
+
+  await hydrateApplicationEmojis();
 
   // Captura inicial: se o estado estiver vazio, publica o stock válido atual.
   // Se a fonte estiver indisponível, checkStock registra o erro e o agendador segue ativo.
