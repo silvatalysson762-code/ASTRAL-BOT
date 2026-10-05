@@ -274,17 +274,17 @@ async function hydrateApplicationEmojis() {
 
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
       const emoji = resolveApplicationEmoji(value);
-      if (emoji) APPLICATION_UI_EMOJIS[key] = emoji.identifier;
+      if (emoji) APPLICATION_UI_EMOJIS[key] = emoji.toString();
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
       const emoji = resolveApplicationEmoji(value);
-      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.identifier;
+      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.toString();
     }
 
     const testEmoji = byId.get("1556626983147012116") || byName.get("60170");
     console.log("[EMOJIS] Aplicação:", client.application.id, "| Emojis carregados:", appEmojis.size);
-    console.log("[EMOJIS] Rocket:", testEmoji ? testEmoji.identifier : "NÃO ENCONTRADO");
+    console.log("[EMOJIS] Rocket:", testEmoji ? testEmoji.toString() : "NÃO ENCONTRADO");
   } catch (error) {
     console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
   }
