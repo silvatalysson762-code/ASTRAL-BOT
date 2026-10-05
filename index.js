@@ -258,44 +258,6 @@ function fruitEmoji(item) {
   return APPLICATION_FRUIT_EMOJIS[key] || readConfig().emojis?.[key] || "🍈";
 }
 
-async function hydrateApplicationEmojis() {
-  try {
-    const appEmojis = await client.application.emojis.fetch();
-    const byId = new Map(appEmojis.map(emoji => [emoji.id, emoji]));
-    const byName = new Map(appEmojis.map(emoji => [String(emoji.name).toLowerCase(), emoji]));
-
-    // Application emojis devem ser usados pelo identificador real retornado pelo Discord.
-    // Primeiro tentamos o ID salvo e, se ele tiver mudado, tentamos o nome do emoji.
-    const resolveApplicationEmoji = value => {
-      const match = String(value).match(/^<a?:([^:>]+):(\d+)>$/);
-      if (!match) return null;
-      return byId.get(match[2]) || byName.get(match[1].toLowerCase()) || null;
-    };
-
-    const applicationEmojiMarkup = emoji => {
-      if (!emoji) return null;
-      return emoji.animated
-        ? `<a:${emoji.name}:${emoji.id}>`
-        : `<:${emoji.name}:${emoji.id}>`;
-    };
-
-    for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
-      const emoji = resolveApplicationEmoji(value);
-      if (emoji) APPLICATION_UI_EMOJIS[key] = applicationEmojiMarkup(emoji);
-    }
-
-    for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
-      const emoji = resolveApplicationEmoji(value);
-      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
-    }
-
-    const testEmoji = byId.get("1556626983147012116") || byName.get("60170");
-    console.log("[EMOJIS] Aplicação:", client.application.id, "| Emojis carregados:", appEmojis.size);
-    console.log("[EMOJIS] Rocket:", testEmoji ? applicationEmojiMarkup(testEmoji) : "NÃO ENCONTRADO");
-  } catch (error) {
-    console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
-  }
-}
 const SAVED_BELI_PRICES = {
   Rocket: 5000, Spin: 7500, Blade: 30000, Spring: 60000, Bomb: 80000, Smoke: 100000, Spike: 180000,
   Flame: 250000, Ice: 350000, Sand: 420000, Dark: 500000, Eagle: 550000, Diamond: 600000, Light: 650000,
@@ -743,8 +705,6 @@ client.once("ready", async () => {
   } catch (error) {
     console.error("Erro ao registrar comandos do Astral Stock:", error);
   }
-
-  await hydrateApplicationEmojis();
 
   // Captura inicial: se o estado estiver vazio, publica o stock válido atual.
   // Se a fonte estiver indisponível, checkStock registra o erro e o agendador segue ativo.
