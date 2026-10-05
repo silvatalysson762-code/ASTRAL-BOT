@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, REST, Routes, AttachmentBuilder,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, REST, Routes, AttachmentBuilder,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 const OpenAI = require("openai");
@@ -919,9 +919,51 @@ const fruitOption = (option) => option.setName("fruit").setDescription("Fruit na
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
+async function getRobloxAvatar(username) {
+  const cleanUsername = String(username || "").trim();
+  if (!cleanUsername) throw new Error("Informe um nome de usuário do Roblox.");
+
+  const userResponse = await fetch("https://users.roblox.com/v1/usernames/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({
+      usernames: [cleanUsername],
+      excludeBannedUsers: false
+    }),
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!userResponse.ok) throw new Error("Não consegui consultar o usuário do Roblox.");
+  const userData = await userResponse.json();
+  const user = userData.data?.[0];
+  if (!user?.id) throw new Error("Usuário do Roblox não encontrado.");
+
+  const avatarUrl =
+    "https://thumbnails.roblox.com/v1/users/avatar" +
+    "?userIds=" + encodeURIComponent(user.id) +
+    "&size=720x720&format=Png&isCircular=false";
+
+  const avatarResponse = await fetch(avatarUrl, {
+    headers: { "Accept": "application/json" },
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!avatarResponse.ok) throw new Error("Não consegui carregar a imagem do avatar.");
+  const avatarData = await avatarResponse.json();
+  const imageUrl = avatarData.data?.[0]?.imageUrl;
+  if (!imageUrl) throw new Error("O Roblox não retornou a imagem desse avatar.");
+
+  return {
+    id: user.id,
+    username: user.name,
+    displayName: user.displayName || user.name,
+    imageUrl
+  };
+}
+
 const commands = [
   // General
   new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock"),
+  new SlashCommandBuilder().setName("avatar").setDescription("Show a Roblox avatar").addStringOption(option => option.setName("username").setDescription("Roblox username").setRequired(true).setMaxLength(20)),
   new SlashCommandBuilder().setName("ask").setDescription("Chat with Astral Stock AI")
     .addStringOption(option => option.setName("question").setDescription("What would you like to ask?").setRequired(true).setMaxLength(1000)),
   new SlashCommandBuilder().setName("generate-image").setDescription("Generate an image with AI")
@@ -1150,7 +1192,34 @@ client.on("interactionCreate", async interaction => {
   }
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "generate-image") {
+  if (interaction.commandName === "avatar") {
+    await interaction.deferReply();
+    try {
+      const username = interaction.options.getString("username", true);
+      const avatar = await getRobloxAvatar(username);
+
+      const container = new ContainerBuilder()
+        .setAccentColor(0x00FFFF)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "# " + avatar.displayName + "\n-# @" + avatar.username
+          )
+        )
+        .addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(avatar.imageUrl)
+          )
+        );
+
+      await interaction.editReply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
+      });
+    } catch (error) {
+      console.error("Erro no /avatar:", error);
+      await interaction.editReply("❌ " + (error.message || "Não consegui carregar esse avatar do Roblox."));
+    }
+  } else   if (interaction.commandName === "generate-image") {
     const now = Date.now();
     const last = imageCooldown.get(interaction.user.id) || 0;
     const waitMs = 45000 - (now - last);
