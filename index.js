@@ -53,17 +53,25 @@ function normalizeStock(payload) {
   if (data && data.result) data = data.result;
   if (data && data.stock) data = data.stock;
 
+  const normalizeItem = (item, type) => {
+    const value = typeof item === "string" ? { name: item } : { ...(item || {}) };
+    const robux = value.robux_price ?? value.robuxPrice ?? value.robux ?? value.permanent_price ?? value.permanentPrice ?? value.permanent_robux;
+    const beli = value.money_price ?? value.price_beli ?? value.beli_price ?? value.beliPrice ?? value.price;
+    return {
+      ...value,
+      type,
+      ...(beli != null && beli !== "" ? { money_price: beli } : {}),
+      ...(robux != null && robux !== "" ? { robux_price: robux } : {})
+    };
+  };
+
   if (data && (Array.isArray(data.normal) || Array.isArray(data.mirage))) {
     const list = [];
-    for (const item of data.normal || []) {
-      list.push(typeof item === "string" ? { name: item, type: "Normal" } : { ...item, type: "Normal" });
-    }
-    for (const item of data.mirage || []) {
-      list.push(typeof item === "string" ? { name: item, type: "Mirage" } : { ...item, type: "Mirage" });
-    }
+    for (const item of data.normal || []) list.push(normalizeItem(item, "Normal"));
+    for (const item of data.mirage || []) list.push(normalizeItem(item, "Mirage"));
     return list;
   }
-  if (Array.isArray(data)) return data.map(x => typeof x === "string" ? { name: x } : x);
+  if (Array.isArray(data)) return data.map(x => normalizeItem(x, x?.type || "Normal"));
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
 const STOCK_SOURCES = [...new Set([
