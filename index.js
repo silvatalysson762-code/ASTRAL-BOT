@@ -195,17 +195,17 @@ async function sendStockAlerts(stock, groupKey) {
 }
 
 const APPLICATION_UI_EMOJIS = {
-  beli: "<:59965:1556626992588267630>",
-  clock: "<a:59971:1556626990893629470>",
-  stockTitle: "<:60172:1556626988587639892>",
-  mirageTitle: "<:60171:1556626985487306752>",
-  rocket: "<:60170:1556626983147012116>",
-  spin: "<:60169:1556626981012111360>",
-  blade: "<:60168:1556626979149713538>",
-  spring: "<:60167:1556626976813613086>",
-  bomb: "<:60166:1556626975236558918>",
-  smoke: "<:60165:1556626973558710342>",
-  spike: "<:60164:1556626971843362877>"
+  beli: "<:beli:1556626992588267630>",
+  clock: "<a:stock_clock:1556626990893629470>",
+  stockTitle: "<:stock_title:1556626988587639892>",
+  mirageTitle: "<:mirage_title:1556626985487306752>",
+  rocket: "<:rocket:1556626983147012116>",
+  spin: "<:spin:1556626981012111360>",
+  blade: "<:blade:1556626979149713538>",
+  spring: "<:spring:1556626976813613086>",
+  bomb: "<:bomb:1556626975236558918>",
+  smoke: "<:smoke:1556626973558710342>",
+  spike: "<:spike:1556626971843362877>"
 };
 
 const APPLICATION_FRUIT_EMOJIS = {
@@ -216,42 +216,134 @@ const APPLICATION_FRUIT_EMOJIS = {
   bomb: APPLICATION_UI_EMOJIS.bomb,
   smoke: APPLICATION_UI_EMOJIS.smoke,
   spike: APPLICATION_UI_EMOJIS.spike,
-  flame: "<:60155:1556625833408598026>",
-  ice: "<:60154:1556625830720049252>",
-  sand: "<:60153:1556625828429963336>",
-  dark: "<:60152:1556625826252984340>",
-  eagle: "<:60151:1556625823908495391>",
-  diamond: "<:60150:1556625822175993966>",
-  light: "<:60149:1556625820561444884>",
-  rubber: "<:60148:1556625818770341968>",
-  ghost: "<:60147:1556625817214124122>",
-  magma: "<:60146:1556625815389601792>",
-  quake: "<:60144:155662458504855050>",
-  buddha: "<:60143:1556624582385991761>",
-  love: "<:60142:1556624580649689119>",
-  creation: "<:60141:1556624578275442748>",
-  spider: "<:60140:15566245756300187698>",
-  sound: "<:60139:1556624573678620733>",
-  phoenix: "<:60138:1556624570579161108>",
-  portal: "<:60137:1556624565239808020>",
-  lightning: "<:60136:1556624562515777838>",
-  pain: "<:60135:1556624560353321131>",
-  blizzard: "<:60134:1556624558134534225>",
-  gravity: "<:60132:1556621287521263677>",
-  mammoth: "<:60131:1556621285268914227>",
-  "t-rex": "<:60130:1556621283591192597>",
-  dough: "<:60129:1556621282198429696>",
-  shadow: "<:60128:1556621279304351834>",
-  venom: "<:60127:1556621276922253372>",
-  gas: "<:60126:1556621274891948062>",
-  spirit: "<:60125:1556621272606183526>",
-  tiger: "<:60124:1556621270643245127>",
-  yeti: "<:60123:1556621268575330315>",
-  magnet: "<:60122:1556621263013941258>",
-  kitsune: "<:60121:1556621259939258500>",
-  control: "<:60120:1556621258182103090>",
-  dragon: "<:60119:1556621255984029706>"
+  flame: "<:flame:1556625833408598026>",
+  ice: "<:ice:1556625830720049252>",
+  sand: "<:sand:1556625828429963336>",
+  dark: "<:dark:1556625826252984340>",
+  eagle: "<:eagle:1556625823908495391>",
+  diamond: "<:diamond:1556625822175993966>",
+  light: "<:light:1556625820561444884>",
+  rubber: "<:rubber:1556625818770341968>",
+  ghost: "<:ghost:1556625817214124122>",
+  magma: "<:magma:1556625815389601792>",
+  quake: "<:quake:155662458504855050>",
+  buddha: "<:buddha:1556624582385991761>",
+  love: "<:love:1556624580649689119>",
+  creation: "<:creation:1556624578275442748>",
+  spider: "<:spider:15566245756300187698>",
+  sound: "<:sound:1556624573678620733>",
+  phoenix: "<:phoenix:1556624570579161108>",
+  portal: "<:portal:1556624565239808020>",
+  lightning: "<:lightning:1556624562515777838>",
+  pain: "<:pain:1556624560353321131>",
+  blizzard: "<:blizzard:1556624558134534225>",
+  gravity: "<:gravity:1556621287521263677>",
+  mammoth: "<:mammoth:1556621285268914227>",
+  "t-rex": "<:trex:1556621283591192597>",
+  dough: "<:dough:1556621282198429696>",
+  shadow: "<:shadow:1556621279304351834>",
+  venom: "<:venom:1556621276922253372>",
+  gas: "<:gas:1556621274891948062>",
+  spirit: "<:spirit:1556621272606183526>",
+  tiger: "<:tiger:1556621270643245127>",
+  yeti: "<:yeti:1556621268575330315>",
+  magnet: "<:magnet:1556621263013941258>",
+  kitsune: "<:kitsune:1556621259939258500>",
+  control: "<:control:1556621258182103090>",
+  dragon: "<:dragon:1556621255984029706>"
 };
+
+const APPLICATION_EMOJI_RENAMES = {
+  "1556626992588267630": "beli",
+  "1556626990893629470": "stock_clock",
+  "1556626988587639892": "stock_title",
+  "1556626985487306752": "mirage_title",
+  "1556626983147012116": "rocket",
+  "1556626981012111360": "spin",
+  "1556626979149713538": "blade",
+  "1556626976813613086": "spring",
+  "1556626975236558918": "bomb",
+  "1556626973558710342": "smoke",
+  "1556626971843362877": "spike",
+  "1556625833408598026": "flame",
+  "1556625830720049252": "ice",
+  "1556625828429963336": "sand",
+  "1556625826252984340": "dark",
+  "1556625823908495391": "eagle",
+  "1556625822175993966": "diamond",
+  "1556625820561444884": "light",
+  "1556625818770341968": "rubber",
+  "1556625817214124122": "ghost",
+  "1556625815389601792": "magma",
+  "155662458504855050": "quake",
+  "1556624582385991761": "buddha",
+  "1556624580649689119": "love",
+  "1556624578275442748": "creation",
+  "15566245756300187698": "spider",
+  "1556624573678620733": "sound",
+  "1556624570579161108": "phoenix",
+  "1556624565239808020": "portal",
+  "1556624562515777838": "lightning",
+  "1556624560353321131": "pain",
+  "1556624558134534225": "blizzard",
+  "1556621287521263677": "gravity",
+  "1556621285268914227": "mammoth",
+  "1556621283591192597": "trex",
+  "1556621282198429696": "dough",
+  "1556621279304351834": "shadow",
+  "1556621276922253372": "venom",
+  "1556621274891948062": "gas",
+  "1556621272606183526": "spirit",
+  "1556621270643245127": "tiger",
+  "1556621268575330315": "yeti",
+  "1556621263013941258": "magnet",
+  "1556621259939258500": "kitsune",
+  "1556621258182103090": "control",
+  "1556621255984029706": "dragon"
+};
+
+function applicationEmojiMarkup(emoji) {
+  if (!emoji?.id || !emoji?.name) return null;
+  return `<${emoji.animated ? "a" : ""}:${emoji.name}:${emoji.id}>`;
+}
+
+async function syncApplicationEmojis() {
+  try {
+    const emojis = await client.application.emojis.fetch();
+    let changed = 0;
+
+    for (const emoji of emojis.values()) {
+      const wantedName = APPLICATION_EMOJI_RENAMES[emoji.id];
+      if (wantedName && emoji.name !== wantedName) {
+        try {
+          await emoji.setName(wantedName);
+          changed++;
+        } catch (error) {
+          console.warn(`[EMOJIS] Não consegui renomear ${emoji.id}: ${error.message}`);
+        }
+      }
+    }
+
+    const refreshed = changed ? await client.application.emojis.fetch() : emojis;
+    const byId = new Map(refreshed.map(emoji => [emoji.id, emoji]));
+
+    for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
+      const match = String(value).match(/<a?:[^:>]+:(\d+)>/);
+      const emoji = match && byId.get(match[1]);
+      if (emoji) APPLICATION_UI_EMOJIS[key] = applicationEmojiMarkup(emoji);
+    }
+
+    for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
+      const match = String(value).match(/<a?:[^:>]+:(\d+)>/);
+      const emoji = match && byId.get(match[1]);
+      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
+    }
+
+    console.log(`[EMOJIS] Aplicação sincronizada: ${refreshed.size} emojis, ${changed} nomes ajustados.`);
+  } catch (error) {
+    console.warn("[EMOJIS] Falha ao sincronizar emojis da aplicação:", error.message);
+  }
+}
 
 function fruitEmoji(item) {
   const key = fruitKey(safeName(item));
@@ -699,6 +791,7 @@ async function registerCommands() {
   console.log("Comandos de stock, IA, cargos e emojis registrados.");
 }
 client.once("ready", async () => {
+  await syncApplicationEmojis();
   console.log(`Bot conectado como ${client.user.tag}`);
   try {
     await registerCommands();
