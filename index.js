@@ -209,6 +209,17 @@ const APPLICATION_UI_EMOJIS = {
   robux: "<:robux:1556626988578639892>",
 };
 
+const PERMANENT_ROBUX_PRICES = {
+  rocket: 50, spin: 75, blade: 100, spring: 180, bomb: 220, smoke: 250, spike: 380,
+  flame: 550, ice: 750, sand: 850, dark: 950, eagle: 975, diamond: 1000,
+  light: 1100, rubber: 1200, ghost: 1275, magma: 1300,
+  quake: 1500, buddha: 1650, love: 1700, creation: 1750, spider: 1800, sound: 1900,
+  phoenix: 2000, portal: 2000, lightning: 2100, pain: 2200, blizzard: 2250,
+  gravity: 2300, mammoth: 2350, "t-rex": 2350, dough: 2400, shadow: 2425,
+  venom: 2450, gas: 2500, spirit: 2550, tiger: 3000, yeti: 3000,
+  magnet: 3500, kitsune: 4000, control: 4000, dragon: 5000
+};
+
 const APPLICATION_FRUIT_EMOJIS = {
   rocket: APPLICATION_UI_EMOJIS.rocket,
   spin: APPLICATION_UI_EMOJIS.spin,
@@ -993,14 +1004,12 @@ client.on("interactionCreate", async interaction => {
     const lines = ALL_FRUITS.map(name => {
       const emoji = fruitEmoji({ name });
       const price = savedBeliPrice(name);
-      const robux = {
-        "Permanent Rocket": 50,
-        "Permanent Spin": 75
-      };
       const priceText = price != null
         ? APPLICATION_UI_EMOJIS.beli + " \`" + Number(price).toLocaleString("en-US") + "\`"
         : APPLICATION_UI_EMOJIS.beli + " \`Valor não cadastrado\`";
-      return emoji + " **" + name + "** | " + priceText;
+      const robuxPrice = PERMANENT_ROBUX_PRICES[fruitKey(name)];
+      const robuxText = robuxPrice != null ? " | " + APPLICATION_UI_EMOJIS.robux + " \`" + Number(robuxPrice).toLocaleString("en-US") + "\`" : "";
+      return emoji + " **" + name + "** | " + priceText + robuxText;
     });
     const testText = [
       "# " + APPLICATION_FRUIT_EMOJIS.dragon + " Blox Fruits",
