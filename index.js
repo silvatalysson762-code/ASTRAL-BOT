@@ -1200,17 +1200,41 @@ client.on("interactionCreate", async interaction => {
       APPLICATION_UI_EMOJIS.robux + " **Robux** 2,400"
     ].join("\n");
 
-    const testContainer = new ContainerBuilder()
+    // Divide o teste em páginas para nunca ultrapassar os limites de componentes/mensagem do Discord.
+    const maxChars = 3500;
+    const pages = [];
+    let current = "";
+
+    for (const line of testText.split("\n")) {
+      const candidate = current ? current + "\n" + line : line;
+      if (candidate.length > maxChars && current) {
+        pages.push(current);
+        current = line;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) pages.push(current);
+
+    const makeTestContainer = content => new ContainerBuilder()
       .setAccentColor(0x00FFFF)
       .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(testText)
+        new TextDisplayBuilder().setContent(content)
       );
 
     await interaction.reply({
-      components: [testContainer],
+      components: [makeTestContainer(pages[0])],
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] }
     });
+
+    for (const page of pages.slice(1)) {
+      await interaction.followUp({
+        components: [makeTestContainer(page)],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
+      });
+    }
   } else if (interaction.commandName === "dashboard") {
     await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
