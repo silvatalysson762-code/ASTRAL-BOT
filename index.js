@@ -621,39 +621,64 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function runScheduledStockCycle(groupKey, resetAt) {
-  const state = readState();
-  const baseline = state.stockSignatures?.[groupKey] || null;
-  console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento após o reset ${new Date(resetAt).toISOString()}.`);
+  const initialState = readState();
+  const baseline = initialState.stockSignatures?.[groupKey] || null;
+  const resetLabel = new Date(resetAt).toISOString();
 
-  // Dá um minuto para a Wiki refletir a rotação antes da primeira captura.
-  await wait(60000);
+  console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento. Reset previsto: ${resetLabel}.`);
+
+  // A rotação real pode atrasar alguns segundos/minutos em relação ao horário previsto.
+  // Por isso, nunca publicamos apenas porque o relógio virou: primeiro confirmamos
+  // que a assinatura do stock realmente mudou.
+  const firstCheckDelay = Math.min(
+    Math.max(resetAt + 30000 - Date.now(), 5000),
+    60000
+  );
+  await wait(firstCheckDelay);
+
+  let attempts = 0;
+  let consecutiveErrors = 0;
 
   while (true) {
+    attempts++;
+
     try {
       const stock = await getStock();
       const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
       const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+
+      // Nunca considera uma resposta parcial como uma rotação válida.
       if (!normal.length || !mirage.length) {
-        throw new Error("A fonte não retornou as duas listas completas.");
+        throw new Error("A fonte retornou stock incompleto; aguardando a próxima consulta.");
       }
 
       const items = groupKey === "normal" ? normal : mirage;
       const currentSignature = signature(items);
       const savedSignature = readState().stockSignatures?.[groupKey] || baseline;
 
-      if (savedSignature === null || currentSignature !== savedSignature) {
-        console.log(`[SCHEDULER] Nova rotação detectada para ${groupKey}; tentando publicar.`);
+      if (savedSignature && currentSignature === savedSignature) {
+        consecutiveErrors = 0;
+        console.log(`[SCHEDULER] ${groupKey}: a fonte ainda mostra o stock anterior. Tentativa ${attempts}; nova consulta em 60s.`);
+      } else {
+        // A assinatura mudou. checkStock grava/publica somente depois de confirmar
+        // novamente que o resultado recebido é válido.
+        console.log(`[SCHEDULER] ${groupKey}: nova rotação detectada; validando publicação.`);
         const published = await checkStock(false, [groupKey], false, stock);
         const after = readState().stockSignatures?.[groupKey];
+
         if (published && after === currentSignature) {
-          console.log(`[SCHEDULER] ${groupKey} publicado e salvo com sucesso.`);
+          console.log(`[SCHEDULER] ${groupKey}: nova rotação publicada e salva com sucesso.`);
           return;
         }
-      } else {
-        console.log(`[SCHEDULER] ${groupKey} ainda não mudou. Nova consulta em 60 segundos.`);
+
+        console.warn(`[SCHEDULER] ${groupKey}: a rotação foi detectada, mas não foi confirmada no estado. Nova tentativa em 30s.`);
       }
     } catch (error) {
-      console.warn(`[SCHEDULER] Falha ao consultar ${groupKey}: ${error.message}. Nova tentativa em 60 segundos.`);
+      consecutiveErrors++;
+      const retrySeconds = Math.min(60, 15 + consecutiveErrors * 10);
+      console.warn(`[SCHEDULER] ${groupKey}: consulta ${attempts} falhou: ${error.message}. Nova tentativa em ${retrySeconds}s.`);
+      await wait(retrySeconds * 1000);
+      continue;
     }
 
     await wait(60000);
@@ -664,8 +689,6 @@ const activeStockCycles = new Set();
 let schedulerTimer = null;
 
 function startStockScheduler() {
-  // Cada grupo tem seu próprio ciclo. Uma falha prolongada na Wiki não bloqueia
-  // o agendamento do outro grupo nem impede o processo de continuar vivo.
   const tick = () => {
     const now = Date.now();
 
@@ -673,11 +696,13 @@ function startStockScheduler() {
       if (!nextStockAt[key] || now < nextStockAt[key]) continue;
 
       const dueAt = nextStockAt[key];
-      // Avança o próximo horário imediatamente, sem esperar a captura terminar.
+
+      // Agenda o próximo ciclo antes de iniciar o monitoramento atual.
+      // Assim, um atraso da API nunca trava o outro relógio.
       nextStockAt[key] = nextGlobalReset(key, new Date(now)).getTime();
 
       if (activeStockCycles.has(key)) {
-        console.log(`[SCHEDULER] ${key} já está em monitoramento; continuará tentando após o próximo reset.`);
+        console.log(`[SCHEDULER] ${key} já está em monitoramento; mantendo o ciclo atual.`);
         continue;
       }
 
@@ -691,9 +716,11 @@ function startStockScheduler() {
   };
 
   if (schedulerTimer) clearTimeout(schedulerTimer);
+
   nextStockAt.normal = nextGlobalReset("normal").getTime();
   nextStockAt.mirage = nextGlobalReset("mirage").getTime();
-  console.log("[SCHEDULER] Agendador ativo. Normal: ciclo de 4h; Mirage: ciclo de 2h; consulta 1 minuto após o reset.");
+
+  console.log("[SCHEDULER] Agendador ativo. Normal: 4h; Mirage: 2h; publicação somente após detectar mudança real no stock.");
   tick();
 }
 
