@@ -262,23 +262,29 @@ async function hydrateApplicationEmojis() {
   try {
     const appEmojis = await client.application.emojis.fetch();
     const byId = new Map(appEmojis.map(emoji => [emoji.id, emoji]));
+    const byName = new Map(appEmojis.map(emoji => [String(emoji.name).toLowerCase(), emoji]));
+
+    // Application emojis devem ser usados pelo identificador real retornado pelo Discord.
+    // Primeiro tentamos o ID salvo e, se ele tiver mudado, tentamos o nome do emoji.
+    const resolveApplicationEmoji = value => {
+      const match = String(value).match(/^<a?:([^:>]+):(\d+)>$/);
+      if (!match) return null;
+      return byId.get(match[2]) || byName.get(match[1].toLowerCase()) || null;
+    };
 
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
-      const match = String(value).match(/^<a?:[^:>]+:(\d+)>$/);
-      if (!match) continue;
-      const emoji = byId.get(match[1]);
-      if (emoji) APPLICATION_UI_EMOJIS[key] = emoji.toString();
+      const emoji = resolveApplicationEmoji(value);
+      if (emoji) APPLICATION_UI_EMOJIS[key] = emoji.identifier;
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
-      const match = String(value).match(/^<a?:[^:>]+:(\d+)>$/);
-      if (!match) continue;
-      const emoji = byId.get(match[1]);
-      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.toString();
+      const emoji = resolveApplicationEmoji(value);
+      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = emoji.identifier;
     }
-    console.log("[EMOJIS] Emojis da aplicação carregados:", appEmojis.size);
-    const testEmoji = byId.get("1556626983147012116");
-    console.log("[EMOJIS] Teste Rocket:", testEmoji ? testEmoji.toString() : "NÃO ENCONTRADO");
+
+    const testEmoji = byId.get("1556626983147012116") || byName.get("60170");
+    console.log("[EMOJIS] Aplicação:", client.application.id, "| Emojis carregados:", appEmojis.size);
+    console.log("[EMOJIS] Rocket:", testEmoji ? testEmoji.identifier : "NÃO ENCONTRADO");
   } catch (error) {
     console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
   }
@@ -661,7 +667,7 @@ async function testStockContainers() {
     const priceText = price != null ? APPLICATION_UI_EMOJIS.beli + " `" + Number(price).toLocaleString("en-US") + "`" : APPLICATION_UI_EMOJIS.beli + " `Valor não cadastrado`";
     return emoji + " **" + name + "** | " + priceText;
   });
-  const body = ["# <:60119:1556621255984029706> Blox Fruits", "", ...lines].join("\n");
+  const body = ["# " + APPLICATION_FRUIT_EMOJIS.dragon + " Blox Fruits", "", ...lines].join("\n");
   return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
