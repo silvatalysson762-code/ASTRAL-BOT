@@ -989,18 +989,14 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply("❌ Não consegui falar com a IA agora. Verifique a configuração da OpenAI.");
     }
   } else if (interaction.commandName === "test-stock") {
-    const lines = ALL_FRUITS.map(name => {
-      const emoji = fruitEmoji({ name });
-      const price = savedBeliPrice(name);
-      const priceText = price != null
-        ? APPLICATION_UI_EMOJIS.beli + " \`" + Number(price).toLocaleString("en-US") + "\`"
-        : APPLICATION_UI_EMOJIS.beli + " \`Valor não cadastrado\`";
-      return emoji + " **" + name + "** | " + priceText;
-    });
-    await interaction.reply({
-      content: "# " + APPLICATION_FRUIT_EMOJIS.dragon + " Blox Fruits\\n\\n" + lines.join("\\n"),
-      allowedMentions: { parse: [] }
-    });
+    const testText = [
+      "# " + APPLICATION_UI_EMOJIS.stockTitle + " Emoji Test",
+      "",
+      APPLICATION_UI_EMOJIS.rocket + " Rocket | " + APPLICATION_UI_EMOJIS.beli + " \`5,000\`",
+      APPLICATION_FRUIT_EMOJIS.dragon + " Dragon | " + APPLICATION_UI_EMOJIS.beli + " \`15,000,000\`",
+      APPLICATION_UI_EMOJIS.clock + " Clock test"
+    ].join("\n");
+    await interaction.reply({ content: testText, allowedMentions: { parse: [] } });
   } else if (interaction.commandName === "dashboard") {
     await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
