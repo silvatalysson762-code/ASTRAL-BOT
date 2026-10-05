@@ -616,7 +616,9 @@ async function detectStockIntent(userId, question) {
             "Use STOCK_MIRAGE quando pedir claramente o stock atual da Mirage.",
             "Use STOCK_BOTH quando pedir o stock atual sem especificar o tipo.",
             "Use CHAT para dúvidas, explicações, comentários, conversas ou qualquer mensagem que apenas mencione stock, frutas ou Mirage sem pedir os dados atuais.",
-            "Exemplos: 'como funciona o stock?' = CHAT; 'por que o stock muda?' = CHAT; 'qual é o horário do stock?' = CHAT; 'me mostra o stock' = STOCK_BOTH; 'quais frutas estão no stock agora?' = STOCK_BOTH; 'mostra o stock normal' = STOCK_NORMAL; 'tem o que na Mirage agora?' = STOCK_MIRAGE.",
+            "Uma palavra isolada como 'stock', 'estoque', 'fruta', 'Mirage' ou uma saudação NUNCA é pedido suficiente para enviar o estoque. Classifique como CHAT.",
+            "Só envie estoque quando a pessoa pedir claramente os dados disponíveis AGORA, com intenção explícita de consultar/ver/mostrar/listar o estoque.",
+            "Exemplos: 'stock' = CHAT; 'estoque?' = CHAT; 'oi @Astral' = CHAT; 'como funciona o stock?' = CHAT; 'por que o stock muda?' = CHAT; 'qual é o horário do stock?' = CHAT; 'me mostra o stock atual' = STOCK_BOTH; 'quais frutas estão disponíveis agora?' = STOCK_BOTH; 'mostra o stock normal de agora' = STOCK_NORMAL; 'me mostra a Mirage atual' = STOCK_MIRAGE.",
             "Na dúvida, escolha CHAT. Nunca classifique como pedido de stock só porque o usuário marcou o bot."
           ].join(" ")
         },
