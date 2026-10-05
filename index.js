@@ -977,9 +977,13 @@ async function registerCommands() {
     }
   }
 
-  // Bulk overwrite global: qualquer comando global antigo é substituído.
+  // Limpa explicitamente TODOS os comandos globais antigos antes de registrar os atuais.
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: [] });
+  console.log("[COMMANDS] Todos os comandos globais antigos foram removidos.");
   await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
-  console.log("[COMMANDS] Apenas os comandos atuais foram registrados globalmente.");
+
+  const registered = await rest.get(Routes.applicationCommands(process.env.CLIENT_ID));
+  console.log("[COMMANDS] Comandos globais ativos:", registered.map(command => "/" + command.name).join(", ") || "nenhum");
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
