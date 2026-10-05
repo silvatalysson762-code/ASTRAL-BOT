@@ -989,7 +989,18 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply("❌ Não consegui falar com a IA agora. Verifique a configuração da OpenAI.");
     }
   } else if (interaction.commandName === "test-stock") {
-    await interaction.reply({ components: await testStockContainers(), flags: MessageFlags.IsComponentsV2 });
+    const lines = ALL_FRUITS.map(name => {
+      const emoji = fruitEmoji({ name });
+      const price = savedBeliPrice(name);
+      const priceText = price != null
+        ? APPLICATION_UI_EMOJIS.beli + " \`" + Number(price).toLocaleString("en-US") + "\`"
+        : APPLICATION_UI_EMOJIS.beli + " \`Valor não cadastrado\`";
+      return emoji + " **" + name + "** | " + priceText;
+    });
+    await interaction.reply({
+      content: "# " + APPLICATION_FRUIT_EMOJIS.dragon + " Blox Fruits\\n\\n" + lines.join("\\n"),
+      allowedMentions: { parse: [] }
+    });
   } else if (interaction.commandName === "dashboard") {
     await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
