@@ -170,6 +170,31 @@ function roleMentions(stock) {
   }
   return [...new Set(mentions)].join(" ");
 }
+function stockAlertMentions(stock) {
+  const alerts = readConfig().stockAlerts || {};
+  const mentions = [];
+  for (const item of stock) {
+    const id = alerts[fruitKey(safeName(item))];
+    if (id && /^\\d{17,20}$/.test(String(id))) mentions.push(id);
+  }
+  return [...new Set(mentions)];
+}
+
+async function sendStockAlerts(stock, groupKey) {
+  const channelId = readConfig().stockAlertChannelId;
+  if (!channelId) return;
+  const roleIds = stockAlertMentions(stock);
+  if (!roleIds.length) return;
+  const channel = await client.channels.fetch(channelId);
+  if (!channel || !channel.isTextBased() || !channel.send) throw new Error("Canal de alertas indisponível.");
+  const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock Normal";
+  const names = stock.map(item => `${fruitEmoji(item)} **${safeName(item)}**`).join(", ");
+  await channel.send({
+    content: `🔔 **Alerta de ${label}!**\\n${names}\\n\\n${roleIds.map(id => `<@&${id}>`).join(" ")}`,
+    allowedMentions: { roles: roleIds }
+  });
+}
+
 function fruitEmoji(item) {
   const emojis = readConfig().emojis || {};
   return emojis[fruitKey(safeName(item))] || "🍈";
@@ -304,6 +329,10 @@ async function postStock(stock, announce, title, groupKey = null) {
   const channel = await client.channels.fetch(process.env.CHANNEL_ID);
   if (!channel || !channel.isTextBased() || !channel.send) throw new Error("CHANNEL_ID não é um canal de texto acessível.");
   await channel.send({ components: [stockContainer(stock, title, groupKey)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: ["roles"] } });
+  if (groupKey) {
+    try { await sendStockAlerts(stock, groupKey); }
+    catch (error) { console.error("[ALERTAS] Falha ao enviar alerta:", error.message); }
+  }
 }
 async function checkStock(force = false, onlyGroups = ["normal", "mirage"], throwOnError = false, providedStock = null) {
   if (checking) return false;
@@ -589,6 +618,16 @@ const commands = [
   new SlashCommandBuilder().setName("listar-cargos").setDescription("Lista os cargos configurados para as frutas")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("remover-cargo").setDescription("Remove o cargo configurado para uma fruta")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption),
+  new SlashCommandBuilder().setName("setstockalertchannel").setDescription("Define o canal para receber alertas de frutas")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addChannelOption(option => option.setName("canal").setDescription("Canal de texto dos alertas").setRequired(true)),
+  new SlashCommandBuilder().setName("addstockalerts").setDescription("Ativa alerta para uma fruta e cargo")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption)
+    .addRoleOption(option => option.setName("cargo").setDescription("Cargo que será mencionado").setRequired(true)),
+  new SlashCommandBuilder().setName("removestockalerts").setDescription("Remove alerta de uma fruta")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption)
 ];
@@ -878,6 +917,35 @@ client.on("interactionCreate", async interaction => {
       delete config.roles[fruit];
       saveConfig(config);
       await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
+    }
+  } else if (interaction.commandName === "setstockalertchannel") {
+    const channel = interaction.options.getChannel("canal", true);
+    if (!channel.isTextBased() || !channel.send) {
+      await interaction.reply({ content: "❌ Selecione um canal de texto.", ephemeral: true });
+      return;
+    }
+    const config = readConfig();
+    config.stockAlertChannelId = channel.id;
+    saveConfig(config);
+    await interaction.reply({ content: `✅ Canal de alertas definido para ${channel}.`, ephemeral: true });
+  } else if (interaction.commandName === "addstockalerts") {
+    const fruit = fruitKey(interaction.options.getString("fruta", true));
+    const role = interaction.options.getRole("cargo", true);
+    const config = readConfig();
+    config.stockAlerts = config.stockAlerts || {};
+    config.stockAlerts[fruit] = role.id;
+    saveConfig(config);
+    await interaction.reply({ content: `🔔 Alerta ativado para **${fruit}**. Vou mencionar ${role} no canal de alertas quando aparecer no stock.`, ephemeral: true });
+  } else if (interaction.commandName === "removestockalerts") {
+    const fruit = fruitKey(interaction.options.getString("fruta", true));
+    const config = readConfig();
+    config.stockAlerts = config.stockAlerts || {};
+    if (!config.stockAlerts[fruit]) {
+      await interaction.reply({ content: `Não existe alerta configurado para **${fruit}**.`, ephemeral: true });
+    } else {
+      delete config.stockAlerts[fruit];
+      saveConfig(config);
+      await interaction.reply({ content: `🔕 Alerta removido para **${fruit}**.`, ephemeral: true });
     }
   } else if (interaction.commandName === "previsao" || interaction.commandName === "estatisticas") {
     const groupKey = interaction.options.getString("estoque", true);
