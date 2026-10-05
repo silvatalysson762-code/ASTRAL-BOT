@@ -582,54 +582,67 @@ async function testStockContainers() {
   return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
-const fruitOption = (option) => option.setName("fruta").setDescription("Nome da fruta exatamente como aparece no stock").setRequired(true);
+const fruitOption = (option) => option.setName("fruit").setDescription("Fruit name exactly as shown in stock").setRequired(true);
+const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
+  .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
+
 const commands = [
-  new SlashCommandBuilder().setName("stock").setDescription("Mostra o stock atual de Blox Fruits"),
-  new SlashCommandBuilder().setName("painel").setDescription("Abre o painel completo do Astral Stock"),
-  new SlashCommandBuilder().setName("ia").setDescription("Conversa com a IA do Astral Stock").addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar").setRequired(true).setMaxLength(1000)),
-  new SlashCommandBuilder().setName("imagem").setDescription("Gera uma imagem com inteligência artificial").addStringOption(option => option.setName("prompt").setDescription("Descreva a imagem que deseja criar").setRequired(true).setMaxLength(1000)),
-  new SlashCommandBuilder().setName("testeestoque").setDescription("Mostra todas as frutas para testar os emojis").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("atualizar").setDescription("Consulta a Wiki e publica o stock atual").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("historico").setDescription("Mostra as últimas alterações de stock"),
-  new SlashCommandBuilder().setName("previsao").setDescription("Estima possíveis retornos de frutas com base no histórico")
-    .addStringOption(option => option.setName("estoque").setDescription("Qual estoque analisar").setRequired(true)
-      .addChoices({ name: "Stock Normal", value: "normal" }, { name: "Stock da Mirage", value: "mirage" })),
-  new SlashCommandBuilder().setName("estatisticas").setDescription("Mostra as frutas mais frequentes no histórico")
-    .addStringOption(option => option.setName("estoque").setDescription("Qual estoque analisar").setRequired(true)
-      .addChoices({ name: "Stock Normal", value: "normal" }, { name: "Stock da Mirage", value: "mirage" })),
-  new SlashCommandBuilder().setName("configurar-fruta").setDescription("Define o cargo que será mencionado para uma fruta")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(fruitOption)
-    .addRoleOption(option => option.setName("cargo").setDescription("Cargo que será mencionado").setRequired(true)),
-  new SlashCommandBuilder().setName("configurar-emoji").setDescription("Define o emoji que aparece ao lado de uma fruta")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(fruitOption)
-    .addStringOption(option => option.setName("emoji").setDescription("Emoji Unicode ou nome de um emoji da aplicação").setRequired(true)),
-  new SlashCommandBuilder().setName("configurar-titulo").setDescription("Edita o título do estoque normal ou Mirage")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(option => option.setName("estoque").setDescription("Qual estoque deseja editar").setRequired(true)
-      .addChoices({ name: "Stock Normal", value: "normal" }, { name: "Stock da Mirage", value: "mirage" }))
-    .addStringOption(option => option.setName("titulo").setDescription("Novo título que aparecerá na mensagem").setRequired(true).setMaxLength(100)),
-  new SlashCommandBuilder().setName("listar-emojis").setDescription("Lista os emojis configurados para as frutas")
+  // General
+  new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock"),
+  new SlashCommandBuilder().setName("dashboard").setDescription("Open the full Astral Stock dashboard"),
+  new SlashCommandBuilder().setName("ask").setDescription("Chat with Astral Stock AI")
+    .addStringOption(option => option.setName("question").setDescription("What would you like to ask?").setRequired(true).setMaxLength(1000)),
+  new SlashCommandBuilder().setName("generate-image").setDescription("Generate an image with AI")
+    .addStringOption(option => option.setName("prompt").setDescription("Describe the image you want").setRequired(true).setMaxLength(1000)),
+
+  // Stock tools
+  new SlashCommandBuilder().setName("test-stock").setDescription("Preview all fruits and configured emojis")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("remover-emoji").setDescription("Remove o emoji personalizado de uma fruta")
+  new SlashCommandBuilder().setName("refresh-stock").setDescription("Fetch and publish the current stock")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("stock-history").setDescription("Show recent stock changes"),
+  new SlashCommandBuilder().setName("stock-prediction").setDescription("Estimate possible fruit returns from history")
+    .addStringOption(stockTypeOption),
+  new SlashCommandBuilder().setName("stock-statistics").setDescription("Show the most frequent fruits in history")
+    .addStringOption(stockTypeOption),
+
+  // Server configuration
+  new SlashCommandBuilder().setName("set-fruit-role").setDescription("Set the role to mention when a fruit appears")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption)
+    .addRoleOption(option => option.setName("role").setDescription("Role to mention").setRequired(true)),
+  new SlashCommandBuilder().setName("set-fruit-emoji").setDescription("Set the emoji displayed next to a fruit")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(fruitOption)
+    .addStringOption(option => option.setName("emoji").setDescription("Unicode emoji or application emoji name").setRequired(true)),
+  new SlashCommandBuilder().setName("set-stock-title").setDescription("Edit the Normal or Mirage stock message title")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(stockTypeOption)
+    .addStringOption(option => option.setName("title").setDescription("New message title").setRequired(true).setMaxLength(100)),
+  new SlashCommandBuilder().setName("list-emojis").setDescription("List configured fruit emojis")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("remove-emoji").setDescription("Remove a custom fruit emoji")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption),
-  new SlashCommandBuilder().setName("listar-cargos").setDescription("Lista os cargos configurados para as frutas")
+  new SlashCommandBuilder().setName("list-roles").setDescription("List configured fruit roles")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("remover-cargo").setDescription("Remove o cargo configurado para uma fruta")
+  new SlashCommandBuilder().setName("remove-role").setDescription("Remove a configured fruit role")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption),
-  new SlashCommandBuilder().setName("setstockalertchannel").setDescription("Define o canal para receber alertas de frutas")
+
+  // Stock alerts: one command handles channel and fruit alert setup/removal
+  new SlashCommandBuilder().setName("stock-alert").setDescription("Add or remove an alert channel or fruit alert")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addChannelOption(option => option.setName("canal").setDescription("Canal de texto dos alertas").setRequired(true)),
-  new SlashCommandBuilder().setName("addstockalerts").setDescription("Ativa alerta para uma fruta e cargo")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(fruitOption)
-    .addRoleOption(option => option.setName("cargo").setDescription("Cargo que será mencionado").setRequired(true)),
-  new SlashCommandBuilder().setName("removestockalerts").setDescription("Remove alerta de uma fruta")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(fruitOption)
+    .addStringOption(option => option.setName("action").setDescription("What do you want to configure?")
+      .setRequired(true).addChoices(
+        { name: "Set alert channel", value: "set_channel" },
+        { name: "Remove alert channel", value: "remove_channel" },
+        { name: "Add fruit alert", value: "add_fruit" },
+        { name: "Remove fruit alert", value: "remove_fruit" }
+      ))
+    .addChannelOption(option => option.setName("channel").setDescription("Text channel for stock alerts").setRequired(false))
+    .addStringOption(option => option.setName("fruit").setDescription("Fruit to add or remove").setRequired(false))
+    .addRoleOption(option => option.setName("role").setDescription("Role to mention for this fruit").setRequired(false))
 ];
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
@@ -785,7 +798,7 @@ client.on("interactionCreate", async interaction => {
   }
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "imagem") {
+  if (interaction.commandName === "generate-image") {
     const now = Date.now();
     const last = imageCooldown.get(interaction.user.id) || 0;
     const waitMs = 45000 - (now - last);
@@ -815,19 +828,19 @@ client.on("interactionCreate", async interaction => {
         : "❌ Não consegui gerar essa imagem. Tente outra descrição ou verifique a chave e o acesso ao modelo.";
       await interaction.editReply({ content: message });
     }
-  } else if (interaction.commandName === "ia") {
+  } else if (interaction.commandName === "ask") {
     await interaction.deferReply();
     try {
-      const question = interaction.options.getString("pergunta");
+      const question = interaction.options.getString("question");
       const answer = await askAI(interaction.user.id, question);
       await interaction.editReply(answer.slice(0, 2000));
     } catch (e) {
       console.error("Erro na IA:", e.message);
       await interaction.editReply("❌ Não consegui falar com a IA agora. Verifique a configuração da OpenAI.");
     }
-  } else if (interaction.commandName === "testeestoque") {
+  } else if (interaction.commandName === "test-stock") {
     await interaction.reply({ components: await testStockContainers(), flags: MessageFlags.IsComponentsV2 });
-  } else if (interaction.commandName === "painel") {
+  } else if (interaction.commandName === "dashboard") {
     await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
     try {
@@ -848,7 +861,7 @@ client.on("interactionCreate", async interaction => {
       console.error("Erro no /stock:", e);
       if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui mostrar o estoque agora.", ephemeral: true });
     }
-  } else if (interaction.commandName === "atualizar") {
+  } else if (interaction.commandName === "refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
     try {
       const completed = await checkStock(true, ["normal", "mirage"], true);
@@ -860,9 +873,9 @@ client.on("interactionCreate", async interaction => {
     } catch (e) {
       await interaction.editReply("❌ Não consegui consultar a Wiki: " + e.message + ". O último stock salvo foi preservado.");
     }
-  } else if (interaction.commandName === "configurar-titulo") {
-    const groupKey = interaction.options.getString("estoque");
-    const title = interaction.options.getString("titulo").trim();
+  } else if (interaction.commandName === "set-stock-title") {
+    const groupKey = interaction.options.getString("stock_type");
+    const title = interaction.options.getString("title").trim();
     const config = readConfig();
     config.titles = config.titles || {};
     config.titles[groupKey] = title;
@@ -871,28 +884,28 @@ client.on("interactionCreate", async interaction => {
       content: `Título do ${groupKey === "mirage" ? "Stock da Mirage" : "Stock Normal"} alterado para **${title}**.`,
       ephemeral: true
     });
-  } else if (interaction.commandName === "configurar-fruta") {
-    const fruit = fruitKey(interaction.options.getString("fruta"));
-    const role = interaction.options.getRole("cargo");
+  } else if (interaction.commandName === "set-fruit-role") {
+    const fruit = fruitKey(interaction.options.getString("fruit"));
+    const role = interaction.options.getRole("role");
     const config = readConfig();
     config.roles = config.roles || {};
     config.roles[fruit] = role.id;
     saveConfig(config);
     await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
-  } else if (interaction.commandName === "configurar-emoji") {
-    const fruit = fruitKey(interaction.options.getString("fruta"));
+  } else if (interaction.commandName === "set-fruit-emoji") {
+    const fruit = fruitKey(interaction.options.getString("fruit"));
     const emoji = await resolveEmoji(interaction.options.getString("emoji"));
     const config = readConfig();
     config.emojis = config.emojis || {};
     config.emojis[fruit] = emoji;
     saveConfig(config);
     await interaction.reply({ content: `Emoji ${emoji} configurado para **${fruit}**.`, ephemeral: true });
-  } else if (interaction.commandName === "listar-emojis") {
+  } else if (interaction.commandName === "list-emojis") {
     const emojis = readConfig().emojis || {};
     const content = Object.entries(emojis).map(([fruit, emoji]) => `• ${emoji} **${fruit}**`).join("\n");
     await interaction.reply({ content: content || "Nenhum emoji personalizado configurado ainda.", ephemeral: true });
-  } else if (interaction.commandName === "remover-emoji") {
-    const fruit = fruitKey(interaction.options.getString("fruta"));
+  } else if (interaction.commandName === "remove-emoji") {
+    const fruit = fruitKey(interaction.options.getString("fruit"));
     const config = readConfig();
     config.emojis = config.emojis || {};
     if (!config.emojis[fruit]) {
@@ -902,13 +915,13 @@ client.on("interactionCreate", async interaction => {
       saveConfig(config);
       await interaction.reply({ content: `Emoji personalizado removido para **${fruit}**.`, ephemeral: true });
     }
-  } else if (interaction.commandName === "listar-cargos") {
+  } else if (interaction.commandName === "list-roles") {
     const roles = readConfig().roles || {};
     const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
     const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\n");
     await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
-  } else if (interaction.commandName === "remover-cargo") {
-    const fruit = fruitKey(interaction.options.getString("fruta"));
+  } else if (interaction.commandName === "remove-role") {
+    const fruit = fruitKey(interaction.options.getString("fruit"));
     const config = readConfig();
     config.roles = config.roles || {};
     if (!config.roles[fruit]) {
@@ -918,40 +931,49 @@ client.on("interactionCreate", async interaction => {
       saveConfig(config);
       await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
     }
-  } else if (interaction.commandName === "setstockalertchannel") {
-    const channel = interaction.options.getChannel("canal", true);
-    if (!channel.isTextBased() || !channel.send) {
-      await interaction.reply({ content: "❌ Selecione um canal de texto.", ephemeral: true });
-      return;
-    }
-    const config = readConfig();
-    config.stockAlertChannelId = channel.id;
-    saveConfig(config);
-    await interaction.reply({ content: `✅ Canal de alertas definido para ${channel}.`, ephemeral: true });
-  } else if (interaction.commandName === "addstockalerts") {
-    const fruit = fruitKey(interaction.options.getString("fruta", true));
-    const role = interaction.options.getRole("cargo", true);
+  } else if (interaction.commandName === "stock-alert") {
+    const action = interaction.options.getString("action", true);
     const config = readConfig();
     config.stockAlerts = config.stockAlerts || {};
-    config.stockAlerts[fruit] = role.id;
-    saveConfig(config);
-    await interaction.reply({ content: `🔔 Alerta ativado para **${fruit}**. Vou mencionar ${role} no canal de alertas quando aparecer no stock.`, ephemeral: true });
-  } else if (interaction.commandName === "removestockalerts") {
-    const fruit = fruitKey(interaction.options.getString("fruta", true));
-    const config = readConfig();
-    config.stockAlerts = config.stockAlerts || {};
-    if (!config.stockAlerts[fruit]) {
-      await interaction.reply({ content: `Não existe alerta configurado para **${fruit}**.`, ephemeral: true });
-    } else {
-      delete config.stockAlerts[fruit];
+
+    if (action === "set_channel") {
+      const channel = interaction.options.getChannel("channel", true);
+      if (!channel.isTextBased() || !channel.send) {
+        await interaction.reply({ content: "❌ Please select a text channel.", ephemeral: true });
+        return;
+      }
+      config.stockAlertChannelId = channel.id;
       saveConfig(config);
-      await interaction.reply({ content: `🔕 Alerta removido para **${fruit}**.`, ephemeral: true });
+      await interaction.reply({ content: `✅ Stock alert channel set to ${channel}.`, ephemeral: true });
+    } else if (action === "remove_channel") {
+      if (!config.stockAlertChannelId) {
+        await interaction.reply({ content: "There is no stock alert channel configured.", ephemeral: true });
+      } else {
+        delete config.stockAlertChannelId;
+        saveConfig(config);
+        await interaction.reply({ content: "🔕 Stock alert channel removed.", ephemeral: true });
+      }
+    } else if (action === "add_fruit") {
+      const fruit = fruitKey(interaction.options.getString("fruit", true));
+      const role = interaction.options.getRole("role", true);
+      config.stockAlerts[fruit] = role.id;
+      saveConfig(config);
+      await interaction.reply({ content: `🔔 Alert enabled for **${fruit}**. I will mention ${role} in the alert channel when it appears in stock.`, ephemeral: true });
+    } else if (action === "remove_fruit") {
+      const fruit = fruitKey(interaction.options.getString("fruit", true));
+      if (!config.stockAlerts[fruit]) {
+        await interaction.reply({ content: `There is no alert configured for **${fruit}**.`, ephemeral: true });
+      } else {
+        delete config.stockAlerts[fruit];
+        saveConfig(config);
+        await interaction.reply({ content: `🔕 Alert removed for **${fruit}**.`, ephemeral: true });
+      }
     }
-  } else if (interaction.commandName === "previsao" || interaction.commandName === "estatisticas") {
-    const groupKey = interaction.options.getString("estoque", true);
-    const isPrediction = interaction.commandName === "previsao";
+  } else if (interaction.commandName === "stock-prediction" || interaction.commandName === "stock-statistics") {
+    const groupKey = interaction.options.getString("stock_type", true);
+    const isPrediction = interaction.commandName === "stock-prediction";
     await interaction.reply({ content: analyticsMessage(groupKey, isPrediction), ephemeral: true });
-  } else if (interaction.commandName === "historico") {
+  } else if (interaction.commandName === "stock-history") {
     const history = readState().history || [];
     const content = history.slice(0, 5).map((h, i) =>
       `**${i + 1}.** <t:${Math.floor(new Date(h.at).getTime() / 1000)}:R> • ${(h.stock || []).map(safeName).join(", ") || "Sem dados"}`
