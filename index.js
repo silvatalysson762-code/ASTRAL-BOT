@@ -467,10 +467,10 @@ function stockTitle(groupKey) {
   return config.titles?.[groupKey] || defaults[groupKey] || APPLICATION_UI_EMOJIS.stockTitle + " Blox Fruits | Stock atualizado";
 }
 function nextGlobalReset(groupKey, now = new Date()) {
-  // Horários globais em UTC: Normal às horas múltiplas de 4;
-  // Mirage nas horas ímpares, duas horas depois de cada reset normal.
+  // Horários globais em UTC: Normal a cada 4 horas;
+  // Mirage a cada 2 horas. Ambos usam os limites de hora exatos.
   const intervalHours = groupKey === "mirage" ? 2 : 4;
-  const offset = groupKey === "mirage" ? 1 : 0;
+  const offset = 0;
   const candidate = new Date(now.getTime());
   candidate.setUTCHours(candidate.getUTCHours(), 0, 0, 0);
   for (let i = 0; i <= 24; i++) {
