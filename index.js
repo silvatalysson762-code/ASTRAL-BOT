@@ -196,6 +196,13 @@ async function sendStockAlerts(stock, groupKey) {
 }
 
 const APPLICATION_FRUIT_EMOJIS = {
+  rocket: APPLICATION_UI_EMOJIS.rocket,
+  spin: APPLICATION_UI_EMOJIS.spin,
+  blade: APPLICATION_UI_EMOJIS.blade,
+  spring: APPLICATION_UI_EMOJIS.spring,
+  bomb: APPLICATION_UI_EMOJIS.bomb,
+  smoke: APPLICATION_UI_EMOJIS.smoke,
+  spike: APPLICATION_UI_EMOJIS.spike,
   flame: "<:60155:1556625833408598026>",
   ice: "<:60154:1556625830720049252>",
   sand: "<:60153:1556625828429963336>",
@@ -254,13 +261,28 @@ function beliPrice(item) {
   const apiPrice = item?.money_price ?? item?.price_beli ?? item?.price;
   return apiPrice != null && apiPrice !== "" ? apiPrice : savedBeliPrice(safeName(item));
 }
+const APPLICATION_UI_EMOJIS = {
+  beli: "<:59965:1556626992588267630>",
+  clock: "<:59971:1556626990893629470>",
+  stockTitle: "<:60172:1556626988587639892>",
+  mirageTitle: "<:60171:1556626985487306752>",
+  rocket: "<:60170:1556626983147012116>",
+  spin: "<:60169:1556626981012111360>",
+  blade: "<:60168:1556626979149713538>",
+  spring: "<:60167:1556626976813613086>",
+  bomb: "<:60166:1556626975236558918>",
+  smoke: "<:60165:1556626973558710342>",
+  spike: "<:60164:1556626971843362877>"
+};
+
+
 function stockTitle(groupKey) {
   const config = readConfig();
   const defaults = {
-    normal: "🏪 Blox Fruits | Stock normal atualizado",
-    mirage: "🌙 Blox Fruits | Stock da Mirage atualizado"
+    normal: "<:60119:1556621255984029706> Blox Fruits | Stock normal atualizado",
+    mirage: APPLICATION_UI_EMOJIS.mirageTitle + " Blox Fruits | Stock da Mirage atualizado"
   };
-  return config.titles?.[groupKey] || defaults[groupKey] || "🍈 Blox Fruits | Stock atualizado";
+  return config.titles?.[groupKey] || defaults[groupKey] || APPLICATION_UI_EMOJIS.stockTitle + " Blox Fruits | Stock atualizado";
 }
 function nextGlobalReset(groupKey, now = new Date()) {
   // Horários globais em UTC: Normal às horas múltiplas de 4;
@@ -282,7 +304,7 @@ function brasilTime(timestamp) {
 function stockCountdown(groupKey) {
   const next = nextGlobalReset(groupKey);
   const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock normal";
-  return "<a:emoji_233:1556370328135925931> **Próximo " + label + ":** <t:" + Math.floor(next.getTime() / 1000) + ":R> • **" + brasilTime(next.getTime()) + " (Brasília)**";
+  return APPLICATION_UI_EMOJIS.clock + " **Próximo " + label + ":** <t: + Math.floor(next.getTime() / 1000) + ":R> • **" + brasilTime(next.getTime()) + " (Brasília)**";
 }
 async function resolveEmoji(input) {
   const value = String(input || "").trim();
@@ -328,7 +350,7 @@ function panelContainer() {
   const lastNormal = state.history?.find(h => h.type === "Normal" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "normal"));
   const lastMirage = state.history?.find(h => h.type === "Mirage" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "mirage"));
   const body = [
-    "# 🌌 ASTRAL STOCK",
+    "# ${APPLICATION_UI_EMOJIS.stockTitle} ASTRAL STOCK",
     "",
     "## 🟢 SISTEMA ONLINE",
     "O painel está conectado e acompanhando o stock automaticamente.",
@@ -336,15 +358,15 @@ function panelContainer() {
     "## 📦 STOCK NORMAL",
     `**${normal.length}** frutas encontradas`,
     normalNames,
-    `💰 Valor listado: **${normalBeli.toLocaleString("pt-BR")} Beli**`,
-    `<a:emoji_233:1556370328135925931> Próximo reset: <t:${Math.floor(nextGlobalReset("normal").getTime() / 1000)}:R>`,
+    `${APPLICATION_UI_EMOJIS.beli} Valor listado: **${normalBeli.toLocaleString("pt-BR")} Beli**`,
+    `${APPLICATION_UI_EMOJIS.clock} Próximo reset: <t:${Math.floor(nextGlobalReset("normal").getTime() / 1000)}:R>`,
     lastNormal ? `🕒 Última alteração: <t:${Math.floor(new Date(lastNormal.at).getTime() / 1000)}:R>` : "",
     "",
     "## 🌙 STOCK DA MIRAGE",
     `**${mirage.length}** frutas encontradas`,
     mirageNames,
-    `💰 Valor listado: **${mirageBeli.toLocaleString("pt-BR")} Beli**`,
-    `<a:emoji_233:1556370328135925931> Próximo reset: <t:${Math.floor(nextGlobalReset("mirage").getTime() / 1000)}:R>`,
+    `${APPLICATION_UI_EMOJIS.beli} Valor listado: **${mirageBeli.toLocaleString("pt-BR")} Beli**`,
+    `${APPLICATION_UI_EMOJIS.clock} Próximo reset: <t:${Math.floor(nextGlobalReset("mirage").getTime() / 1000)}:R>`,
     lastMirage ? `🕒 Última alteração: <t:${Math.floor(new Date(lastMirage.at).getTime() / 1000)}:R>` : "",
     "",
     "## 🤖 ASTRAL IA",
