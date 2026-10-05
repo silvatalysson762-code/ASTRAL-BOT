@@ -664,7 +664,9 @@ client.on("messageCreate", async message => {
     console.warn("[CHAT] client.user ainda não está disponível.");
     return;
   }
-  if (!message.mentions.users.has(client.user.id)) {
+  const botMentionPattern = new RegExp("<@!?" + client.user.id + ">");
+  const hasBotMention = message.mentions.users.has(client.user.id) || botMentionPattern.test(String(message.content || ""));
+  if (!hasBotMention) {
     console.log("[CHAT] Mensagem ignorada: não contém menção direta ao bot.");
     return;
   }
