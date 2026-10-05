@@ -303,46 +303,45 @@ const APPLICATION_EMOJI_RENAMES = {
 };
 
 function applicationEmojiMarkup(emoji) {
-  if (!emoji?.id) return null;
-  const identifier = String(emoji.identifier || "");
-  if (/^<a?:[^:>]+:\d+>$/.test(identifier)) return identifier;
-  if (!emoji.name) return null;
+  if (!emoji?.id || !emoji?.name) return null;
   return `<${emoji.animated ? "a" : ""}:${emoji.name}:${emoji.id}>`;
 }
 
 async function syncApplicationEmojis() {
   try {
     const emojis = await client.application.emojis.fetch();
-    let changed = 0;
+    const byName = new Map();
 
     for (const emoji of emojis.values()) {
       const wantedName = APPLICATION_EMOJI_RENAMES[emoji.id];
       if (wantedName && emoji.name !== wantedName) {
         try {
           await emoji.setName(wantedName);
-          changed++;
         } catch (error) {
           console.warn(`[EMOJIS] Não consegui renomear ${emoji.id}: ${error.message}`);
         }
       }
     }
 
-    const refreshed = changed ? await client.application.emojis.fetch() : emojis;
-    const byId = new Map(refreshed.map(emoji => [emoji.id, emoji]));
+    const refreshed = await client.application.emojis.fetch();
+    for (const emoji of refreshed.values()) {
+      byName.set(String(emoji.name).toLowerCase(), emoji);
+    }
 
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
-      const match = String(value).match(/<a?:[^:>]+:(\d+)>/);
-      const emoji = match && byId.get(match[1]);
+      const name = String(value).match(/<a?:([^:>]+):\d+>/)?.[1]?.toLowerCase();
+      const emoji = name && byName.get(name);
       if (emoji) APPLICATION_UI_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
-      const match = String(value).match(/<a?:[^:>]+:(\d+)>/);
-      const emoji = match && byId.get(match[1]);
+      const name = String(value).match(/<a?:([^:>]+):\d+>/)?.[1]?.toLowerCase();
+      const emoji = name && byName.get(name);
       if (emoji) APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
-    console.log(`[EMOJIS] Aplicação sincronizada: ${refreshed.size} emojis, ${changed} nomes ajustados.`);
+    console.log(`[EMOJIS] Application Emojis carregados: ${refreshed.size}`);
+    console.log(`[EMOJIS] Exemplo Rocket: ${APPLICATION_UI_EMOJIS.rocket}`);
   } catch (error) {
     console.warn("[EMOJIS] Falha ao sincronizar emojis da aplicação:", error.message);
   }
