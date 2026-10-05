@@ -66,7 +66,7 @@ function normalizeStock(payload) {
   if (Array.isArray(data)) return data.map(x => typeof x === "string" ? { name: x } : x);
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
-const WIKI_STOCK_URL = process.env.WIKI_STOCK_URL || "https://blox-fruits.fandom.com/wiki/Stock";
+const WIKI_STOCK_URL = process.env.WIKI_STOCK_URL || "https://blox-fruits.fandom.com/wiki/Blox_Fruits_%22Stock%22";
 
 function decodeHtmlEntities(value) {
   return String(value)
@@ -330,60 +330,81 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function runScheduledStockCycle(groupKeys) {
-  const pending = new Set(groupKeys);
-  const baseline = {};
-  const initialState = readState();
-  for (const key of pending) baseline[key] = initialState.stockSignatures?.[key] || null;
+async function runScheduledStockCycle(groupKey, resetAt) {
+  const state = readState();
+  const baseline = state.stockSignatures?.[groupKey] || null;
+  console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento após o reset ${new Date(resetAt).toISOString()}.`);
 
-  // A primeira consulta acontece 1 minuto após o horário previsto do reset.
+  // Dá um minuto para a Wiki refletir a rotação antes da primeira captura.
   await wait(60000);
-  console.log("Iniciando captura pós-reset para: " + [...pending].join(", "));
 
-  while (pending.size) {
-    // Se uma captura demorar além do próximo reset, adiciona esse grupo ao ciclo
-    // sem interromper as tentativas que já estão em andamento.
-    const now = Date.now();
-    for (const key of ["normal", "mirage"]) {
-      if (!pending.has(key) && nextStockAt[key] && now >= nextStockAt[key] + 60000) {
-        pending.add(key);
-        baseline[key] = readState().stockSignatures?.[key] || null;
-        console.log("Novo ciclo de captura iniciado para: " + key);
-      }
-    }
-
+  while (true) {
     try {
       const stock = await getStock();
       const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
       const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normal.length || !mirage.length) throw new Error("A fonte não retornou as duas listas completas.");
-
-      const readyGroups = [];
-      for (const key of pending) {
-        const items = key === "normal" ? normal : mirage;
-        const currentSignature = signature(items);
-        // Só considera pronto quando o conteúdo muda em relação ao estoque anterior.
-        if (baseline[key] === null || currentSignature !== baseline[key]) readyGroups.push(key);
+      if (!normal.length || !mirage.length) {
+        throw new Error("A fonte não retornou as duas listas completas.");
       }
 
-      if (readyGroups.length) {
-        const ok = await checkStock(false, readyGroups, false, stock);
-        if (ok) {
-          for (const key of readyGroups) {
-            pending.delete(key);
-            nextStockAt[key] = nextGlobalReset(key, new Date(Date.now())).getTime();
-          }
-          console.log("Captura concluída para: " + readyGroups.join(", "));
+      const items = groupKey === "normal" ? normal : mirage;
+      const currentSignature = signature(items);
+      const savedSignature = readState().stockSignatures?.[groupKey] || baseline;
+
+      if (savedSignature === null || currentSignature !== savedSignature) {
+        console.log(`[SCHEDULER] Nova rotação detectada para ${groupKey}; tentando publicar.`);
+        const published = await checkStock(false, [groupKey], false, stock);
+        const after = readState().stockSignatures?.[groupKey];
+        if (published && after === currentSignature) {
+          console.log(`[SCHEDULER] ${groupKey} publicado e salvo com sucesso.`);
+          return;
         }
       } else {
-        console.log("Stock ainda não mudou na Fandom; nova tentativa em 1 minuto.");
+        console.log(`[SCHEDULER] ${groupKey} ainda não mudou. Nova consulta em 60 segundos.`);
       }
     } catch (error) {
-      console.warn("Ainda não foi possível capturar o stock: " + error.message);
+      console.warn(`[SCHEDULER] Falha ao consultar ${groupKey}: ${error.message}. Nova tentativa em 60 segundos.`);
     }
 
-    if (pending.size) await wait(60000);
+    await wait(60000);
   }
+}
+
+const activeStockCycles = new Set();
+let schedulerTimer = null;
+
+function startStockScheduler() {
+  // Cada grupo tem seu próprio ciclo. Uma falha prolongada na Wiki não bloqueia
+  // o agendamento do outro grupo nem impede o processo de continuar vivo.
+  const tick = () => {
+    const now = Date.now();
+
+    for (const key of ["normal", "mirage"]) {
+      if (!nextStockAt[key] || now < nextStockAt[key]) continue;
+
+      const dueAt = nextStockAt[key];
+      // Avança o próximo horário imediatamente, sem esperar a captura terminar.
+      nextStockAt[key] = nextGlobalReset(key, new Date(now)).getTime();
+
+      if (activeStockCycles.has(key)) {
+        console.log(`[SCHEDULER] ${key} já está em monitoramento; continuará tentando após o próximo reset.`);
+        continue;
+      }
+
+      activeStockCycles.add(key);
+      runScheduledStockCycle(key, dueAt)
+        .catch(error => console.error(`[SCHEDULER] Erro inesperado em ${key}:`, error))
+        .finally(() => activeStockCycles.delete(key));
+    }
+
+    schedulerTimer = setTimeout(tick, 5000);
+  };
+
+  if (schedulerTimer) clearTimeout(schedulerTimer);
+  nextStockAt.normal = nextGlobalReset("normal").getTime();
+  nextStockAt.mirage = nextGlobalReset("mirage").getTime();
+  console.log("[SCHEDULER] Agendador ativo. Normal: ciclo de 4h; Mirage: ciclo de 2h; consulta 1 minuto após o reset.");
+  tick();
 }
 
 
@@ -567,31 +588,10 @@ client.once("ready", async () => {
     console.error("Erro ao registrar comandos do Astral Stock:", error);
   }
 
-  nextStockAt.normal = nextGlobalReset("normal").getTime();
-  nextStockAt.mirage = nextGlobalReset("mirage").getTime();
-
-  console.log("Agendamento automático: captura 1 minuto após cada reset e tenta novamente a cada minuto até detectar um stock novo.");
-
-  const schedule = () => {
-    const now = Date.now();
-    nextStockAt.normal = nextGlobalReset("normal", new Date(now)).getTime();
-    nextStockAt.mirage = nextGlobalReset("mirage", new Date(now)).getTime();
-    const nextAt = Math.min(nextStockAt.normal, nextStockAt.mirage);
-    const delay = Math.max(1000, nextAt - now);
-
-    setTimeout(async () => {
-      const dueGroups = [];
-      const current = Date.now();
-      if (nextStockAt.normal <= current + 1000) dueGroups.push("normal");
-      if (nextStockAt.mirage <= current + 1000) dueGroups.push("mirage");
-
-      if (dueGroups.length) {
-        await runScheduledStockCycle(dueGroups);
-      }
-      schedule();
-    }, delay);
-  };
-  schedule();
+  // Captura inicial: se o estado estiver vazio, publica o stock válido atual.
+  // Se a fonte estiver indisponível, checkStock registra o erro e o agendador segue ativo.
+  await checkStock(false, ["normal", "mirage"], false);
+  startStockScheduler();
 });
 
 process.on("unhandledRejection", error => {
