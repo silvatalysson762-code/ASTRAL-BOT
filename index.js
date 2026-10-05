@@ -274,6 +274,11 @@ async function hydrateApplicationEmojis() {
 
     const applicationEmojiMarkup = emoji => {
       if (!emoji) return null;
+      return `<${emoji.animated ? "a" : ""}:${emoji.name}:${emoji.id}>`;
+    };
+
+    const applicationEmojiMarkup = emoji => {
+      if (!emoji) return null;
       return emoji.animated
         ? `<a:${emoji.name}:${emoji.id}>`
         : `<:${emoji.name}:${emoji.id}>`;
@@ -291,7 +296,7 @@ async function hydrateApplicationEmojis() {
 
     const testEmoji = byId.get("1556626983147012116") || byName.get("60170");
     console.log("[EMOJIS] Aplicação:", client.application.id, "| Emojis carregados:", appEmojis.size);
-    console.log("[EMOJIS] Rocket:", testEmoji ? testEmoji.toString() : "NÃO ENCONTRADO");
+    console.log("[EMOJIS] Rocket:", testEmoji ? applicationEmojiMarkup(testEmoji) : "NÃO ENCONTRADO");
   } catch (error) {
     console.warn("[EMOJIS] Não consegui carregar os emojis da aplicação:", error.message);
   }
