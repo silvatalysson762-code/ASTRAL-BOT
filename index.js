@@ -2,12 +2,11 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, REST, Routes, AttachmentBuilder,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
-const OpenAI = require("openai");
 
-const required = ["DISCORD_TOKEN", "CLIENT_ID", "OPENAI_API_KEY"];
+const required = ["DISCORD_TOKEN", "CLIENT_ID"];
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`Configuração ausente: ${key}. Veja o arquivo .env.example.`);
@@ -17,10 +16,6 @@ for (const key of required) {
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45000, maxRetries: 0 });
-const OWNER_GUILD_ID = "1528047581845000353";
-const aiHistory = new Map();
-const imageCooldown = new Map();
 
 let checking = false;
 let apiCooldownUntil = 0;
@@ -562,53 +557,6 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
-function panelContainer() {
-  const state = readState();
-  const latest = state.latestStock || {};
-  const normal = Array.isArray(latest.normal) ? latest.normal : [];
-  const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
-  const normalNames = normal.length ? normal.map(item => `${fruitEmoji(item)} **${safeName(item)}**`).join(" • ") : "Nenhum stock normal publicado ainda.";
-  const mirageNames = mirage.length ? mirage.map(item => `${fruitEmoji(item)} **${safeName(item)}**`).join(" • ") : "Nenhum stock da Mirage publicado ainda.";
-  const normalBeli = normal.reduce((sum, item) => sum + (Number(beliPrice(item)) || 0), 0);
-  const mirageBeli = mirage.reduce((sum, item) => sum + (Number(beliPrice(item)) || 0), 0);
-  const lastNormal = state.history?.find(h => h.type === "Normal" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "normal"));
-  const lastMirage = state.history?.find(h => h.type === "Mirage" || (h.stock || []).some(x => String(x.type || "").toLowerCase() === "mirage"));
-  const body = [
-    `# ${APPLICATION_UI_EMOJIS.stockTitle} ASTRAL STOCK`,
-    "",
-    "## 🟢 SISTEMA ONLINE",
-    "O painel está conectado e acompanhando o stock automaticamente.",
-    "",
-    "## 📦 STOCK NORMAL",
-    `**${normal.length}** frutas encontradas`,
-    normalNames,
-    `${APPLICATION_UI_EMOJIS.beli} Valor listado: **${normalBeli.toLocaleString("pt-BR")} Beli**`,
-    `${APPLICATION_UI_EMOJIS.clock} Próximo reset: <t:${Math.floor(nextGlobalReset("normal").getTime() / 1000)}:R>`,
-    lastNormal ? `🕒 Última alteração: <t:${Math.floor(new Date(lastNormal.at).getTime() / 1000)}:R>` : "",
-    "",
-    "## 🌙 STOCK DA MIRAGE",
-    `**${mirage.length}** frutas encontradas`,
-    mirageNames,
-    `${APPLICATION_UI_EMOJIS.beli} Valor listado: **${mirageBeli.toLocaleString("pt-BR")} Beli**`,
-    `${APPLICATION_UI_EMOJIS.clock} Próximo reset: <t:${Math.floor(nextGlobalReset("mirage").getTime() / 1000)}:R>`,
-    lastMirage ? `🕒 Última alteração: <t:${Math.floor(new Date(lastMirage.at).getTime() / 1000)}:R>` : "",
-    "",
-    "## 🤖 ASTRAL IA",
-    "Marque o bot no chat para conversar com a IA.",
-    "",
-    "-# Stock automático • Emojis personalizados • Cargos por fruta • IA integrada"
-  ].filter(Boolean).join("\n");
-  const buttons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("astral_panel_stock").setLabel("Ver Stock").setEmoji("📦").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("astral_panel_refresh").setLabel("Atualizar Painel").setEmoji("🔄").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("astral_panel_help").setLabel("Comandos").setEmoji("❓").setStyle(ButtonStyle.Secondary)
-  );
-  return new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addActionRowComponents(buttons);
-}
 async function postStock(stock, announce, title, groupKey = null) {
   const config = readConfig();
   const entries = Object.entries(config.guilds || {}).filter(([, guildConfig]) => guildConfig?.channelId);
@@ -789,44 +737,6 @@ function startStockScheduler() {
 }
 
 
-async function askAI(userId, question) {
-  const history = aiHistory.get(userId) || [];
-  const cached = readState().latestStock || {};
-  const stock = [
-    ...(Array.isArray(cached.normal) ? cached.normal : []),
-    ...(Array.isArray(cached.mirage) ? cached.mirage : [])
-  ];
-  const stockText = stock.map(item => {
-    const price = beliPrice(item);
-    return `${safeName(item)} (${item.type || "Stock"}, ${price != null ? Number(price).toLocaleString("pt-BR") + " Beli" : "preço não informado"})`;
-  }).join(", ") || "Stock indisponível no momento.";
-
-  const input = [
-    {
-      role: "developer",
-      content: "Você é o assistente oficial do servidor Astral Stock. Responda em português do Brasil, de forma amigável, curta e natural. Ajude com Blox Fruits, stock, frutas, preços e dúvidas gerais do servidor. Não invente informações sobre o stock. Quando perguntarem pelo stock atual, use somente os dados fornecidos abaixo. Não peça nem revele tokens, API keys ou outras credenciais. Evite assuntos impróprios para menores."
-    },
-    ...history.slice(-8),
-    {
-      role: "user",
-      content: question + "\n\nStock consultado agora: " + stockText
-    }
-  ];
-
-  console.log("[IA] Enviando solicitação à OpenAI.");
-  const startedAt = Date.now();
-  const response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-5.4-nano",
-    input
-  });
-  console.log("[IA] OpenAI respondeu em " + (Date.now() - startedAt) + " ms.");
-
-  const answer = String(response.output_text || "Não consegui gerar uma resposta agora.").trim();
-  const updated = [...history, { role: "user", content: question }, { role: "assistant", content: answer }].slice(-10);
-  aiHistory.set(userId, updated);
-  return answer;
-}
-
 const ALL_FRUITS = [
   "Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike", "Flame", "Ice", "Sand",
   "Dark", "Eagle", "Diamond", "Light", "Rubber", "Ghost", "Magma", "Quake", "Buddha", "Love",
@@ -964,10 +874,6 @@ const commands = [
   // General
   new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock"),
   new SlashCommandBuilder().setName("avatar").setDescription("Show a Roblox avatar").addStringOption(option => option.setName("username").setDescription("Roblox username").setRequired(true).setMaxLength(20)),
-  new SlashCommandBuilder().setName("ask").setDescription("Chat with Astral Stock AI")
-    .addStringOption(option => option.setName("question").setDescription("What would you like to ask?").setRequired(true).setMaxLength(1000)),
-  new SlashCommandBuilder().setName("generate-image").setDescription("Generate an image with AI")
-    .addStringOption(option => option.setName("prompt").setDescription("Describe the image you want").setRequired(true).setMaxLength(1000)),
 
   // Stock tools
   new SlashCommandBuilder().setName("test-stock").setDescription("Preview all fruits and configured emojis")
@@ -1014,11 +920,9 @@ const commands = [
 ];
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  const allCommands = commands.map(c => c.toJSON());
-  const aiCommandNames = new Set(["ask", "generate-image"]);
-  const globalCommands = allCommands.filter(c => !aiCommandNames.has(c.name));
+  const registeredCommands = commands.map(c => c.toJSON());
 
-  // Remove registros antigos por servidor e publica somente os comandos gerais globalmente.
+  // Limpa comandos locais antigos de todos os servidores para remover versões antigas.
   const guilds = [...client.guilds.cache.values()];
   for (const guild of guilds) {
     try {
@@ -1029,31 +933,9 @@ async function registerCommands() {
     }
   }
 
-  // Substitui a lista global inteira, removendo qualquer versão antiga de /ask e /generate-image.
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: globalCommands });
-
-  // Confere os comandos globais publicados e apaga explicitamente qualquer comando de IA
-  // que tenha ficado de versões anteriores. Assim a IA não aparece em outros servidores.
-  try {
-    const globalRegistered = await rest.get(Routes.applicationCommands(process.env.CLIENT_ID));
-    for (const command of globalRegistered) {
-      if (aiCommandNames.has(command.name)) {
-        await rest.delete(Routes.applicationCommand(process.env.CLIENT_ID, command.id));
-        console.log("[COMMANDS] Comando global de IA removido: " + command.name + ".");
-      }
-    }
-  } catch (error) {
-    console.warn("[COMMANDS] Não foi possível verificar comandos globais antigos:", error.message);
-  }
-
-  // IA fica registrada exclusivamente no servidor do dono.
-  const ownerAiCommands = allCommands.filter(c => aiCommandNames.has(c.name));
-  await rest.put(
-    Routes.applicationGuildCommands(process.env.CLIENT_ID, OWNER_GUILD_ID),
-    { body: ownerAiCommands }
-  );
-
-  console.log("[COMMANDS] Comandos gerais globais registrados. IA registrada somente no servidor do dono.");
+  // Publica somente os comandos atuais globalmente.
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
+  console.log("[COMMANDS] Comandos gerais globais registrados. IA e painel removidos.");
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
@@ -1138,73 +1020,7 @@ async function sendSavedStock(channel, groups) {
   return true;
 }
 
-client.on("messageCreate", async message => {
-  if (message.author.bot || !message.guild || !client.user) return;
-  if (message.guild.id !== OWNER_GUILD_ID) return;
-  if (!message.mentions.users.has(client.user.id)) return;
-
-  const question = String(message.content || "")
-    .replace(new RegExp("<@!?" + client.user.id + ">", "g"), "")
-    .trim();
-
-  if (!question) {
-    await message.channel.send("👋 Oi! Me marque e escreva sua pergunta para conversarmos.");
-    return;
-  }
-
-  const now = Date.now();
-  const last = aiCooldown.get(message.author.id) || 0;
-  if (now - last < 3000) return;
-  aiCooldown.set(message.author.id, now);
-
-  try {
-    console.log("[CHAT] Menção recebida; enviando pergunta para a IA.");
-    await message.channel.sendTyping();
-    const answer = await askAI(message.author.id, question);
-    await message.channel.send({
-      content: answer.slice(0, 2000),
-      allowedMentions: { repliedUser: false }
-    });
-    console.log("[CHAT] Resposta enviada ao canal.");
-  } catch (error) {
-    console.error("[CHAT] Erro ao responder menção:", error);
-    try {
-      await message.channel.send("❌ Não consegui responder agora. Tente novamente daqui a pouco.");
-    } catch (sendError) {
-      console.error("[CHAT] Também não consegui enviar a mensagem de erro:", sendError);
-    }
-  }
-});
-
 client.on("interactionCreate", async interaction => {
-  if (interaction.isButton()) {
-    try {
-      if (interaction.customId === "astral_panel_stock") {
-        const state = readState();
-        const latest = state.latestStock || {};
-        const normal = Array.isArray(latest.normal) ? latest.normal : [];
-        const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
-        const components = [];
-        if (normal.length) components.push(stockContainer(normal, stockTitle("normal", getGuildConfig(interaction.guildId)), "normal", getGuildConfig(interaction.guildId)));
-        if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage", getGuildConfig(interaction.guildId)), "mirage", getGuildConfig(interaction.guildId)));
-        if (!components.length) components.push(stockContainer([], "🍈 STOCK ATUAL", null, getGuildConfig(interaction.guildId)));
-        await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
-        return;
-      }
-      if (interaction.customId === "astral_panel_refresh") {
-        await interaction.update({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
-        return;
-      }
-      if (interaction.customId === "astral_panel_help") {
-        await interaction.reply({ content: "📚 **Comandos principais**\n`/painel` painel completo\n`/stock` stock atual\n`/ia` conversa com a IA\n`/historico` histórico\n`/testeestoque` teste das frutas\n`/atualizar` consulta e publica agora", ephemeral: true });
-        return;
-      }
-    } catch (error) {
-      console.error("Erro no botão do painel:", error);
-      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui executar essa ação.", ephemeral: true });
-    }
-    return;
-  }
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "avatar") {
@@ -1233,46 +1049,6 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("Erro no /avatar:", error);
       await interaction.editReply("❌ " + (error.message || "Não consegui carregar esse avatar do Roblox."));
-    }
-  } else   if (interaction.commandName === "generate-image") {
-    const now = Date.now();
-    const last = imageCooldown.get(interaction.user.id) || 0;
-    const waitMs = 45000 - (now - last);
-    if (waitMs > 0) {
-      await interaction.reply({ content: "⏳ Aguarde " + Math.ceil(waitMs / 1000) + " segundos antes de gerar outra imagem.", ephemeral: true });
-      return;
-    }
-    imageCooldown.set(interaction.user.id, now);
-    await interaction.deferReply();
-    try {
-      const prompt = interaction.options.getString("prompt", true).trim();
-      const result = await openai.images.generate({
-        model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini",
-        prompt,
-        size: "1024x1024",
-        quality: "low",
-        n: 1
-      });
-      const imageBase64 = result.data?.[0]?.b64_json;
-      if (!imageBase64) throw new Error("A API não retornou a imagem.");
-      const file = new AttachmentBuilder(Buffer.from(imageBase64, "base64"), { name: "astral-imagem.png" });
-      await interaction.editReply({ content: "🎨 Imagem criada para " + interaction.user + "!", files: [file], allowedMentions: { users: [interaction.user.id] } });
-    } catch (error) {
-      console.error("Erro ao gerar imagem:", error);
-      const message = /billing|quota|insufficient/i.test(error.message || "")
-        ? "❌ A conta da API está sem saldo ou atingiu o limite de uso. Confira o faturamento da OpenAI."
-        : "❌ Não consegui gerar essa imagem. Tente outra descrição ou verifique a chave e o acesso ao modelo.";
-      await interaction.editReply({ content: message });
-    }
-  } else if (interaction.commandName === "ask") {
-    await interaction.deferReply();
-    try {
-      const question = interaction.options.getString("question");
-      const answer = await askAI(interaction.user.id, question);
-      await interaction.editReply(answer.slice(0, 2000));
-    } catch (e) {
-      console.error("Erro na IA:", e.message);
-      await interaction.editReply("❌ Não consegui falar com a IA agora. Verifique a configuração da OpenAI.");
     }
   } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
@@ -1329,8 +1105,6 @@ client.on("interactionCreate", async interaction => {
         allowedMentions: { parse: [] }
       });
     }
-  } else if (interaction.commandName === "dashboard") {
-    await interaction.reply({ components: [panelContainer()], flags: MessageFlags.IsComponentsV2 });
   } else if (interaction.commandName === "stock") {
     try {
       // /stock mostra o mesmo stock que o bot publicou no canal configurado.
