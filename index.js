@@ -1080,7 +1080,7 @@ client.on("interactionCreate", async interaction => {
         ? APPLICATION_UI_EMOJIS.beli + " \`" + Number(price).toLocaleString("en-US") + "\`"
         : APPLICATION_UI_EMOJIS.beli + " \`Valor não cadastrado\`";
       const robuxPrice = PERMANENT_ROBUX_PRICES[fruitKey(name)];
-      const robuxText = robuxPrice != null ? " | \`" + Number(robuxPrice).toLocaleString("en-US") + "\` " + APPLICATION_UI_EMOJIS.robux : "";
+      const robuxText = robuxPrice != null ? " | " + Number(robuxPrice).toLocaleString("en-US") + " " + APPLICATION_UI_EMOJIS.robux : "";
       return emoji + " **" + name + "** | " + priceText + robuxText;
     });
     const testText = [
