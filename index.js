@@ -17,7 +17,7 @@ for (const key of required) {
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45000, maxRetries: 0 });
 const aiHistory = new Map();
 const imageCooldown = new Map();
 
@@ -411,10 +411,13 @@ async function askAI(userId, question) {
     }
   ];
 
+  console.log("[IA] Enviando solicitação à OpenAI.");
+  const startedAt = Date.now();
   const response = await openai.responses.create({
     model: process.env.OPENAI_MODEL || "gpt-5.4-nano",
     input
   });
+  console.log("[IA] OpenAI respondeu em " + (Date.now() - startedAt) + " ms.");
 
   const answer = String(response.output_text || "Não consegui gerar uma resposta agora.").trim();
   const updated = [...history, { role: "user", content: question }, { role: "assistant", content: answer }].slice(-10);
