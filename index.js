@@ -195,9 +195,26 @@ async function sendStockAlerts(stock, groupKey) {
   });
 }
 
+const APPLICATION_FRUIT_EMOJIS = {
+  gravity: "<:60132:1556621287521263677>",
+  mammoth: "<:60131:1556621285268914227>",
+  "t-rex": "<:60130:1556621283591192597>",
+  dough: "<:60129:1556621282198429696>",
+  shadow: "<:60128:1556621279304351834>",
+  venom: "<:60127:1556621276922253372>",
+  gas: "<:60126:1556621274891948062>",
+  spirit: "<:60125:1556621272606183526>",
+  tiger: "<:60124:1556621270643245127>",
+  yeti: "<:60123:1556621268575330315>",
+  magnet: "<:60122:1556621263013941258>",
+  kitsune: "<:60121:1556621259939258500>",
+  control: "<:60120:1556621258182103090>",
+  dragon: "<:60119:1556621255984029706>"
+};
+
 function fruitEmoji(item) {
-  const emojis = readConfig().emojis || {};
-  return emojis[fruitKey(safeName(item))] || "🍈";
+  const key = fruitKey(safeName(item));
+  return APPLICATION_FRUIT_EMOJIS[key] || readConfig().emojis?.[key] || "🍈";
 }
 const SAVED_BELI_PRICES = {
   Rocket: 5000, Spin: 7500, Blade: 30000, Spring: 60000, Bomb: 80000, Smoke: 100000, Spike: 180000,
@@ -573,7 +590,7 @@ async function testStockContainers() {
   const config = readConfig();
   const emojis = config.emojis || {};
   const lines = ALL_FRUITS.map(name => {
-    const emoji = emojis[fruitKey(name)] || "🍈";
+    const emoji = fruitEmoji({ name });
     const price = savedBeliPrice(name);
     const priceText = price != null ? "<:emoji_232:1556366446257242112> `" + Number(price).toLocaleString("en-US") + "`" : "<:emoji_232:1556366446257242112> `Valor não cadastrado`";
     return emoji + " **" + name + "** | " + priceText;
