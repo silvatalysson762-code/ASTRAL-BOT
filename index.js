@@ -658,6 +658,43 @@ async function sendSavedStock(channel, groups) {
   return true;
 }
 
+client.on("messageCreate", async message => {
+  if (message.author.bot || !message.guild || !client.user) return;
+  if (!message.mentions.users.has(client.user.id)) return;
+
+  const question = String(message.content || "")
+    .replace(new RegExp("<@!?" + client.user.id + ">", "g"), "")
+    .trim();
+
+  if (!question) {
+    await message.channel.send("👋 Oi! Me marque e escreva sua pergunta para conversarmos.");
+    return;
+  }
+
+  const now = Date.now();
+  const last = aiCooldown.get(message.author.id) || 0;
+  if (now - last < 3000) return;
+  aiCooldown.set(message.author.id, now);
+
+  try {
+    console.log("[CHAT] Menção recebida; enviando pergunta para a IA.");
+    await message.channel.sendTyping();
+    const answer = await askAI(message.author.id, question);
+    await message.channel.send({
+      content: answer.slice(0, 2000),
+      allowedMentions: { repliedUser: false }
+    });
+    console.log("[CHAT] Resposta enviada ao canal.");
+  } catch (error) {
+    console.error("[CHAT] Erro ao responder menção:", error);
+    try {
+      await message.channel.send("❌ Não consegui responder agora. Tente novamente daqui a pouco.");
+    } catch (sendError) {
+      console.error("[CHAT] Também não consegui enviar a mensagem de erro:", sendError);
+    }
+  }
+});
+
 client.on("interactionCreate", async interaction => {
   if (interaction.isButton()) {
     try {
