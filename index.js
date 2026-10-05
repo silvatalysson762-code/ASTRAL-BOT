@@ -303,7 +303,10 @@ const APPLICATION_EMOJI_RENAMES = {
 };
 
 function applicationEmojiMarkup(emoji) {
-  if (!emoji?.id || !emoji?.name) return null;
+  if (!emoji?.id) return null;
+  const identifier = String(emoji.identifier || "");
+  if (/^<a?:[^:>]+:\d+>$/.test(identifier)) return identifier;
+  if (!emoji.name) return null;
   return `<${emoji.animated ? "a" : ""}:${emoji.name}:${emoji.id}>`;
 }
 
@@ -347,7 +350,7 @@ async function syncApplicationEmojis() {
 
 function fruitEmoji(item) {
   const key = fruitKey(safeName(item));
-  return APPLICATION_FRUIT_EMOJIS[key] || readConfig().emojis?.[key] || "🍈";
+  return APPLICATION_FRUIT_EMOJIS[key] || "🍈";
 }
 
 const SAVED_BELI_PRICES = {
