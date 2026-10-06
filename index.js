@@ -1700,7 +1700,7 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "fruit-role-panel") {
     const panel = buildFruitRolePanel(interaction.guildId);
 
-    if (!panel.messages.length) {
+    if (!panel.configured?.length) {
       await interaction.reply({
         content: "❌ Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
         ephemeral: true
@@ -1708,11 +1708,10 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
-    await interaction.reply(panel.messages[0]);
-
-    for (const message of panel.messages.slice(1)) {
-      await interaction.followUp(message);
-    }
+    await interaction.reply({
+      ...panel,
+      flags: MessageFlags.IsComponentsV2
+    });
   } else if (interaction.commandName === "remove-role") {
     const inputFruit = interaction.options.getString("fruit", true);
     const fruit = resolveFruitName(inputFruit);
