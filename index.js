@@ -564,7 +564,8 @@ async function syncApplicationEmojis() {
 }
 
 function fruitEmoji(item) {
-  const key = fruitKey(safeName(item));
+  const name = typeof item === "string" ? item : safeName(item);
+  const key = fruitKey(name);
   return APPLICATION_FRUIT_EMOJIS[key] || "🍈";
 }
 
