@@ -16,7 +16,7 @@ for (const key of required) {
 }
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 let checking = false;
 let apiCooldownUntil = 0;
@@ -1405,6 +1405,41 @@ process.on("unhandledRejection", error => {
 process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
+client.on("messageCreate", async message => {
+  if (message.author.bot || !message.guild) return;
+  if (!client.user || !message.mentions.users.has(client.user.id)) return;
+
+  const prompt = message.content
+    .replace(new RegExp("<@!?" + client.user.id + ">", "g"), "")
+    .trim();
+
+  if (!prompt) {
+    await message.reply("🤖 Me marque e escreva sua pergunta. Exemplo: <@" + client.user.id + "> qual é a fruta mais cara do Blox Fruits?");
+    return;
+  }
+
+  try {
+    await message.channel.sendTyping();
+    const answer = await askGroqAI(prompt, message.author.id);
+    const chunks = splitDiscordText(answer);
+
+    await message.reply({
+      content: chunks[0],
+      allowedMentions: { repliedUser: false }
+    });
+
+    for (const chunk of chunks.slice(1)) {
+      await message.channel.send(chunk);
+    }
+  } catch (error) {
+    console.error("Erro na IA por menção:", error);
+    await message.reply({
+      content: "❌ " + (error.message || "Não consegui falar com a IA agora."),
+      allowedMentions: { repliedUser: false }
+    });
+  }
+});
+
 client.on("interactionCreate", async interaction => {
   if (interaction.isButton() && interaction.customId.startsWith("fruit_roles:")) {
     try {
