@@ -882,7 +882,18 @@ async function testStockContainers() {
   return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
-const fruitOption = (option) => option.setName("fruit").setDescription("Fruit name exactly as shown in stock").setRequired(true);
+const fruitOption = (option) => option.setName("fruit").setDescription("Nome da fruta").setRequired(true);
+
+function resolveFruitName(input) {
+  const normalized = fruitKey(input);
+  const fruit = ALL_FRUITS.find(name => fruitKey(name) === normalized);
+  return fruit || null;
+}
+
+function invalidFruitMessage(input) {
+  const value = String(input || "").trim();
+  return "❌ **" + (value || "Fruta") + "** não é uma fruta válida do Blox Fruits.\n\nFrutas disponíveis: " + ALL_FRUITS.join(", ") + ".";
+}
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
@@ -1334,11 +1345,18 @@ client.on("interactionCreate", async interaction => {
       ephemeral: true
     });
   } else if (interaction.commandName === "set-fruit-role") {
-    const fruit = fruitKey(interaction.options.getString("fruit"));
-    const role = interaction.options.getRole("role");
+    const inputFruit = interaction.options.getString("fruit", true);
+    const fruit = resolveFruitName(inputFruit);
+    const role = interaction.options.getRole("role", true);
+
+    if (!fruit) {
+      await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+      return;
+    }
+
     updateGuildConfig(interaction.guildId, config => {
       config.roles = config.roles || {};
-      config.roles[fruit] = role.id;
+      config.roles[fruitKey(fruit)] = role.id;
     });
     await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
   } else if (interaction.commandName === "list-roles") {
@@ -1347,12 +1365,20 @@ client.on("interactionCreate", async interaction => {
     const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\n");
     await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
   } else if (interaction.commandName === "remove-role") {
-    const fruit = fruitKey(interaction.options.getString("fruit"));
+    const inputFruit = interaction.options.getString("fruit", true);
+    const fruit = resolveFruitName(inputFruit);
+
+    if (!fruit) {
+      await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+      return;
+    }
+
+    const fruitKeyName = fruitKey(fruit);
     const config = getGuildConfig(interaction.guildId);
-    if (!config.roles[fruit]) {
+    if (!config.roles[fruitKeyName]) {
       await interaction.reply({ content: `Não há cargo configurado para **${fruit}**.`, ephemeral: true });
     } else {
-      updateGuildConfig(interaction.guildId, config => { delete config.roles[fruit]; });
+      updateGuildConfig(interaction.guildId, config => { delete config.roles[fruitKeyName]; });
       await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
     }
   } else if (interaction.commandName === "stock-alert") {
@@ -1374,19 +1400,35 @@ client.on("interactionCreate", async interaction => {
         await interaction.reply({ content: "🔕 Canal de alertas removido.", ephemeral: true });
       }
     } else if (action === "add_fruit") {
-      const fruit = fruitKey(interaction.options.getString("fruit", true));
+      const inputFruit = interaction.options.getString("fruit", true);
+      const fruit = resolveFruitName(inputFruit);
       const role = interaction.options.getRole("role", true);
+
+      if (!fruit) {
+        await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+        return;
+      }
+
+      const fruitKeyName = fruitKey(fruit);
       updateGuildConfig(interaction.guildId, config => {
         config.stockAlerts = config.stockAlerts || {};
-        config.stockAlerts[fruit] = role.id;
+        config.stockAlerts[fruitKeyName] = role.id;
       });
       await interaction.reply({ content: "🔔 Alerta ativado para **" + fruit + "**. Vou mencionar " + role + " no canal de alertas quando aparecer.", ephemeral: true });
     } else if (action === "remove_fruit") {
-      const fruit = fruitKey(interaction.options.getString("fruit", true));
-      if (!guildConfig.stockAlerts?.[fruit]) {
+      const inputFruit = interaction.options.getString("fruit", true);
+      const fruit = resolveFruitName(inputFruit);
+
+      if (!fruit) {
+        await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+        return;
+      }
+
+      const fruitKeyName = fruitKey(fruit);
+      if (!guildConfig.stockAlerts?.[fruitKeyName]) {
         await interaction.reply({ content: "Não há alerta configurado para **" + fruit + "**.", ephemeral: true });
       } else {
-        updateGuildConfig(interaction.guildId, config => { delete config.stockAlerts[fruit]; });
+        updateGuildConfig(interaction.guildId, config => { delete config.stockAlerts[fruitKeyName]; });
         await interaction.reply({ content: "🔕 Alerta removido para **" + fruit + "**.", ephemeral: true });
       }
     }  } else if (interaction.commandName === "stock-prediction" || interaction.commandName === "stock-statistics") {
