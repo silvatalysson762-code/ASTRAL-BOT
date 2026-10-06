@@ -42,7 +42,7 @@ async function generateGeminiImage(prompt) {
     input: String(prompt).trim(),
     response_format: {
       type: "image",
-      mime_type: "image/png",
+      mime_type: "image/jpeg",
       aspect_ratio: process.env.GEMINI_IMAGE_ASPECT_RATIO || "1:1",
       image_size: process.env.GEMINI_IMAGE_SIZE || "1K"
     }
@@ -1374,15 +1374,15 @@ async function registerCommands() {
   console.log("[COMMANDS] Aplicação detectada pelo token:", applicationId);
   console.log("[COMMANDS] Registrando " + registeredCommands.length + " comandos globalmente...");
 
+  // Mantém os comandos apenas no servidor para evitar duplicação entre
+  // registros globais e registros de guild.
   try {
-    await rest.put(Routes.applicationCommands(applicationId), { body: registeredCommands });
-    console.log("[COMMANDS] Comandos globais publicados.");
+    await rest.put(Routes.applicationCommands(applicationId), { body: [] });
+    console.log("[COMMANDS] Comandos globais antigos removidos.");
   } catch (error) {
-    console.error("[COMMANDS] ERRO ao publicar comandos globais:", error);
+    console.error("[COMMANDS] ERRO ao limpar comandos globais:", error);
   }
 
-  // Publica também os comandos no servidor para que /imagem e os demais
-  // apareçam imediatamente, sem depender da propagação dos comandos globais.
   const guildIds = [...new Set([
     ...client.guilds.cache.keys(),
     PROTECTED_GUILD_ID,
@@ -1392,7 +1392,7 @@ async function registerCommands() {
   for (const guildId of guildIds) {
     try {
       await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: registeredCommands });
-      console.log("[COMMANDS] Comandos publicados imediatamente no servidor " + guildId + ".");
+      console.log("[COMMANDS] Comandos publicados no servidor " + guildId + ".");
     } catch (error) {
       console.error("[COMMANDS] ERRO ao publicar comandos no servidor " + guildId + ":", error);
     }
