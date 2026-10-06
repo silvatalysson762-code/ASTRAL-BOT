@@ -1374,13 +1374,23 @@ async function registerCommands() {
   console.log("[COMMANDS] Aplicação detectada pelo token:", applicationId);
   console.log("[COMMANDS] Registrando " + registeredCommands.length + " comandos globalmente...");
 
-  // Mantém os comandos apenas no servidor para evitar duplicação entre
-  // registros globais e registros de guild.
+  // Comandos principais ficam globais. Somente /ia e /imagem ficam
+  // registrados no servidor para evitar duplicação e manter esses dois
+  // comandos separados dos comandos globais.
+  const globalCommands = registeredCommands.filter(command => {
+    const name = command?.name;
+    return name !== "ia" && name !== "imagem";
+  });
+  const aiImageCommands = registeredCommands.filter(command => {
+    const name = command?.name;
+    return name === "ia" || name === "imagem";
+  });
+
   try {
-    await rest.put(Routes.applicationCommands(applicationId), { body: [] });
-    console.log("[COMMANDS] Comandos globais antigos removidos.");
+    await rest.put(Routes.applicationCommands(applicationId), { body: globalCommands });
+    console.log("[COMMANDS] Comandos globais publicados: " + globalCommands.length + ".");
   } catch (error) {
-    console.error("[COMMANDS] ERRO ao limpar comandos globais:", error);
+    console.error("[COMMANDS] ERRO ao publicar comandos globais:", error);
   }
 
   const guildIds = [...new Set([
@@ -1391,10 +1401,12 @@ async function registerCommands() {
 
   for (const guildId of guildIds) {
     try {
-      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: registeredCommands });
-      console.log("[COMMANDS] Comandos publicados no servidor " + guildId + ".");
+      // Limpa qualquer registro antigo de guild para que os comandos
+      // globais não apareçam duplicados no servidor.
+      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: aiImageCommands });
+      console.log("[COMMANDS] /ia e /imagem publicados no servidor " + guildId + ".");
     } catch (error) {
-      console.error("[COMMANDS] ERRO ao publicar comandos no servidor " + guildId + ":", error);
+      console.error("[COMMANDS] ERRO ao publicar /ia e /imagem no servidor " + guildId + ":", error);
     }
   }
 }
