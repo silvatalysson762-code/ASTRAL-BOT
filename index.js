@@ -1243,6 +1243,7 @@ async function registerCommands() {
       console.error("[COMMANDS] ERRO ao limpar comandos do servidor " + guildId + ":", error);
     }
   }
+}
 
 client.once("ready", async () => {
   migrateLegacyConfig();
