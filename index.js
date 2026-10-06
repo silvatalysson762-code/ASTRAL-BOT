@@ -1144,19 +1144,16 @@ function buildFruitRolePanelForMember(guildId, member, statusText = null) {
 
   rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton(false)));
 
-  const title = "# " + APPLICATION_FRUIT_EMOJIS.dragon + "  CARGOS DE FRUTAS";
-  const description =
-    "### Escolha uma fruta abaixo para receber ou remover o cargo.\n\n" +
-    "🟢 **Você possui o cargo**  •  🔴 **Você não possui o cargo**\n\n" +
-    "🔔 Selecione os cargos das frutas que você deseja receber para receber as notificações de stock." +
-    (statusText ? "\n\n" + statusText : "");
-
+  // Painel individual compacto: somente a mensagem de status (quando houver),
+  // os seletores e o botão de remover todos os cargos.
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(title),
-      new TextDisplayBuilder().setContent(description)
+    .setAccentColor(0x00FFFF);
+
+  if (statusText) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(statusText)
     );
+  }
 
   container.addActionRowComponents(...rows);
 
