@@ -1084,6 +1084,7 @@ function buildFruitRolePanel(guildId) {
   container.addActionRowComponents(...rows);
 
   return {
+    configured,
     components: [container],
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: { parse: ["everyone"] }
