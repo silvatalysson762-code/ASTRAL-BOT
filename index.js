@@ -926,8 +926,8 @@ function buildFruitRolePanel(guildId) {
     return { configured: [], messages: [] };
   }
 
-  // O Discord permite no máximo 5 botões por Action Row e 5 Action Rows por mensagem.
-  // Se houver mais de 25 frutas configuradas, o comando cria outro painel automaticamente.
+  // Dois botões por linha, ocupando as duas colunas do painel.
+  // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
@@ -935,15 +935,19 @@ function buildFruitRolePanel(guildId) {
 
   const messages = chunks.map((chunk, pageIndex) => {
     const rows = [];
-    for (let i = 0; i < chunk.length; i += 5) {
+
+    for (let i = 0; i < chunk.length; i += 2) {
       const row = new ActionRowBuilder();
-      row.addComponents(...chunk.slice(i, i + 5).map(item => fruitRoleButton(item.fruit, item.roleId)));
+      row.addComponents(
+        fruitRoleButton(chunk[i].fruit, chunk[i].roleId),
+        ...(chunk[i + 1] ? [fruitRoleButton(chunk[i + 1].fruit, chunk[i + 1].roleId)] : [])
+      );
       rows.push(row);
     }
 
     const title = pageIndex === 0
-      ? "# 🍈 CARGOS DE FRUTAS\n\nClique no botão da fruta para receber o cargo correspondente."
-      : "# 🍈 CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\n\nClique no botão da fruta para receber o cargo correspondente.";
+      ? APPLICATION_FRUIT_EMOJIS.dragon + " **CARGOS DE FRUTAS**\n\nClique no botão da fruta para receber o cargo correspondente."
+      : APPLICATION_FRUIT_EMOJIS.dragon + " **CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "**\n\nClique no botão da fruta para receber o cargo correspondente.";
 
     const container = new ContainerBuilder()
       .setAccentColor(0x00FFFF)
@@ -965,6 +969,7 @@ function buildFruitRolePanel(guildId) {
 
   return { configured, messages };
 }
+
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
