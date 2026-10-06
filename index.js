@@ -908,61 +908,42 @@ function configuredFruitRoleId(guildConfig, fruit) {
 }
 
 function buttonTextWidth(text) {
-  const narrow = new Set(["i", "l", "I", "t", "f", "j", "r"]);
-  const wide = new Set(["m", "w", "M", "W"]);
+  const widths = {
+    "i": 3.2, "l": 3.2, "I": 4.2, "t": 4.6, "f": 4.5, "j": 4.2, "r": 5.0,
+    "m": 10.8, "w": 10.5, "M": 10.5, "W": 11.5,
+    "a": 7.4, "b": 7.6, "c": 7.0, "d": 7.6, "e": 7.4, "g": 7.6,
+    "h": 7.7, "k": 7.4, "n": 7.7, "o": 7.6, "p": 7.6, "q": 7.6,
+    "s": 6.8, "u": 7.7, "v": 7.2, "x": 7.2, "y": 7.2, "z": 6.8,
+    "C": 8.7, "D": 8.8, "F": 7.8, "G": 9.0, "K": 8.3, "L": 7.0,
+    "P": 8.2, "Q": 9.0, "R": 8.3, "S": 8.0, "T": 7.7, "V": 8.2,
+    "X": 8.0, "Y": 7.7, "Z": 7.7,
+    "-": 5.0, " ": 3.5
+  };
+
   let width = 0;
-
   for (const char of String(text)) {
-    if (char === " ") width += 3.5;
-    else if (narrow.has(char)) width += 3.5;
-    else if (wide.has(char)) width += 9.5;
-    else width += 7.5;
+    width += widths[char] ?? 7.5;
   }
-
   return width;
 }
 
 function padFruitButtonLabel(fruit, targetWidth) {
   const label = String(fruit);
   const currentWidth = buttonTextWidth(label);
-  const paddingWidth = Math.max(0, targetWidth - currentWidth);
 
-  // Usa espaços Unicode que o Discord mantém no label do botão.
-  // O ajuste em cada lado é feito em unidades menores para evitar
-  // que frutas curtas fiquem maiores que as frutas longas.
+  // Discord não permite definir uma largura fixa no botão.
+  // Então deixamos todas as labels com uma largura visual igual,
+  // incluindo uma pequena margem extra para as frutas menores.
   const figureSpace = "\u2007";
-  const hairSpace = "\u200A";
-  const spaceWidth = 7.5;
-  const hairWidth = 1.5;
+  const figureSpaceWidth = 7.5;
+  const padding = Math.max(0, targetWidth - currentWidth);
+  const count = Math.max(1, Math.ceil(padding / (figureSpaceWidth * 2)));
 
-  function makePadding(width) {
-    let remaining = Math.max(0, width);
-    let result = "";
-
-    while (remaining >= spaceWidth) {
-      result += figureSpace;
-      remaining -= spaceWidth;
-    }
-
-    while (remaining >= hairWidth) {
-      result += hairSpace;
-      remaining -= hairWidth;
-    }
-
-    return result;
-  }
-
-  const left = makePadding(paddingWidth / 2);
-  const right = makePadding(paddingWidth - (buttonTextWidth(left) || 0));
-
-  return left + label + right;
+  return figureSpace.repeat(count) + label + figureSpace.repeat(count);
 }
 
 function fruitRoleButton(fruit, roleId, targetWidth) {
   const emojiMarkup = fruitEmoji({ name: fruit });
-
-  // Corrigido: a expressão anterior tinha \\d e por isso nenhum emoji
-  // customizado passava na validação.
   const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
 
   const button = new ButtonBuilder()
@@ -980,6 +961,7 @@ function fruitRoleButton(fruit, roleId, targetWidth) {
 
   return button;
 }
+
 function buildFruitRolePanel(guildId) {
   const guildConfig = getGuildConfig(guildId);
   const panelFruitOrder = [...ALL_FRUITS].reverse();
@@ -993,7 +975,7 @@ function buildFruitRolePanel(guildId) {
 
   // Dois botões por linha, ocupando as duas colunas do painel.
   // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
-  const targetButtonWidth = Math.max(...configured.map(item => buttonTextWidth(item.fruit))) + 18;
+  const targetButtonWidth = Math.max(...configured.map(item => buttonTextWidth(item.fruit))) + 8;
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
