@@ -69,10 +69,18 @@ async function isBotOwner(userId) {
 
 function initializeGuildWhitelist() {
   const config = readConfig();
+  let changed = false;
   if (!Array.isArray(config.allowedGuildIds)) {
-    config.allowedGuildIds = [...new Set([...client.guilds.cache.keys(), PROTECTED_GUILD_ID])];
+    config.allowedGuildIds = [...client.guilds.cache.keys()];
+    changed = true;
+  }
+  if (!config.allowedGuildIds.includes(PROTECTED_GUILD_ID)) {
+    config.allowedGuildIds.push(PROTECTED_GUILD_ID);
+    changed = true;
+  }
+  if (changed) {
     saveConfig(config);
-    console.log("[SECURITY] Lista de servidores permitidos inicializada com os servidores atuais.");
+    console.log("[SECURITY] Lista de servidores permitidos inicializada/atualizada.");
   }
 }
 
@@ -1021,25 +1029,17 @@ async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   const registeredCommands = commands.map(c => c.toJSON());
 
-  // Remove qualquer comando antigo, inclusive comandos de IA/painel,
-  // antes de publicar somente os comandos que existem neste código.
-  const guilds = [...client.guilds.cache.values()];
-  for (const guild of guilds) {
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
+  console.log("[COMMANDS] Comandos globais publicados:", registeredCommands.map(command => "/" + command.name).join(", "));
+
+  for (const guild of client.guilds.cache.values()) {
     try {
-      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guild.id), { body: [] });
-      console.log("[COMMANDS] Comandos locais antigos removidos de " + guild.name + ".");
+      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guild.id), { body: registeredCommands });
+      console.log("[COMMANDS] Comandos publicados em " + guild.name + ".");
     } catch (error) {
-      console.warn("[COMMANDS] Não foi possível limpar comandos locais de " + guild.name + ": " + error.message);
+      console.warn("[COMMANDS] Falha ao publicar em " + guild.name + ": " + error.message);
     }
   }
-
-  // Limpa explicitamente TODOS os comandos globais antigos antes de registrar os atuais.
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: [] });
-  console.log("[COMMANDS] Todos os comandos globais antigos foram removidos.");
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
-
-  const registered = await rest.get(Routes.applicationCommands(process.env.CLIENT_ID));
-  console.log("[COMMANDS] Comandos globais ativos:", registered.map(command => "/" + command.name).join(", ") || "nenhum");
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
@@ -1085,7 +1085,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "server-panel") {
-    if (!isBotOwner(interaction.user.id)) {
+    if (!(await isBotOwner(interaction.user.id))) {
       await interaction.reply({ content: "❌ Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
       return;
     }
