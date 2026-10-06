@@ -907,17 +907,38 @@ function configuredFruitRoleId(guildConfig, fruit) {
   return stockAlerts[key] || roles[key] || null;
 }
 
+function fruitButtonTextWidth(value) {
+  // Largura aproximada da fonte dos botões do Discord.
+  // Isso é bem mais preciso que contar apenas caracteres, porque
+  // "i/l" ocupam menos espaço que "M/W", por exemplo.
+  const widths = {
+    A: 1.12, B: 1.22, C: 1.18, D: 1.33, E: 1.02, F: 0.96, G: 1.31,
+    H: 1.24, I: 0.55, J: 0.55, K: 1.24, L: 1.02, M: 1.59, N: 1.24,
+    O: 1.27, P: 1.17, Q: 1.36, R: 1.23, S: 1.15, T: 1.09, U: 1.25,
+    V: 1.24, W: 1.48, X: 1.03, Y: 1.16, Z: 1.05,
+    a: 1.08, b: 1.15, c: 0.89, d: 1.15, e: 1.09, f: 0.68, g: 1.15,
+    h: 1.14, i: 0.55, j: 0.55, k: 1.06, l: 0.55, m: 1.67, n: 1.14,
+    o: 1.10, p: 1.15, q: 1.15, r: 0.79, s: 0.95, t: 0.77, u: 1.14,
+    v: 1.04, w: 1.48, x: 1.03, y: 1.04, z: 0.93,
+    "-": 0.66, " ": 0.50
+  };
+  return [...String(value)].reduce((sum, char) => sum + (widths[char] || 1), 0);
+}
+
 function fruitButtonLabel(fruit, targetWidth) {
-  // O Discord não permite definir a largura do botão diretamente.
-  // Usamos figure spaces, que mantêm espaço visual no label.
+  // O Discord não permite definir a largura diretamente.
+  // Preenchemos somente o espaço que falta usando thin spaces,
+  // mantendo os dois lados equilibrados para o texto continuar centralizado.
   const text = String(fruit);
-  const widths = { i: 0.35, l: 0.35, I: 0.35, m: 1.25, w: 1.15, M: 1.15, W: 1.35 };
-  const widthOf = value => [...value].reduce((sum, char) => sum + (widths[char] || 0.72), 0);
-  const current = widthOf(text);
+  const current = fruitButtonTextWidth(text);
   const missing = Math.max(0, targetWidth - current);
-  const spaces = Math.max(0, Math.ceil(missing / 0.72));
-  const padding = "\u2009".repeat(spaces);
-  return "\u200b" + padding + text + padding + "\u200b";
+  const thinSpaceWidth = 0.30;
+  const totalSpaces = Math.max(0, Math.ceil(missing / thinSpaceWidth));
+  const leftSpaces = Math.floor(totalSpaces / 2);
+  const rightSpaces = totalSpaces - leftSpaces;
+  const left = "\u2009".repeat(leftSpaces);
+  const right = "\u2009".repeat(rightSpaces);
+  return "\u200b" + left + text + right + "\u200b";
 }
 
 function fruitRoleButton(fruit, roleId, targetWidth) {
@@ -953,9 +974,7 @@ function buildFruitRolePanel(guildId) {
 
   // Dois botões por linha, ocupando as duas colunas do painel.
   // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
-  const widths = { i: 0.35, l: 0.35, I: 0.35, m: 1.25, w: 1.15, M: 1.15, W: 1.35 };
-  const widthOf = value => [...String(value)].reduce((sum, char) => sum + (widths[char] || 0.72), 0);
-  const targetButtonWidth = Math.max(...configured.map(item => widthOf(item.fruit)));
+  const targetButtonWidth = Math.max(...configured.map(item => fruitButtonTextWidth(item.fruit)));
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
