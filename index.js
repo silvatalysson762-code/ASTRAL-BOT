@@ -25,6 +25,8 @@ const nextStockAt = { normal: null, mirage: null };
 
 const fruitRoleBusyUsers = new Set();
 const aiCooldowns = new Map();
+const aiActiveChats = new Map();
+const AI_CHAT_TIMEOUT_MS = 30 * 60 * 1000;
 
 async function askGroqAI(prompt, userId) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -1407,14 +1409,28 @@ process.on("uncaughtException", error => {
 });
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.guild) return;
-  if (!client.user || !message.mentions.users.has(client.user.id)) return;
+  if (!client.user) return;
+
+  const chatKey = message.guild.id + ":" + message.channel.id + ":" + message.author.id;
+  const mentioned = message.mentions.users.has(client.user.id);
+  const activeUntil = aiActiveChats.get(chatKey) || 0;
+  const active = activeUntil > Date.now();
+
+  if (!mentioned && !active) return;
 
   const prompt = message.content
     .replace(new RegExp("<@!?" + client.user.id + ">", "g"), "")
     .trim();
 
+  if (mentioned) {
+    aiActiveChats.set(chatKey, Date.now() + AI_CHAT_TIMEOUT_MS);
+  }
+
   if (!prompt) {
-    await message.reply("🤖 Me marque e escreva sua pergunta. Exemplo: <@" + client.user.id + "> qual é a fruta mais cara do Blox Fruits?");
+    await message.reply({
+      content: "🤖 Pode mandar sua pergunta agora. Enquanto a conversa estiver ativa, você não precisa me marcar novamente.",
+      allowedMentions: { repliedUser: false }
+    });
     return;
   }
 
@@ -1422,6 +1438,8 @@ client.on("messageCreate", async message => {
     await message.channel.sendTyping();
     const answer = await askGroqAI(prompt, message.author.id);
     const chunks = splitDiscordText(answer);
+
+    aiActiveChats.set(chatKey, Date.now() + AI_CHAT_TIMEOUT_MS);
 
     await message.reply({
       content: chunks[0],
@@ -1432,7 +1450,7 @@ client.on("messageCreate", async message => {
       await message.channel.send(chunk);
     }
   } catch (error) {
-    console.error("Erro na IA por menção:", error);
+    console.error("Erro na IA por mensagem:", error);
     await message.reply({
       content: "❌ " + (error.message || "Não consegui falar com a IA agora."),
       allowedMentions: { repliedUser: false }
