@@ -898,7 +898,7 @@ function invalidFruitMessage(input) {
 
 function fruitRoleButton(fruit, roleId) {
   const emojiMarkup = fruitEmoji({ name: fruit });
-  const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\\d{17,20})>$/);
+  const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
   const button = new ButtonBuilder()
     .setCustomId("fruit_role:" + fruitKey(fruit))
     .setLabel(fruit)
@@ -920,7 +920,7 @@ function buildFruitRolePanel(guildId) {
   const roles = guildConfig.roles || {};
   const configured = ALL_FRUITS
     .map(fruit => ({ fruit, roleId: roles[fruitKey(fruit)] }))
-    .filter(item => /^\\d{17,20}$/.test(String(item.roleId || "")));
+    .filter(item => /^\d{17,20}$/.test(String(item.roleId || "")));
 
   if (!configured.length) {
     return { configured: [], messages: [] };
@@ -942,8 +942,8 @@ function buildFruitRolePanel(guildId) {
     }
 
     const title = pageIndex === 0
-      ? "# 🍈 CARGOS DE FRUTAS\\n\\nClique no botão da fruta para receber o cargo correspondente."
-      : "# 🍈 CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\\n\\nClique no botão da fruta para receber o cargo correspondente.";
+      ? "# 🍈 CARGOS DE FRUTAS\n\nClique no botão da fruta para receber o cargo correspondente."
+      : "# 🍈 CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\n\nClique no botão da fruta para receber o cargo correspondente.";
 
     const container = new ContainerBuilder()
       .setAccentColor(0x00FFFF)
