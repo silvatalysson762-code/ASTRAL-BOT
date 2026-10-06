@@ -1115,7 +1115,10 @@ async function getRobloxAvatar(username) {
 
 const commands = [
   // General
-  new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock"),
+  new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock")
+    .setIntegrationTypes([0, 1]).setContexts([0]),
+  new SlashCommandBuilder().setName("send-stock").setDescription("Send the saved Blox Fruits stock in this channel")
+    .setIntegrationTypes([0, 1]).setContexts([0]),
   new SlashCommandBuilder().setName("avatar").setDescription("Show a Roblox avatar").addStringOption(option => option.setName("username").setDescription("Roblox username").setRequired(true).setMaxLength(20)),
   new SlashCommandBuilder().setName("server-panel").setDescription("Configure os servidores autorizados a usar o bot")
     .addStringOption(option => option.setName("action").setDescription("Ação do painel").setRequired(true).addChoices(
@@ -1130,10 +1133,13 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("refresh-stock").setDescription("Fetch and publish the current stock")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("stock-history").setDescription("Show recent stock changes"),
+  new SlashCommandBuilder().setName("stock-history").setDescription("Show recent stock changes")
+    .setIntegrationTypes([0, 1]).setContexts([0]),
   new SlashCommandBuilder().setName("stock-prediction").setDescription("Estimate possible fruit returns from history")
+    .setIntegrationTypes([0, 1]).setContexts([0])
     .addStringOption(stockTypeOption),
   new SlashCommandBuilder().setName("stock-statistics").setDescription("Show the most frequent fruits in history")
+    .setIntegrationTypes([0, 1]).setContexts([0])
     .addStringOption(stockTypeOption),
 
   // Server configuration
@@ -1179,6 +1185,16 @@ async function registerCommands() {
 
   console.log("[COMMANDS] Aplicação detectada pelo token:", applicationId);
   console.log("[COMMANDS] Registrando " + registeredCommands.length + " comandos...");
+
+  // Publica globalmente para permitir os comandos de apps instalados na conta.
+  // Os comandos marcados com UserInstall poderão aparecer no App Launcher mesmo
+  // quando o bot não for membro do servidor.
+  try {
+    await rest.put(Routes.applicationCommands(applicationId), { body: registeredCommands });
+    console.log("[COMMANDS] Comandos globais publicados para apps instalados na conta.");
+  } catch (error) {
+    console.error("[COMMANDS] ERRO ao publicar comandos globais:", error);
+  }
 
   const guildIds = [...new Set([
     ...client.guilds.cache.keys(),
@@ -1481,6 +1497,34 @@ client.on("interactionCreate", async interaction => {
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       });
+    }
+  } else if (interaction.commandName === "send-stock") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "❌ Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
+      return;
+    }
+
+    try {
+      // Apps instalados na conta não são membros do servidor e não podem
+      // enviar mensagens por conta própria para canais arbitrários. A resposta
+      // da interação, porém, é enviada diretamente no canal onde o comando foi usado.
+      const state = readState();
+      const latest = state.latestStock || {};
+      const normal = Array.isArray(latest.normal) ? latest.normal : [];
+      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
+      const components = [];
+      if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal", defaultGuildConfig()));
+      if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage", defaultGuildConfig()));
+      if (!components.length) {
+        await interaction.reply({ content: "❌ Ainda não existe stock salvo para enviar.", ephemeral: true });
+        return;
+      }
+      await interaction.reply({ components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+    } catch (error) {
+      console.error("Erro no /send-stock:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui enviar o stock salvo.", ephemeral: true });
+      }
     }
   } else if (interaction.commandName === "stock") {
     try {
