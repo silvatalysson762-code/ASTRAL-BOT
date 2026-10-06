@@ -995,8 +995,7 @@ function buildFruitRolePanelForMember(guildId, member) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
-        description: member.roles.cache.has(item.roleId) ? "🟢 Você possui este cargo" : "🔴 Você não possui este cargo",
-        emoji: fruitEmoji({ name: item.fruit })
+        description: member.roles.cache.has(item.roleId) ? "🟢 Você possui este cargo" : "🔴 Você não possui este cargo"
       })));
     rows.push(new ActionRowBuilder().addComponents(menu));
   }
@@ -1012,10 +1011,11 @@ function buildFruitRolePanelForMember(guildId, member) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
 
   container.addActionRowComponents(...rows);
-  return {
+  const payload = {
     components: [container],
     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
   };
+  return { configured, messages: [payload], ...payload };
 }
 
 function buildFruitRolePanel(guildId) {
@@ -1037,8 +1037,7 @@ function buildFruitRolePanel(guildId) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
-        description: "Clique para receber/remover",
-        emoji: fruitEmoji({ name: item.fruit })
+        description: "Clique para receber/remover"
       })));
     rows.push(new ActionRowBuilder().addComponents(menu));
   }
@@ -1055,11 +1054,12 @@ function buildFruitRolePanel(guildId) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
 
   container.addActionRowComponents(...rows);
-  return {
+  const payload = {
     components: [container],
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: { parse: ["everyone"] }
   };
+  return { configured, messages: [payload], ...payload };
 }
 
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
