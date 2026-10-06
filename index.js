@@ -1011,7 +1011,7 @@ function removeAllFruitRolesButton() {
     .setStyle(ButtonStyle.Secondary);
 }
 
-function buildFruitRolePanelForMember(guildId, member) {
+function buildFruitRolePanelForMember(guildId, member, statusText = null) {
   const guildConfig = getGuildConfig(guildId);
   const configured = [...ALL_FRUITS].reverse()
     .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
@@ -1044,7 +1044,8 @@ function buildFruitRolePanelForMember(guildId, member) {
   const description =
     "### Escolha uma fruta abaixo para receber ou remover o cargo.\n\n" +
     "🟢 **Você possui o cargo**  •  🔴 **Você não possui o cargo**\n\n" +
-    "🔔 Selecione os cargos das frutas que você deseja receber para receber as notificações de stock.";
+    "🔔 Selecione os cargos das frutas que você deseja receber para receber as notificações de stock." +
+    (statusText ? "\n\n" + statusText : "");
 
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
@@ -1336,18 +1337,15 @@ process.on("uncaughtException", error => {
 client.on("interactionCreate", async interaction => {
   if (interaction.isButton() && interaction.customId.startsWith("fruit_roles:")) {
     try {
-      // Confirma a interação imediatamente para evitar "A interação falhou".
       const isPrivate = interaction.message?.flags?.has?.(MessageFlags.Ephemeral);
-      if (isPrivate) {
-        await interaction.deferUpdate();
-      } else {
-        await interaction.deferReply({
-          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-        });
-      }
+      if (isPrivate) await interaction.deferUpdate();
+      else await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
       const guildConfig = getGuildConfig(interaction.guildId);
-      const member = interaction.member;
+      let member = await interaction.guild.members.fetch({
+        user: interaction.user.id,
+        force: true
+      }).catch(() => interaction.member);
 
       if (interaction.customId === "fruit_roles:remove_all") {
         const configured = ALL_FRUITS
@@ -1356,158 +1354,121 @@ client.on("interactionCreate", async interaction => {
 
         const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
         if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          const errorMessage = { content: "❌ Eu preciso da permissão **Gerenciar Cargos**." };
-          if (isPrivate) await interaction.followUp({ ...errorMessage, ephemeral: true });
-          else await interaction.editReply(errorMessage);
+          const msg={content:"❌ Eu preciso da permissão **Gerenciar Cargos**."};
+          if(isPrivate) await interaction.followUp({...msg,ephemeral:true}); else await interaction.editReply(msg);
           return;
         }
 
-        const removable = [];
-        for (const item of configured) {
-          if (!member.roles.cache.has(item.roleId)) continue;
-          const role = interaction.guild.roles.cache.get(item.roleId) ||
-            await interaction.guild.roles.fetch(item.roleId).catch(() => null);
-          if (role?.editable) removable.push(role);
+        const removable=[];
+        for(const item of configured){
+          if(!member.roles.cache.has(item.roleId)) continue;
+          const role=interaction.guild.roles.cache.get(item.roleId) || await interaction.guild.roles.fetch(item.roleId).catch(()=>null);
+          if(role?.editable) removable.push(role);
         }
 
-        if (removable.length) {
-          let lastError = null;
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              await member.roles.remove(removable, "Todos os cargos de frutas removidos pelo painel");
-              lastError = null;
+        if(removable.length){
+          let lastError=null;
+          for(let attempt=1;attempt<=5;attempt++){
+            try{
+              await member.roles.remove(removable,"Todos os cargos de frutas removidos pelo painel");
+              lastError=null;
               break;
-            } catch (error) {
-              lastError = error;
-              if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+            }catch(error){
+              lastError=error;
+              console.error("[FRUIT ROLE] Remover todos tentativa "+attempt+"/5:",error?.message||error);
+              if(attempt<5) await new Promise(resolve=>setTimeout(resolve,500*attempt));
             }
           }
-          if (lastError) throw lastError;
+          if(lastError) throw lastError;
         }
 
-        await member.fetch().catch(() => null);
-        const panel = buildFruitRolePanelForMember(interaction.guildId, member);
-        if (!panel) {
-          const errorMessage = { content: "ℹ️ Não há cargos de frutas configurados." };
-          if (isPrivate) await interaction.followUp({ ...errorMessage, ephemeral: true });
-          else await interaction.editReply(errorMessage);
-          return;
-        }
+        member=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>member);
+        const panel=buildFruitRolePanelForMember(
+          interaction.guildId,
+          member,
+          removable.length ? "🔴 **Todos os cargos de frutas foram removidos.**" : "ℹ️ **Você não possuía cargos de frutas.**"
+        );
+        if(!panel) return;
 
-        if (isPrivate) await interaction.editReply(panel);
-        else await interaction.editReply(panel);
+        await interaction.editReply(panel);
         return;
       }
-    } catch (error) {
-      console.error("Erro no botão de remoção de cargos:", error);
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: "❌ Não consegui remover os cargos. Tente novamente.", ephemeral: true }).catch(() => {});
-      } else {
-        await interaction.reply({ content: "❌ Não consegui remover os cargos.", ephemeral: true }).catch(() => {});
-      }
+    }catch(error){
+      console.error("Erro no botão de remoção de cargos:",error);
+      if(!interaction.replied&&!interaction.deferred) await interaction.reply({content:"❌ Não consegui processar o painel.",ephemeral:true}).catch(()=>{});
     }
     return;
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith("fruit_select")) {
+    const isPrivatePanel = interaction.customId.startsWith("fruit_select:");
+
     try {
-      // Responde com o painel privado ANTES de qualquer operação de cargo.
-      // Assim o usuário nunca fica esperando a alteração do cargo para ver o painel.
-      const member = interaction.member;
-      const panel = buildFruitRolePanelForMember(interaction.guildId, member);
-
-      if (!panel) {
-        await interaction.reply({
-          content: "❌ Não há cargos de frutas configurados.",
-          ephemeral: true
-        });
-        return;
-      }
-
-      await interaction.reply({
-        ...panel,
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-      });
-
       const fruit = ALL_FRUITS.find(name => fruitKey(name) === interaction.values?.[0]);
       if (!fruit) return;
 
-      const guildConfig = getGuildConfig(interaction.guildId);
-      const roleId = configuredFruitRoleId(guildConfig, fruit);
-
-      if (!roleId || !/^\d{17,20}$/.test(String(roleId))) return;
-
-      let role = interaction.guild.roles.cache.get(roleId);
-      if (!role) {
-        role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+      // No primeiro clique, cria UMA mensagem privada.
+      // Nos próximos cliques, trabalha diretamente na mesma mensagem.
+      if (isPrivatePanel) {
+        await interaction.deferUpdate();
+      } else {
+        const initialPanel = buildFruitRolePanelForMember(interaction.guildId, interaction.member);
+        if (!initialPanel) {
+          await interaction.reply({content:"❌ Não há cargos de frutas configurados.",ephemeral:true});
+          return;
+        }
+        await interaction.reply({
+          ...initialPanel,
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+        });
       }
-      if (!role) return;
 
-      const botMember = interaction.guild.members.me ||
-        await interaction.guild.members.fetchMe().catch(() => null);
+      const guildConfig=getGuildConfig(interaction.guildId);
+      const roleId=configuredFruitRoleId(guildConfig,fruit);
+      if(!roleId||!/^\d{17,20}$/.test(String(roleId))) return;
 
-      if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles) || !role.editable) {
-        console.error("[FRUIT ROLE] Sem permissão/hierarquia para " + fruit + " (" + roleId + ")");
+      let role=interaction.guild.roles.cache.get(roleId);
+      if(!role) role=await interaction.guild.roles.fetch(roleId).catch(()=>null);
+      if(!role) return;
+
+      const botMember=interaction.guild.members.me || await interaction.guild.members.fetchMe().catch(()=>null);
+      if(!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)||!role.editable){
+        console.error("[FRUIT ROLE] Sem permissão/hierarquia para "+fruit+" ("+roleId+")");
         return;
       }
 
-      // Busca o estado atual diretamente do Discord.
-      let freshMember = await interaction.guild.members.fetch({
-        user: interaction.user.id,
-        force: true
-      }).catch(() => interaction.member);
+      let freshMember=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>interaction.member);
+      const hasRole=freshMember.roles.cache.has(role.id);
+      let changed=false;
 
-      const hasRole = freshMember.roles.cache.has(role.id);
-      let changed = false;
-
-      // Tentativas com backoff para erros temporários da API do Discord.
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        try {
-          if (hasRole) {
-            await freshMember.roles.remove(role, "Cargo de fruta removido pelo painel");
-          } else {
-            await freshMember.roles.add(role, "Cargo de fruta recebido pelo painel");
-          }
-          changed = true;
+      for(let attempt=1;attempt<=5;attempt++){
+        try{
+          if(hasRole) await freshMember.roles.remove(role,"Cargo de fruta removido pelo painel");
+          else await freshMember.roles.add(role,"Cargo de fruta recebido pelo painel");
+          changed=true;
           break;
-        } catch (error) {
-          console.error(
-            "[FRUIT ROLE] Tentativa " + attempt + "/5 para " + fruit + ":",
-            error?.message || error
-          );
-          if (attempt < 5) {
-            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-            freshMember = await interaction.guild.members.fetch({
-              user: interaction.user.id,
-              force: true
-            }).catch(() => freshMember);
-          }
+        }catch(error){
+          console.error("[FRUIT ROLE] Tentativa "+attempt+"/5 para "+fruit+":",error?.message||error);
+          if(attempt<5) await new Promise(resolve=>setTimeout(resolve,500*attempt));
+          freshMember=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>freshMember);
         }
       }
 
-      if (!changed) return;
+      if(!changed) return;
 
-      // Confirma o estado real e atualiza a mesma mensagem privada.
-      freshMember = await interaction.guild.members.fetch({
-        user: interaction.user.id,
-        force: true
-      }).catch(() => freshMember);
+      freshMember=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>freshMember);
+      const status=hasRole
+        ? "🔴 **@" + role.name + " removido.**"
+        : "🟢 **@" + role.name + " recebido.**";
+      const updatedPanel=buildFruitRolePanelForMember(interaction.guildId,freshMember,status);
 
-      const updatedPanel = buildFruitRolePanelForMember(interaction.guildId, freshMember);
-      if (updatedPanel) {
-        await interaction.editReply(updatedPanel).catch(error => {
-          console.error("[FRUIT ROLE] Falha ao atualizar painel:", error?.message || error);
-        });
-      }
-    } catch (error) {
-      console.error("Erro no menu de cargos de frutas:", error);
-      // Se a resposta ainda não foi enviada, responde. Se já foi enviada,
-      // deixa o painel privado intacto em vez de gerar outra mensagem de erro.
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "❌ Não consegui abrir o painel privado.",
-          ephemeral: true
-        }).catch(() => {});
+      if(updatedPanel) await interaction.editReply(updatedPanel).catch(error=>{
+        console.error("[FRUIT ROLE] Falha ao atualizar painel privado:",error?.message||error);
+      });
+    }catch(error){
+      console.error("Erro no menu de cargos de frutas:",error);
+      if(!interaction.replied&&!interaction.deferred){
+        await interaction.reply({content:"❌ Não consegui abrir o painel privado.",ephemeral:true}).catch(()=>{});
       }
     }
     return;
