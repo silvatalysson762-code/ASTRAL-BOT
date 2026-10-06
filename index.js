@@ -1381,7 +1381,8 @@ async function registerCommands() {
     console.error("[COMMANDS] ERRO ao publicar comandos globais:", error);
   }
 
-  // Limpa os comandos de servidor antigos para eliminar duplicatas.
+  // Publica também os comandos no servidor para que /imagem e os demais
+  // apareçam imediatamente, sem depender da propagação dos comandos globais.
   const guildIds = [...new Set([
     ...client.guilds.cache.keys(),
     PROTECTED_GUILD_ID,
@@ -1390,10 +1391,10 @@ async function registerCommands() {
 
   for (const guildId of guildIds) {
     try {
-      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: [] });
-      console.log("[COMMANDS] Comandos antigos removidos do servidor " + guildId + ".");
+      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: registeredCommands });
+      console.log("[COMMANDS] Comandos publicados imediatamente no servidor " + guildId + ".");
     } catch (error) {
-      console.error("[COMMANDS] ERRO ao limpar comandos do servidor " + guildId + ":", error);
+      console.error("[COMMANDS] ERRO ao publicar comandos no servidor " + guildId + ":", error);
     }
   }
 }
@@ -1498,6 +1499,33 @@ client.on("messageCreate", async message => {
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       });
+      return;
+    }
+
+    // Pedidos de imagem por menção, por exemplo:
+    // "@Astral Stock crie uma imagem de um dragão roxo".
+    // Isso é separado da IA de texto para não mandar o pedido de imagem para o Groq.
+    const imageRequest = /\\b(gera|gerar|gere|crie|criar|faça|fazer|faz|desenha|desenhar|desenhe|imagem|foto|banner|logo)\\b/i.test(prompt);
+
+    if (imageRequest) {
+      await message.channel.sendTyping();
+
+      try {
+        const imageBuffer = await generateGeminiImage(prompt);
+        await message.reply({
+          content: "🎨 **Imagem gerada!**",
+          files: [new AttachmentBuilder(imageBuffer, { name: "astral-image.png" })],
+          allowedMentions: { repliedUser: false }
+        });
+      } catch (imageError) {
+        console.error("Erro na geração de imagem por menção:", imageError);
+        await message.reply({
+          content: "❌ " + (imageError.message || "Não consegui gerar a imagem agora."),
+          allowedMentions: { repliedUser: false }
+        });
+      }
+
+      aiActiveChats.set(chatKey, Date.now() + AI_CHAT_TIMEOUT_MS);
       return;
     }
 
