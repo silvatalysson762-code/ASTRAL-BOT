@@ -1435,6 +1435,41 @@ client.on("messageCreate", async message => {
   }
 
   try {
+    const stockRequest = /\b(stock|estoque)\b/i.test(prompt);
+
+    if (stockRequest) {
+      const state = readState();
+      const latest = state.latestStock || {};
+      const normal = Array.isArray(latest.normal) ? latest.normal : [];
+      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
+
+      if (!normal.length && !mirage.length) {
+        await message.reply({
+          content: "❌ Ainda não tenho um stock salvo para mostrar.",
+          allowedMentions: { repliedUser: false }
+        });
+        return;
+      }
+
+      const guildConfig = getGuildConfig(message.guild.id);
+      const components = [];
+
+      if (normal.length) {
+        components.push(stockContainer(normal, stockTitle("normal", guildConfig), "normal", guildConfig));
+      }
+
+      if (mirage.length) {
+        components.push(stockContainer(mirage, stockTitle("mirage", guildConfig), "mirage", guildConfig));
+      }
+
+      await message.reply({
+        components,
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
+      });
+      return;
+    }
+
     await message.channel.sendTyping();
     const answer = await askGroqAI(prompt, message.author.id);
     const chunks = splitDiscordText(answer);
