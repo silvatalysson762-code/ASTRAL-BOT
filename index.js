@@ -4,7 +4,7 @@ const path = require("node:path");
 const {
   Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, REST, Routes,
-  SlashCommandBuilder, PermissionFlagsBits
+  SlashCommandBuilder, PermissionFlagsBits, AttachmentBuilder
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID"];
@@ -27,6 +27,34 @@ const fruitRoleBusyUsers = new Set();
 const aiCooldowns = new Map();
 const aiActiveChats = new Map();
 const AI_CHAT_TIMEOUT_MS = 30 * 60 * 1000;
+
+async function generateGeminiImage(prompt) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("A geração de imagens ainda não foi configurada. Adicione GEMINI_API_KEY nas variáveis de ambiente.");
+  }
+
+  const { GoogleGenAI } = require("@google/genai");
+  const ai = new GoogleGenAI({ apiKey });
+
+  const interaction = await ai.interactions.create({
+    model: process.env.GEMINI_IMAGE_MODEL || "gemini-nano-banana-2.1",
+    input: String(prompt).trim(),
+    response_format: {
+      type: "image",
+      mime_type: "image/png",
+      aspect_ratio: process.env.GEMINI_IMAGE_ASPECT_RATIO || "1:1",
+      image_size: process.env.GEMINI_IMAGE_SIZE || "1K"
+    }
+  });
+
+  const imageData = interaction?.output_image?.data;
+  if (!imageData) {
+    throw new Error("A Gemini não retornou uma imagem.");
+  }
+
+  return Buffer.from(imageData, "base64");
+}
 
 async function askGroqAI(prompt, userId) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -1279,6 +1307,9 @@ const commands = [
   new SlashCommandBuilder().setName("ia").setDescription("Converse com a IA do Astral Stock")
     .setIntegrationTypes([0, 1]).setContexts([0])
     .addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar para a IA?").setRequired(true).setMaxLength(2000)),
+  new SlashCommandBuilder().setName("imagem").setDescription("Gere uma imagem com a IA Gemini")
+    .setIntegrationTypes([0, 1]).setContexts([0])
+    .addStringOption(option => option.setName("prompt").setDescription("Descreva a imagem que você quer criar").setRequired(true).setMaxLength(2000)),
   new SlashCommandBuilder().setName("server-panel").setDescription("Configure os servidores autorizados a usar o bot")
     .addStringOption(option => option.setName("action").setDescription("Ação do painel").setRequired(true).addChoices(
       { name: "Adicionar servidor", value: "add" },
@@ -1867,6 +1898,19 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("Erro no /ia:", error);
       await interaction.editReply("❌ " + (error.message || "Não consegui falar com a IA agora."));
+    }
+  } else if (interaction.commandName === "imagem") {
+    await interaction.deferReply();
+    try {
+      const prompt = interaction.options.getString("prompt", true);
+      const imageBuffer = await generateGeminiImage(prompt);
+      await interaction.editReply({
+        content: "🎨 Imagem gerada pela Gemini.",
+        files: [new AttachmentBuilder(imageBuffer, { name: "astral-image.png" })]
+      });
+    } catch (error) {
+      console.error("Erro no /imagem:", error);
+      await interaction.editReply("❌ " + (error.message || "Não consegui gerar a imagem agora."));
     }
   } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
