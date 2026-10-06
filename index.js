@@ -620,15 +620,6 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
     .setFooter({ text: "Blox Fruits Stock" });
 }
 
-function stockTradeButtonRow() {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setLabel("Trade your fruits")
-      .setStyle(ButtonStyle.Link)
-      .setURL("https://www.roblox.com/games/2753915549/Blox-Fruits")
-  );
-}
-
 async function postStock(stock, announce, title, groupKey = null) {
   const config = readConfig();
   const entries = Object.entries(config.guilds || {}).filter(([, guildConfig]) => guildConfig?.channelId);
@@ -650,7 +641,6 @@ async function postStock(stock, announce, title, groupKey = null) {
       await channel.send({
         content: stockMentions || undefined,
         embeds: [stockEmbed],
-        components: [stockTradeButtonRow()],
         allowedMentions: { parse: ["roles"] }
       });
       sent++;
@@ -924,12 +914,17 @@ function configuredFruitRoleId(guildConfig, fruit) {
   return stockAlerts[key] || roles[key] || null;
 }
 
-function fruitRoleButton(fruit, roleId) {
+function fruitRoleButton(fruit, roleId, labelWidth = 7) {
   const emojiMarkup = fruitEmoji({ name: fruit });
+  const normalizedLabel = String(fruit);
+  const totalPadding = Math.max(0, labelWidth - normalizedLabel.length);
+  const leftPadding = Math.floor(totalPadding / 2);
+  const rightPadding = totalPadding - leftPadding;
+  const paddedLabel = "\u2007".repeat(leftPadding) + normalizedLabel + "\u2007".repeat(rightPadding);
   const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
   const button = new ButtonBuilder()
     .setCustomId("fruit_role:" + fruitKey(fruit) + ":" + String(roleId))
-    .setLabel(fruit)
+    .setLabel(paddedLabel)
     .setStyle(ButtonStyle.Secondary);
 
   if (emojiMatch) {
@@ -956,6 +951,7 @@ function buildFruitRolePanel(guildId) {
 
   // Dois botões por linha, ocupando as duas colunas do painel.
   // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
+  const labelWidth = Math.max(7, ...configured.map(item => String(item.fruit).length));
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
@@ -967,8 +963,8 @@ function buildFruitRolePanel(guildId) {
     for (let i = 0; i < chunk.length; i += 2) {
       const row = new ActionRowBuilder();
       row.addComponents(
-        fruitRoleButton(chunk[i].fruit, chunk[i].roleId),
-        ...(chunk[i + 1] ? [fruitRoleButton(chunk[i + 1].fruit, chunk[i + 1].roleId)] : [])
+        fruitRoleButton(chunk[i].fruit, chunk[i].roleId, labelWidth),
+        ...(chunk[i + 1] ? [fruitRoleButton(chunk[i + 1].fruit, chunk[i + 1].roleId, labelWidth)] : [])
       );
       rows.push(row);
     }
@@ -1483,7 +1479,6 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({
         content: [...new Set(mentionParts.flatMap(value => value.split(" ")))].join(" ") || undefined,
         embeds,
-        components: [stockTradeButtonRow()],
         allowedMentions: { parse: ["roles"] }
       });
     } catch (e) {
