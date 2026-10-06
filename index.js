@@ -1218,7 +1218,7 @@ client.on("interactionCreate", async interaction => {
         ? buttonRoleId
         : configuredFruitRoleId(guildConfig, fruit);
 
-      if (!roleId || !/^\\d{17,20}$/.test(String(roleId))) {
+      if (!roleId || !/^\d{17,20}$/.test(String(roleId))) {
         await interaction.reply({ content: "❌ Não existe um cargo configurado para **" + fruit + "**.", ephemeral: true });
         return;
       }
