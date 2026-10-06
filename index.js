@@ -1022,6 +1022,7 @@ function buildFruitRolePanelForMember(guildId, member) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
+        emoji: fruitEmoji(item.fruit),
         description: member.roles.cache.has(item.roleId)
           ? "🟢 Você possui este cargo"
           : "🔴 Você não possui este cargo"
@@ -1031,13 +1032,18 @@ function buildFruitRolePanelForMember(guildId, member) {
 
   rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton()));
 
-  const title = "# " + APPLICATION_FRUIT_EMOJIS.dragon +
-    " CARGOS DE FRUTAS\\n\\nEscolha uma fruta para adicionar/remover o cargo.\\n" +
-    "🟢 = você possui • 🔴 = você não possui.";
+  const title = "# " + APPLICATION_FRUIT_EMOJIS.dragon + "  CARGOS DE FRUTAS";
+  const description =
+    "### Escolha uma fruta abaixo para receber ou remover o cargo.\n\n" +
+    "🟢 **Você possui o cargo**  •  🔴 **Você não possui o cargo**\n\n" +
+    "🔔 Selecione os cargos das frutas que você deseja receber para receber as notificações de stock.";
 
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(title),
+      new TextDisplayBuilder().setContent(description)
+    );
 
   container.addActionRowComponents(...rows);
 
@@ -1065,6 +1071,7 @@ function buildFruitRolePanel(guildId) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
+        emoji: fruitEmoji(item.fruit),
         description: "Clique para receber/remover"
       })));
     rows.push(new ActionRowBuilder().addComponents(menu));
@@ -1072,14 +1079,21 @@ function buildFruitRolePanel(guildId) {
 
   rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton()));
 
-  const title = "@everyone\\n# " + APPLICATION_FRUIT_EMOJIS.dragon +
-    " CARGOS DE FRUTAS\\n\\nEscolha uma fruta para receber/remover o cargo.\\n\\n" +
-    "> 🔔 **Escolha os cargos das frutas que você deseja receber para receber as notificações de stock.**\\n" +
-    "> 📢 As notificações serão enviadas no canal <#1555984553016033380>.";
+  const title =
+    "# " + APPLICATION_FRUIT_EMOJIS.dragon + "  CARGOS DE FRUTAS";
+  const description =
+    "### Escolha uma fruta abaixo para receber ou remover o cargo.\n\n" +
+    "🔔 **Selecione os cargos das frutas que você deseja receber para receber as notificações de stock.**\n" +
+    "📢 As notificações serão enviadas no canal <#1555984553016033380>.";
 
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(description)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(title)
+    );
 
   container.addActionRowComponents(...rows);
 
@@ -1087,7 +1101,7 @@ function buildFruitRolePanel(guildId) {
     configured,
     components: [container],
     flags: MessageFlags.IsComponentsV2,
-    allowedMentions: { parse: ["everyone"] }
+    allowedMentions: { parse: [] }
   };
 }
 
