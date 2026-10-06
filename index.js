@@ -1105,7 +1105,7 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
-    if (!/^\\d{17,20}$/.test(String(serverId || ""))) {
+    if (!/^\d{17,20}$/.test(String(serverId || ""))) {
       await interaction.reply({ content: "❌ Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
       return;
     }
