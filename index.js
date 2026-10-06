@@ -1,6 +1,7 @@
 require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
+const { getStringWidth, padStringToWidth } = require("discord-button-width");
 const {
   Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes,
@@ -907,27 +908,21 @@ function configuredFruitRoleId(guildConfig, fruit) {
   return stockAlerts[key] || roles[key] || null;
 }
 
-function fruitButtonPadding(fruit, maxLabelLength) {
-  const label = String(fruit);
-  const missing = Math.max(0, maxLabelLength - label.length);
-
-  // O Discord não oferece uma propriedade de largura para botões.
-  // Mantemos a mesma quantidade total de caracteres visíveis na label,
-  // adicionando espaços Unicode nas frutas menores.
-  const space = "\u2007";
-  const left = Math.ceil(missing / 2);
-  const right = Math.floor(missing / 2);
-
-  return space.repeat(left) + label + space.repeat(right);
+function fruitButtonLabel(fruit, targetWidth) {
+  // O Discord não expõe uma propriedade de largura no Button.
+  // Esta biblioteca usa a métrica da fonte do Discord e caracteres
+  // de padding que não são removidos pelo cliente.
+  const padded = padStringToWidth(String(fruit), targetWidth, "center");
+  return "\u200b" + padded + "\u200b";
 }
 
-function fruitRoleButton(fruit, roleId, maxLabelLength) {
+function fruitRoleButton(fruit, roleId, targetWidth) {
   const emojiMarkup = fruitEmoji({ name: fruit });
   const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
 
   const button = new ButtonBuilder()
     .setCustomId("fruit_role:" + fruitKey(fruit) + ":" + String(roleId))
-    .setLabel(fruitButtonPadding(fruit, maxLabelLength))
+    .setLabel(fruitButtonLabel(fruit, targetWidth))
     .setStyle(ButtonStyle.Secondary);
 
   if (emojiMatch) {
@@ -954,7 +949,7 @@ function buildFruitRolePanel(guildId) {
 
   // Dois botões por linha, ocupando as duas colunas do painel.
   // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
-  const maxLabelLength = Math.max(...configured.map(item => item.fruit.length));
+  const targetButtonWidth = Math.max(...configured.map(item => getStringWidth(item.fruit)));
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
@@ -966,8 +961,8 @@ function buildFruitRolePanel(guildId) {
     for (let i = 0; i < chunk.length; i += 2) {
       const row = new ActionRowBuilder();
       row.addComponents(
-        fruitRoleButton(chunk[i].fruit, chunk[i].roleId, maxLabelLength),
-        ...(chunk[i + 1] ? [fruitRoleButton(chunk[i + 1].fruit, chunk[i + 1].roleId, maxLabelLength)] : [])
+        fruitRoleButton(chunk[i].fruit, chunk[i].roleId, targetButtonWidth),
+        ...(chunk[i + 1] ? [fruitRoleButton(chunk[i + 1].fruit, chunk[i + 1].roleId, targetButtonWidth)] : [])
       );
       rows.push(row);
     }
