@@ -1,7 +1,6 @@
 require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
-const { getStringWidth, padStringToWidth } = require("discord-button-width");
 const {
   Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes,
@@ -909,11 +908,16 @@ function configuredFruitRoleId(guildConfig, fruit) {
 }
 
 function fruitButtonLabel(fruit, targetWidth) {
-  // O Discord não expõe uma propriedade de largura no Button.
-  // Esta biblioteca usa a métrica da fonte do Discord e caracteres
-  // de padding que não são removidos pelo cliente.
-  const padded = padStringToWidth(String(fruit), targetWidth, "center");
-  return "\u200b" + padded + "\u200b";
+  // O Discord não permite definir a largura do botão diretamente.
+  // Usamos figure spaces, que mantêm espaço visual no label.
+  const text = String(fruit);
+  const widths = { i: 0.35, l: 0.35, I: 0.35, m: 1.25, w: 1.15, M: 1.15, W: 1.35 };
+  const widthOf = value => [...value].reduce((sum, char) => sum + (widths[char] || 0.72), 0);
+  const current = widthOf(text);
+  const missing = Math.max(0, targetWidth - current);
+  const spaces = Math.max(0, Math.ceil(missing / 0.72));
+  const padding = "\u2007".repeat(spaces);
+  return "\u200b" + padding + text + padding + "\u200b";
 }
 
 function fruitRoleButton(fruit, roleId, targetWidth) {
@@ -949,7 +953,9 @@ function buildFruitRolePanel(guildId) {
 
   // Dois botões por linha, ocupando as duas colunas do painel.
   // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
-  const targetButtonWidth = Math.max(...configured.map(item => getStringWidth(item.fruit)));
+  const widths = { i: 0.35, l: 0.35, I: 0.35, m: 1.25, w: 1.15, M: 1.15, W: 1.35 };
+  const widthOf = value => [...String(value)].reduce((sum, char) => sum + (widths[char] || 0.72), 0);
+  const targetButtonWidth = Math.max(...configured.map(item => widthOf(item.fruit)));
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
