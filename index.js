@@ -1684,8 +1684,12 @@ client.on("interactionCreate", async interaction => {
       if (isPrivatePanel) {
         await interaction.deferUpdate();
       } else {
-        // Re-renderiza o painel público usando o estado público, nunca o estado
-        // de quem clicou. Depois abre uma cópia privada para esse usuário.
+        // Primeiro reconhecemos a interação. Depois restauramos o painel
+        // público e abrimos um painel individual efêmero para quem clicou.
+        // Usar deferUpdate + editReply evita que o update consuma a interação
+        // antes do followUp privado ser criado.
+        await interaction.deferUpdate();
+
         const publicPanel = buildFruitRolePanel(interaction.guildId);
         const member = await interaction.guild.members.fetch({
           user: interaction.user.id,
@@ -1694,24 +1698,26 @@ client.on("interactionCreate", async interaction => {
         const privatePanel = buildFruitRolePanelForMember(interaction.guildId, member);
 
         if (!publicPanel || !privatePanel) {
-          await interaction.reply({ content: "❌ Não há cargos de frutas configurados.", ephemeral: true });
+          await interaction.followUp({
+            content: "❌ Não há cargos de frutas configurados.",
+            ephemeral: true
+          });
           return;
         }
 
-        // O menu público volta ao estado inicial para TODOS os usuários.
-        await interaction.update({
+        // O painel geral continua exatamente com título, texto, seletores
+        // e botão. Ele nunca recebe o estado individual do usuário.
+        await interaction.editReply({
           ...publicPanel,
           flags: MessageFlags.IsComponentsV2
         });
 
-        // Esta cópia é efêmera: somente quem clicou consegue vê-la e usá-la.
+        // Painel individual: somente o usuário que clicou consegue vê-lo.
         await interaction.followUp({
           ...privatePanel,
           flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
         });
 
-        // A partir daqui, qualquer alteração de cargo acontece somente no
-        // painel privado daquele usuário.
         return;
       }
 
