@@ -982,7 +982,7 @@ function buildFruitRolePanelForMember(guildId, member) {
     .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
     .filter(item => /^\d{17,20}$/.test(String(item.roleId || "")));
 
-  if (!configured.length) return { configured: [], messages: [] };
+  if (!configured.length) return null;
 
   const rows = [];
   for (let i = 0; i < configured.length; i += 25) {
@@ -995,7 +995,9 @@ function buildFruitRolePanelForMember(guildId, member) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
-        description: member.roles.cache.has(item.roleId) ? "🟢 Você possui este cargo" : "🔴 Você não possui este cargo"
+        description: member.roles.cache.has(item.roleId)
+          ? "🟢 Você possui este cargo"
+          : "🔴 Você não possui este cargo"
       })));
     rows.push(new ActionRowBuilder().addComponents(menu));
   }
@@ -1011,11 +1013,10 @@ function buildFruitRolePanelForMember(guildId, member) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
 
   container.addActionRowComponents(...rows);
-  const payload = {
-    components: [container],
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+
+  return {
+    components: [container]
   };
-  return { configured, messages: [payload], ...payload };
 }
 
 function buildFruitRolePanel(guildId) {
@@ -1054,12 +1055,12 @@ function buildFruitRolePanel(guildId) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
 
   container.addActionRowComponents(...rows);
-  const payload = {
+
+  return {
     components: [container],
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: { parse: ["everyone"] }
   };
-  return { configured, messages: [payload], ...payload };
 }
 
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
@@ -1284,27 +1285,27 @@ process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
 client.on("interactionCreate", async interaction => {
-  if (interaction.isButton()) {
-    if (!interaction.customId.startsWith("fruit_role:") && !interaction.customId.startsWith("fruit_roles:")) return;
-
+  if (interaction.isButton() && interaction.customId.startsWith("fruit_roles:")) {
     try {
+      const guildConfig = getGuildConfig(interaction.guildId);
+      const member = interaction.member;
+
       if (interaction.customId === "fruit_roles:remove_all") {
-        const guildConfig = getGuildConfig(interaction.guildId);
-        const member = interaction.member;
-        const configured = [...ALL_FRUITS]
+        const configured = ALL_FRUITS
           .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
           .filter(item => /^\d{17,20}$/.test(String(item.roleId || "")));
 
         const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
         if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          await interaction.reply({ content: "❌ Eu preciso da permissão **Gerenciar Cargos** para remover os cargos.", ephemeral: true });
+          await interaction.reply({ content: "❌ Eu preciso da permissão **Gerenciar Cargos**.", ephemeral: true });
           return;
         }
 
         const removable = [];
         for (const item of configured) {
           if (!member.roles.cache.has(item.roleId)) continue;
-          const role = interaction.guild.roles.cache.get(item.roleId) || await interaction.guild.roles.fetch(item.roleId).catch(() => null);
+          const role = interaction.guild.roles.cache.get(item.roleId) ||
+            await interaction.guild.roles.fetch(item.roleId).catch(() => null);
           if (role?.editable) removable.push(role);
         }
 
@@ -1313,72 +1314,25 @@ client.on("interactionCreate", async interaction => {
         }
 
         const panel = buildFruitRolePanelForMember(interaction.guildId, member);
-        if (panel.messages.length) {
-          await interaction.reply(panel.messages[0]);
+        if (!panel) {
+          await interaction.reply({ content: "ℹ️ Não há cargos de frutas configurados.", ephemeral: true });
+          return;
+        }
+
+        if (interaction.message?.flags?.has?.(MessageFlags.Ephemeral)) {
+          await interaction.update(panel);
         } else {
-          await interaction.reply({ content: "ℹ️ Você não possui cargos de frutas configurados.", ephemeral: true });
+          await interaction.reply({
+            ...panel,
+            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+          });
         }
         return;
       }
-
-      const buttonData = interaction.customId.slice("fruit_role:".length);
-      const [fruitKeyName, buttonRoleId] = buttonData.split(":");
-      const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
-      if (!fruit) {
-        await interaction.reply({ content: "❌ Essa fruta não existe mais no painel.", ephemeral: true });
-        return;
-      }
-
-      const guildConfig = getGuildConfig(interaction.guildId);
-      const roleId = /^\d{17,20}$/.test(String(buttonRoleId || ""))
-        ? buttonRoleId
-        : configuredFruitRoleId(guildConfig, fruit);
-
-      if (!roleId || !/^\d{17,20}$/.test(String(roleId))) {
-        await interaction.reply({ content: "❌ Não existe um cargo configurado para **" + fruit + "**.", ephemeral: true });
-        return;
-      }
-
-      const role = interaction.guild.roles.cache.get(roleId) || await interaction.guild.roles.fetch(roleId).catch(() => null);
-      if (!role) {
-        await interaction.reply({ content: "❌ O cargo configurado para **" + fruit + "** não foi encontrado.", ephemeral: true });
-        return;
-      }
-
-      const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
-      if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-        await interaction.reply({ content: "❌ Eu preciso da permissão **Gerenciar Cargos** para entregar esse cargo.", ephemeral: true });
-        return;
-      }
-
-      if (!role.editable) {
-        await interaction.reply({
-          content: "❌ Não consigo entregar o cargo **" + role.name + "**. Coloque esse cargo abaixo do meu cargo mais alto.",
-          ephemeral: true
-        });
-        return;
-      }
-
-      const member = interaction.member;
-      if (member.roles.cache.has(role.id)) {
-        await member.roles.remove(role, "Cargo de fruta removido pelo painel");
-      } else {
-        await member.roles.add(role, "Cargo de fruta recebido pelo painel");
-      }
-
-      const panel = buildFruitRolePanelForMember(interaction.guildId, member);
-      if (panel.messages.length) {
-        await interaction.reply(panel.messages[0]);
-      } else {
-        await interaction.reply({
-          content: "❌ Não há cargos de frutas configurados neste servidor.",
-          ephemeral: true
-        });
-      }
     } catch (error) {
-      console.error("Erro no painel de cargos de frutas:", error);
+      console.error("Erro no botão de remoção de cargos:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui entregar esse cargo. Verifique minhas permissões.", ephemeral: true });
+        await interaction.reply({ content: "❌ Não consegui remover os cargos.", ephemeral: true });
       }
     }
     return;
@@ -1394,6 +1348,7 @@ client.on("interactionCreate", async interaction => {
 
       const guildConfig = getGuildConfig(interaction.guildId);
       const roleId = configuredFruitRoleId(guildConfig, fruit);
+
       if (!roleId || !/^\d{17,20}$/.test(String(roleId))) {
         await interaction.reply({ content: "❌ Não existe um cargo configurado para **" + fruit + "**.", ephemeral: true });
         return;
@@ -1401,6 +1356,7 @@ client.on("interactionCreate", async interaction => {
 
       const role = interaction.guild.roles.cache.get(roleId) ||
         await interaction.guild.roles.fetch(roleId).catch(() => null);
+
       if (!role) {
         await interaction.reply({ content: "❌ O cargo de **" + fruit + "** não foi encontrado.", ephemeral: true });
         return;
@@ -1408,7 +1364,10 @@ client.on("interactionCreate", async interaction => {
 
       const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
       if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles) || !role.editable) {
-        await interaction.reply({ content: "❌ Não consigo alterar esse cargo. Verifique minhas permissões e a hierarquia.", ephemeral: true });
+        await interaction.reply({
+          content: "❌ Não consigo alterar esse cargo. Verifique minhas permissões e a hierarquia.",
+          ephemeral: true
+        });
         return;
       }
 
@@ -1420,7 +1379,22 @@ client.on("interactionCreate", async interaction => {
       }
 
       const panel = buildFruitRolePanelForMember(interaction.guildId, member);
-      await interaction.reply(panel.messages[0] || { content: "❌ Não há cargos configurados.", ephemeral: true });
+      if (!panel) {
+        await interaction.reply({ content: "❌ Não há cargos configurados.", ephemeral: true });
+        return;
+      }
+
+      const isPrivatePanel = interaction.customId.startsWith("fruit_select:");
+      if (isPrivatePanel) {
+        // Atualiza o painel privado existente. Não cria outra mensagem.
+        await interaction.update(panel);
+      } else {
+        // Primeiro clique no painel público: cria o painel individual uma única vez.
+        await interaction.reply({
+          ...panel,
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+        });
+      }
     } catch (error) {
       console.error("Erro no menu de cargos de frutas:", error);
       if (!interaction.replied && !interaction.deferred) {
