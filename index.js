@@ -1442,7 +1442,17 @@ client.on("interactionCreate", async interaction => {
           await interaction.reply({ content: "❌ Não há cargos de frutas configurados.", ephemeral: true });
           return;
         }
-        await interaction.reply({
+
+        // Reconhece o clique e re-renderiza o painel público imediatamente.
+        // Isso limpa a fruta que ficou selecionada no menu.
+        await interaction.update({
+          ...initialPanel,
+          flags: MessageFlags.IsComponentsV2
+        });
+
+        // Depois de limpar a seleção do painel público, abrimos o painel
+        // individual sem alterar o cargo da fruta clicada.
+        await interaction.followUp({
           ...initialPanel,
           flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
         });
