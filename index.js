@@ -601,7 +601,6 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
     return `${fruitEmoji(item)} **${name}** • ${APPLICATION_UI_EMOJIS.beli} ${price != null ? "\`" + Number(price).toLocaleString("en-US") + "\`" : "\`Valor não cadastrado\`"}`;
   });
 
-  const mentions = roleMentions(stock, guildConfig);
   const next = groupKey ? nextGlobalReset(groupKey) : null;
   const countdown = next
     ? `${APPLICATION_UI_EMOJIS.clock} **Stock Change in** <t:${Math.floor(next.getTime() / 1000)}:R>`
@@ -611,8 +610,7 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
     lines.length ? lines.join("\n") : "Nenhuma fruta encontrada.",
     "",
     "━━━━━━━━━━━━━━━━━━━━",
-    countdown,
-    mentions ? `\\n${mentions}` : ""
+    countdown
   ].filter(Boolean).join("\n");
 
   return new EmbedBuilder()
