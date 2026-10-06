@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
@@ -554,10 +554,10 @@ function beliPrice(item) {
 
 function stockTitle(groupKey, guildConfig = defaultGuildConfig()) {
   const defaults = {
-    normal: "<:60119:1556621255984029706> Blox Fruits | Stock normal atualizado",
-    mirage: APPLICATION_UI_EMOJIS.mirageTitle + " Blox Fruits | Stock da Mirage atualizado"
+    normal: "Current Stock",
+    mirage: "Current Mirage Stock"
   };
-  return guildConfig.titles?.[groupKey] || defaults[groupKey] || APPLICATION_UI_EMOJIS.stockTitle + " Blox Fruits | Stock atualizado";
+  return guildConfig.titles?.[groupKey] || defaults[groupKey] || "Current Stock";
 }
 function nextGlobalReset(groupKey, now = new Date()) {
   // Horários globais em UTC: Normal a cada 4 horas;
@@ -598,23 +598,39 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
   const lines = stock.map(item => {
     const name = safeName(item);
     const price = beliPrice(item);
-    const robuxPrice = item.robux_price ?? PERMANENT_ROBUX_PRICES[fruitKey(name)];
-    return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPrice != null ? ` | ${Number(robuxPrice).toLocaleString("en-US")} ${APPLICATION_UI_EMOJIS.robux}` : ""}`;
+    return `${fruitEmoji(item)} **${name}** • ${APPLICATION_UI_EMOJIS.beli} ${price != null ? "\`" + Number(price).toLocaleString("en-US") + "\`" : "\`Valor não cadastrado\`"}`;
   });
+
   const mentions = roleMentions(stock, guildConfig);
-  const body = [
-    `# ${title}`,
+  const next = groupKey ? nextGlobalReset(groupKey) : null;
+  const countdown = next
+    ? `${APPLICATION_UI_EMOJIS.clock} **Stock Change in** <t:${Math.floor(next.getTime() / 1000)}:R>`
+    : "";
+
+  const description = [
+    lines.length ? lines.join("\n") : "Nenhuma fruta encontrada.",
     "",
-    mentions,
-    ...(lines.length ? lines : ["Nenhuma fruta encontrada."]),
-    "",
-    groupKey ? stockCountdown(groupKey) : "",
-    "-# Dados de stock • Confira no jogo antes de negociar"
+    "━━━━━━━━━━━━━━━━━━━━",
+    countdown,
+    mentions ? `\\n${mentions}` : ""
   ].filter(Boolean).join("\n");
-  return new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
+
+  return new EmbedBuilder()
+    .setColor(0x8B5CF6)
+    .setTitle(title)
+    .setDescription(description)
+    .setFooter({ text: "Blox Fruits Stock" });
 }
+
+function stockTradeButtonRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel("Trade your fruits")
+      .setStyle(ButtonStyle.Link)
+      .setURL("https://www.roblox.com/games/2753915549/Blox-Fruits")
+  );
+}
+
 async function postStock(stock, announce, title, groupKey = null) {
   const config = readConfig();
   const entries = Object.entries(config.guilds || {}).filter(([, guildConfig]) => guildConfig?.channelId);
@@ -631,9 +647,12 @@ async function postStock(stock, announce, title, groupKey = null) {
         console.warn("[STOCK] Canal do servidor " + guildId + " não está acessível.");
         continue;
       }
+      const stockEmbed = stockContainer(stock, stockTitle(groupKey, guildConfig), groupKey, guildConfig);
+      const stockMentions = roleMentions(stock, guildConfig);
       await channel.send({
-        components: [stockContainer(stock, stockTitle(groupKey, guildConfig), groupKey, guildConfig)],
-        flags: MessageFlags.IsComponentsV2,
+        content: stockMentions || undefined,
+        embeds: [stockEmbed],
+        components: [stockTradeButtonRow()],
         allowedMentions: { parse: ["roles"] }
       });
       sent++;
@@ -1447,13 +1466,28 @@ client.on("interactionCreate", async interaction => {
       const latest = state.latestStock || {};
       const normal = Array.isArray(latest.normal) ? latest.normal : [];
       const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
-      const components = [];
-      if (normal.length) components.push(stockContainer(normal, stockTitle("normal", getGuildConfig(interaction.guildId)), "normal", getGuildConfig(interaction.guildId)));
-      if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage", getGuildConfig(interaction.guildId)), "mirage", getGuildConfig(interaction.guildId)));
-      if (!components.length) {
-        components.push(stockContainer([], "🍈 STOCK ATUAL", null, getGuildConfig(interaction.guildId)));
+      const guildConfig = getGuildConfig(interaction.guildId);
+      const embeds = [];
+      const mentionParts = [];
+      if (normal.length) {
+        embeds.push(stockContainer(normal, stockTitle("normal", guildConfig), "normal", guildConfig));
+        const normalMentions = roleMentions(normal, guildConfig);
+        if (normalMentions) mentionParts.push(normalMentions);
       }
-      await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+      if (mirage.length) {
+        embeds.push(stockContainer(mirage, stockTitle("mirage", guildConfig), "mirage", guildConfig));
+        const mirageMentions = roleMentions(mirage, guildConfig);
+        if (mirageMentions) mentionParts.push(mirageMentions);
+      }
+      if (!embeds.length) {
+        embeds.push(stockContainer([], "Current Stock", null, guildConfig));
+      }
+      await interaction.reply({
+        content: [...new Set(mentionParts.flatMap(value => value.split(" ")))].join(" ") || undefined,
+        embeds,
+        components: [stockTradeButtonRow()],
+        allowedMentions: { parse: ["roles"] }
+      });
     } catch (e) {
       console.error("Erro no /stock:", e);
       if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui mostrar o estoque agora.", ephemeral: true });
