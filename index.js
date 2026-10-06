@@ -604,25 +604,28 @@ function stockTitle(groupKey, guildConfig = defaultGuildConfig()) {
 }
 function nextGlobalReset(groupKey, now = new Date()) {
   // Horários globais em UTC: Normal a cada 4 horas;
-  // Mirage a cada 2 horas. Ambos usam os limites de hora exatos.
-  const intervalHours = groupKey === "mirage" ? 2 : 4;
-  const offset = 0;
-  const candidate = new Date(now.getTime());
-  candidate.setUTCHours(candidate.getUTCHours(), 0, 0, 0);
-  for (let i = 0; i <= 24; i++) {
-    const hour = candidate.getUTCHours();
-    if (((hour - offset + 24) % intervalHours) === 0 && candidate.getTime() > now.getTime()) return candidate;
-    candidate.setUTCHours(candidate.getUTCHours() + 1);
-  }
-  throw new Error("Não foi possível calcular o próximo reset de " + groupKey + ".");
+  // Mirage a cada 2 horas.
+  // O cálculo é feito diretamente pelo relógio UTC, evitando diferenças
+  // causadas por arredondamentos de minutos/segundos.
+  const intervalMs = (groupKey === "mirage" ? 2 : 4) * 60 * 60 * 1000;
+  const nowMs = now.getTime();
+  const nextMs = Math.floor(nowMs / intervalMs + 1) * intervalMs;
+  return new Date(nextMs);
 }
 function brasilTime(timestamp) {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: BRASIL_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(timestamp));
 }
 function stockCountdown(groupKey) {
-  const next = nextGlobalReset(groupKey);
+  // Usa o mesmo timestamp que o agendador já calculou para o próximo reset.
+  let timestamp = nextStockAt[groupKey];
+  const now = Date.now();
+
+  if (!Number.isFinite(timestamp) || timestamp <= now) {
+    timestamp = nextGlobalReset(groupKey).getTime();
+  }
+
   const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock normal";
-  return `${APPLICATION_UI_EMOJIS.clock} **Próximo ${label}:** <t:${Math.floor(next.getTime() / 1000)}:R> • **${brasilTime(next.getTime())} (Brasília)**`;
+  return `${APPLICATION_UI_EMOJIS.clock} **Próximo ${label}:** <t:${Math.floor(timestamp / 1000)}:R> • **${brasilTime(timestamp)} (Brasília)**`;
 }
 async function resolveEmoji(input) {
   const value = String(input || "").trim();
@@ -830,6 +833,7 @@ function startStockScheduler() {
 
   if (schedulerTimer) clearTimeout(schedulerTimer);
 
+  // O contador das mensagens e o scheduler usam exatamente estes timestamps.
   nextStockAt.normal = nextGlobalReset("normal").getTime();
   nextStockAt.mirage = nextGlobalReset("mirage").getTime();
 
