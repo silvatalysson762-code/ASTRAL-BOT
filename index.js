@@ -246,34 +246,44 @@ async function updateBotServerProfile(guild, options = {}) {
   const reset = options.reset === true;
   const name = options.name == null ? undefined : String(options.name).trim();
   const avatarUrl = options.avatarUrl == null ? undefined : String(options.avatarUrl).trim();
+  const bannerUrl = options.bannerUrl == null ? undefined : String(options.bannerUrl).trim();
 
-  if (!reset && name === "" && !avatarUrl) {
-    throw new Error("Informe um nome, envie uma imagem ou use resetar.");
+  if (!reset && name === "" && !avatarUrl && !bannerUrl) {
+    throw new Error("Informe um nome, avatar, banner ou use resetar.");
   }
 
   if (!reset && name && name.length > 32) {
     throw new Error("O nome do bot neste servidor pode ter no máximo 32 caracteres.");
   }
 
-  let avatar = undefined;
-  if (reset) {
-    avatar = null;
-  } else if (avatarUrl) {
-    const response = await fetch(avatarUrl, {
+  async function downloadImage(url, label) {
+    const response = await fetch(url, {
       headers: { "Accept": "image/png,image/jpeg,image/webp,image/gif,*/*" },
       signal: AbortSignal.timeout(15000)
     });
-    if (!response.ok) throw new Error("Não consegui baixar a imagem enviada.");
+    if (!response.ok) throw new Error("Não consegui baixar o " + label + " enviado.");
     const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-    if (!contentType.startsWith("image/")) throw new Error("O arquivo enviado precisa ser uma imagem.");
+    if (!contentType.startsWith("image/")) throw new Error("O " + label + " precisa ser uma imagem.");
     const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > 8 * 1024 * 1024) throw new Error("A imagem precisa ter no máximo 8 MB.");
-    avatar = buffer;
+    if (buffer.length > 10 * 1024 * 1024) throw new Error("O " + label + " precisa ter no máximo 10 MB.");
+    return buffer;
+  }
+
+  let avatar = undefined;
+  let banner = undefined;
+
+  if (reset) {
+    avatar = null;
+    banner = null;
+  } else {
+    if (avatarUrl) avatar = await downloadImage(avatarUrl, "avatar");
+    if (bannerUrl) banner = await downloadImage(bannerUrl, "banner");
   }
 
   const edit = {};
   if (reset || name !== undefined) edit.nick = reset ? null : (name || null);
   if (reset || avatar !== undefined) edit.avatar = avatar;
+  if (reset || banner !== undefined) edit.banner = banner;
 
   await guild.members.me.edit(edit);
 
@@ -284,7 +294,8 @@ async function updateBotServerProfile(guild, options = {}) {
       config.botProfile = {
         ...(config.botProfile || {}),
         ...(name !== undefined ? { name: name || null } : {}),
-        ...(avatarUrl ? { avatarUrl } : {})
+        ...(avatarUrl ? { avatarUrl } : {}),
+        ...(bannerUrl ? { bannerUrl } : {})
       };
     }
   });
@@ -1405,7 +1416,8 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(option => option.setName("nome").setDescription("Nome do bot neste servidor").setRequired(false).setMaxLength(32))
     .addAttachmentOption(option => option.setName("avatar").setDescription("Imagem do avatar do bot neste servidor").setRequired(false))
-    .addBooleanOption(option => option.setName("resetar").setDescription("Restaurar o nome e avatar padrão").setRequired(false)),
+    .addAttachmentOption(option => option.setName("banner").setDescription("Banner do perfil do bot neste servidor").setRequired(false))
+    .addBooleanOption(option => option.setName("resetar").setDescription("Restaurar nome, avatar e banner padrão").setRequired(false)),
   new SlashCommandBuilder().setName("fruit-role-panel").setDescription("Send a panel with buttons to receive configured fruit roles")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
@@ -1962,16 +1974,18 @@ client.on("interactionCreate", async interaction => {
     try {
       const name = interaction.options.getString("nome");
       const avatar = interaction.options.getAttachment("avatar");
+      const banner = interaction.options.getAttachment("banner");
       const reset = interaction.options.getBoolean("resetar") === true;
 
-      if (!reset && !name && !avatar) {
-        await interaction.editReply("❌ Informe **nome**, envie um **avatar** ou marque **resetar**.");
+      if (!reset && !name && !avatar && !banner) {
+        await interaction.editReply("❌ Informe **nome**, envie um **avatar**, um **banner** ou marque **resetar**.");
         return;
       }
 
       await updateBotServerProfile(interaction.guild, {
         name,
         avatarUrl: avatar?.url,
+        bannerUrl: banner?.url,
         reset
       });
 
