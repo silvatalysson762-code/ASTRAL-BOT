@@ -1033,14 +1033,17 @@ client.on("interactionCreate", async interaction => {
         "⭐ **Jogos favoritos:** " + favoriteText
       ].join("\n");
 
-      // Container V2: título grande, @username menor e a imagem do avatar
-      // continuam exatamente nessa ordem, com as informações abaixo da imagem.
+      // Container V2 com cabeçalho mais completo, mantendo a imagem do avatar.
+      const avatarHeader = [
+        "## 👤 PERFIL DO ROBLOX",
+        "### " + avatar.displayName,
+        "-# @" + avatar.username + "  •  Roblox Player"
+      ].join("\n");
+
       const container = new ContainerBuilder()
         .setAccentColor(0x00FFFF)
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            "# " + avatar.displayName + "\n-# @" + avatar.username
-          )
+          new TextDisplayBuilder().setContent(avatarHeader)
         )
         .addMediaGalleryComponents(
           new MediaGalleryBuilder().addItems(
