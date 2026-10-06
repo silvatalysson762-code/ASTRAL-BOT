@@ -172,17 +172,23 @@ async function isBotOwner(userId) {
 function initializeGuildWhitelist() {
   const config = readConfig();
   let changed = false;
+
+  // Segurança: nunca autoriza automaticamente todos os servidores onde o bot
+  // já estiver. Um servidor só pode ser autorizado se o ID estiver no painel
+  // (/manage-servers) ou se for o servidor protegido.
   if (!Array.isArray(config.allowedGuildIds)) {
-    config.allowedGuildIds = [...client.guilds.cache.keys()];
+    config.allowedGuildIds = [];
     changed = true;
   }
+
   if (!config.allowedGuildIds.includes(PROTECTED_GUILD_ID)) {
     config.allowedGuildIds.push(PROTECTED_GUILD_ID);
     changed = true;
   }
+
   if (changed) {
     saveConfig(config);
-    console.log("[SECURITY] Lista de servidores permitidos inicializada/atualizada.");
+    console.log("[SECURITY] Lista de servidores permitidos inicializada com segurança.");
   }
 }
 
