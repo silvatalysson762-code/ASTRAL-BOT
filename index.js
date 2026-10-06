@@ -48,7 +48,7 @@ async function askGroqAI(prompt, userId) {
       "Accept": "application/json"
     },
     body: JSON.stringify({
-      model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       messages: [
         {
           role: "system",
