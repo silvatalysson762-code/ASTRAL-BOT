@@ -22,7 +22,70 @@ let checking = false;
 let apiCooldownUntil = 0;
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
+
 const fruitRoleBusyUsers = new Set();
+const aiCooldowns = new Map();
+
+async function askGroqAI(prompt, userId) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("A IA ainda não foi configurada. Adicione GROQ_API_KEY nas variáveis de ambiente.");
+  }
+
+  const now = Date.now();
+  const lastUse = aiCooldowns.get(String(userId)) || 0;
+  const remaining = 5000 - (now - lastUse);
+  if (remaining > 0) {
+    throw new Error("Aguarde " + Math.ceil(remaining / 1000) + "s antes de usar a IA novamente.");
+  }
+  aiCooldowns.set(String(userId), now);
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+      messages: [
+        {
+          role: "system",
+          content: "Você é a IA do Astral Stock, um bot de Discord focado em Blox Fruits. Responda em português do Brasil, de forma útil, clara e curta. Não invente informações sobre o stock atual. Quando não souber algo, diga que não sabe."
+        },
+        { role: "user", content: String(prompt).trim() }
+      ],
+      max_completion_tokens: 700,
+      temperature: 0.7
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = data?.error?.message || "A API da IA recusou a solicitação.";
+    throw new Error(detail);
+  }
+
+  const text = data?.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("A IA não retornou uma resposta.");
+  return text;
+}
+
+function splitDiscordText(text, maxLength = 1900) {
+  const chunks = [];
+  let remaining = String(text || "");
+  while (remaining.length > maxLength) {
+    let cut = remaining.lastIndexOf("\n", maxLength);
+    if (cut < 500) cut = remaining.lastIndexOf(" ", maxLength);
+    if (cut < 1) cut = maxLength;
+    chunks.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut).trimStart();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks.length ? chunks : ["Não recebi uma resposta da IA."];
+}
 
 function defaultGuildConfig() {
   return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {} };
@@ -1211,6 +1274,9 @@ const commands = [
   new SlashCommandBuilder().setName("send-stock").setDescription("Send the saved Blox Fruits stock in this channel")
     .setIntegrationTypes([0, 1]).setContexts([0]),
   new SlashCommandBuilder().setName("avatar").setDescription("Show a Roblox avatar").addStringOption(option => option.setName("username").setDescription("Roblox username").setRequired(true).setMaxLength(20)),
+  new SlashCommandBuilder().setName("ia").setDescription("Converse com a IA do Astral Stock")
+    .setIntegrationTypes([0, 1]).setContexts([0])
+    .addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar para a IA?").setRequired(true).setMaxLength(2000)),
   new SlashCommandBuilder().setName("server-panel").setDescription("Configure os servidores autorizados a usar o bot")
     .addStringOption(option => option.setName("action").setDescription("Ação do painel").setRequired(true).addChoices(
       { name: "Adicionar servidor", value: "add" },
@@ -1698,6 +1764,21 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("Erro no /avatar:", error);
       await interaction.editReply("❌ " + (error.message || "Não consegui carregar esse avatar do Roblox."));
+    }
+  } else if (interaction.commandName === "ia") {
+    await interaction.deferReply();
+    try {
+      const prompt = interaction.options.getString("pergunta", true);
+      const answer = await askGroqAI(prompt, interaction.user.id);
+      const chunks = splitDiscordText(answer);
+
+      await interaction.editReply(chunks[0]);
+      for (const chunk of chunks.slice(1)) {
+        await interaction.followUp(chunk);
+      }
+    } catch (error) {
+      console.error("Erro no /ia:", error);
+      await interaction.editReply("❌ " + (error.message || "Não consegui falar com a IA agora."));
     }
   } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
