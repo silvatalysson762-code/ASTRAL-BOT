@@ -1296,14 +1296,23 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const completed = await checkStock(true, ["normal", "mirage"], true);
+      const state = readState();
+      const latest = state.latestStock || {};
+      const normal = Array.isArray(latest.normal) ? latest.normal : [];
+      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
+      if (!normal.length && !mirage.length) {
+        throw new Error("Ainda não existe stock salvo para reenviar.");
+      }
+
+      const sent = await postStock(latest);
+      const completed = sent !== false;
       if (!completed) {
         await interaction.editReply("⏳ Já existe uma consulta de stock em andamento. Tente novamente em alguns segundos.");
       } else {
-        await interaction.editReply("✅ Consultei a Wiki, salvei o stock mais recente e publiquei as listas no canal!");
+        await interaction.editReply("✅ Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
       }
     } catch (e) {
-      await interaction.editReply("❌ Não consegui consultar a Wiki: " + e.message + ". O último stock salvo foi preservado.");
+      await interaction.editReply("❌ Não consegui reenviar o stock salvo: " + e.message + ".");
     }
   } else if (interaction.commandName === "set-stock-channel") {
     const channel = interaction.options.getChannel("channel", true);
