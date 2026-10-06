@@ -911,7 +911,7 @@ function fruitRoleButton(fruit, roleId) {
   const emojiMarkup = fruitEmoji({ name: fruit });
   const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
   const button = new ButtonBuilder()
-    .setCustomId("fruit_role:" + fruitKey(fruit))
+    .setCustomId("fruit_role:" + fruitKey(fruit) + ":" + String(roleId))
     .setLabel(fruit)
     .setStyle(ButtonStyle.Secondary);
 
@@ -928,7 +928,8 @@ function fruitRoleButton(fruit, roleId) {
 
 function buildFruitRolePanel(guildId) {
   const guildConfig = getGuildConfig(guildId);
-  const configured = ALL_FRUITS
+  const panelFruitOrder = [...ALL_FRUITS].reverse();
+  const configured = panelFruitOrder
     .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
     .filter(item => /^\d{17,20}$/.test(String(item.roleId || "")));
 
@@ -956,8 +957,8 @@ function buildFruitRolePanel(guildId) {
     }
 
     const title = pageIndex === 0
-      ? APPLICATION_FRUIT_EMOJIS.dragon + " **CARGOS DE FRUTAS**\n\nClique no botão da fruta para receber o cargo correspondente."
-      : APPLICATION_FRUIT_EMOJIS.dragon + " **CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "**\n\nClique no botão da fruta para receber o cargo correspondente.";
+      ? "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DE FRUTAS\n\nClique no botão da fruta para receber o cargo correspondente."
+      : "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\n\nClique no botão da fruta para receber o cargo correspondente.";
 
     const container = new ContainerBuilder()
       .setAccentColor(0x00FFFF)
@@ -967,13 +968,15 @@ function buildFruitRolePanel(guildId) {
       container.addActionRowComponents(...rows);
       return {
         components: [container],
-        flags: MessageFlags.IsComponentsV2
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: ["everyone"] }
       };
     }
 
     return {
       components: rows,
-      content: title
+      content: title,
+      allowedMentions: { parse: ["everyone"] }
     };
   });
 
@@ -1202,7 +1205,8 @@ client.on("interactionCreate", async interaction => {
     if (!interaction.customId.startsWith("fruit_role:")) return;
 
     try {
-      const fruitKeyName = interaction.customId.slice("fruit_role:".length);
+      const buttonData = interaction.customId.slice("fruit_role:".length);
+      const [fruitKeyName, buttonRoleId] = buttonData.split(":");
       const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
       if (!fruit) {
         await interaction.reply({ content: "❌ Essa fruta não existe mais no painel.", ephemeral: true });
@@ -1210,7 +1214,9 @@ client.on("interactionCreate", async interaction => {
       }
 
       const guildConfig = getGuildConfig(interaction.guildId);
-      const roleId = configuredFruitRoleId(guildConfig, fruit);
+      const roleId = /^\d{17,20}$/.test(String(buttonRoleId || ""))
+        ? buttonRoleId
+        : configuredFruitRoleId(guildConfig, fruit);
 
       if (!roleId || !/^\\d{17,20}$/.test(String(roleId))) {
         await interaction.reply({ content: "❌ Não existe um cargo configurado para **" + fruit + "**.", ephemeral: true });
