@@ -926,15 +926,45 @@ function padFruitButtonLabel(fruit, targetWidth) {
   const label = String(fruit);
   const currentWidth = buttonTextWidth(label);
   const paddingWidth = Math.max(0, targetWidth - currentWidth);
-  const side = paddingWidth / 2;
-  const emSpace = "\u2003";
-  const count = Math.ceil(side / 7.5);
-  return emSpace.repeat(count) + label + emSpace.repeat(count);
+
+  // Usa espaços Unicode que o Discord mantém no label do botão.
+  // O ajuste em cada lado é feito em unidades menores para evitar
+  // que frutas curtas fiquem maiores que as frutas longas.
+  const figureSpace = "\u2007";
+  const hairSpace = "\u200A";
+  const spaceWidth = 7.5;
+  const hairWidth = 1.5;
+
+  function makePadding(width) {
+    let remaining = Math.max(0, width);
+    let result = "";
+
+    while (remaining >= spaceWidth) {
+      result += figureSpace;
+      remaining -= spaceWidth;
+    }
+
+    while (remaining >= hairWidth) {
+      result += hairSpace;
+      remaining -= hairWidth;
+    }
+
+    return result;
+  }
+
+  const left = makePadding(paddingWidth / 2);
+  const right = makePadding(paddingWidth - (buttonTextWidth(left) || 0));
+
+  return left + label + right;
 }
 
 function fruitRoleButton(fruit, roleId, targetWidth) {
   const emojiMarkup = fruitEmoji({ name: fruit });
-  const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\\d{17,20})>$/);
+
+  // Corrigido: a expressão anterior tinha \\d e por isso nenhum emoji
+  // customizado passava na validação.
+  const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
+
   const button = new ButtonBuilder()
     .setCustomId("fruit_role:" + fruitKey(fruit) + ":" + String(roleId))
     .setLabel(padFruitButtonLabel(fruit, targetWidth))
@@ -963,7 +993,7 @@ function buildFruitRolePanel(guildId) {
 
   // Dois botões por linha, ocupando as duas colunas do painel.
   // Se houver mais de 25 frutas, o Discord exige uma nova mensagem.
-  const targetButtonWidth = Math.max(...configured.map(item => buttonTextWidth(item.fruit)));
+  const targetButtonWidth = Math.max(...configured.map(item => buttonTextWidth(item.fruit))) + 18;
   const chunks = [];
   for (let i = 0; i < configured.length; i += 25) {
     chunks.push(configured.slice(i, i + 25));
