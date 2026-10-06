@@ -2,7 +2,8 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, REST, Routes,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 
@@ -894,6 +895,76 @@ function invalidFruitMessage(input) {
   const value = String(input || "").trim();
   return "❌ **" + (value || "Fruta") + "** não é uma fruta válida do Blox Fruits.\n\nFrutas disponíveis: " + ALL_FRUITS.join(", ") + ".";
 }
+
+function fruitRoleButton(fruit, roleId) {
+  const emojiMarkup = fruitEmoji({ name: fruit });
+  const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\\d{17,20})>$/);
+  const button = new ButtonBuilder()
+    .setCustomId("fruit_role:" + fruitKey(fruit))
+    .setLabel(fruit)
+    .setStyle(ButtonStyle.Secondary);
+
+  if (emojiMatch) {
+    button.setEmoji({
+      animated: emojiMatch[1] === "a",
+      name: emojiMatch[2],
+      id: emojiMatch[3]
+    });
+  }
+
+  return button;
+}
+
+function buildFruitRolePanel(guildId) {
+  const guildConfig = getGuildConfig(guildId);
+  const roles = guildConfig.roles || {};
+  const configured = ALL_FRUITS
+    .map(fruit => ({ fruit, roleId: roles[fruitKey(fruit)] }))
+    .filter(item => /^\\d{17,20}$/.test(String(item.roleId || "")));
+
+  if (!configured.length) {
+    return { configured: [], messages: [] };
+  }
+
+  // O Discord permite no máximo 5 botões por Action Row e 5 Action Rows por mensagem.
+  // Se houver mais de 25 frutas configuradas, o comando cria outro painel automaticamente.
+  const chunks = [];
+  for (let i = 0; i < configured.length; i += 25) {
+    chunks.push(configured.slice(i, i + 25));
+  }
+
+  const messages = chunks.map((chunk, pageIndex) => {
+    const rows = [];
+    for (let i = 0; i < chunk.length; i += 5) {
+      const row = new ActionRowBuilder();
+      row.addComponents(...chunk.slice(i, i + 5).map(item => fruitRoleButton(item.fruit, item.roleId)));
+      rows.push(row);
+    }
+
+    const title = pageIndex === 0
+      ? "# 🍈 CARGOS DE FRUTAS\\n\\nClique no botão da fruta para receber o cargo correspondente."
+      : "# 🍈 CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\\n\\nClique no botão da fruta para receber o cargo correspondente.";
+
+    const container = new ContainerBuilder()
+      .setAccentColor(0x00FFFF)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(title));
+
+    if (typeof container.addActionRowComponents === "function") {
+      container.addActionRowComponents(...rows);
+      return {
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
+      };
+    }
+
+    return {
+      components: rows,
+      content: title
+    };
+  });
+
+  return { configured, messages };
+}
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
@@ -1021,6 +1092,8 @@ const commands = [
   new SlashCommandBuilder().setName("remove-role").setDescription("Remove a configured fruit role")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption),
+  new SlashCommandBuilder().setName("fruit-role-panel").setDescription("Send a panel with buttons to receive configured fruit roles")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   // Stock alerts: one command handles channel and fruit alert setup/removal
   new SlashCommandBuilder().setName("stock-alert").setDescription("Manage alert channel and fruit alerts in one command")
@@ -1110,6 +1183,66 @@ process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
 client.on("interactionCreate", async interaction => {
+  if (interaction.isButton()) {
+    if (!interaction.customId.startsWith("fruit_role:")) return;
+
+    try {
+      const fruitKeyName = interaction.customId.slice("fruit_role:".length);
+      const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
+      if (!fruit) {
+        await interaction.reply({ content: "❌ Essa fruta não existe mais no painel.", ephemeral: true });
+        return;
+      }
+
+      const guildConfig = getGuildConfig(interaction.guildId);
+      const roleId = guildConfig.roles?.[fruitKeyName];
+
+      if (!roleId || !/^\\d{17,20}$/.test(String(roleId))) {
+        await interaction.reply({ content: "❌ Não existe um cargo configurado para **" + fruit + "**.", ephemeral: true });
+        return;
+      }
+
+      const role = interaction.guild.roles.cache.get(roleId) || await interaction.guild.roles.fetch(roleId).catch(() => null);
+      if (!role) {
+        await interaction.reply({ content: "❌ O cargo configurado para **" + fruit + "** não foi encontrado.", ephemeral: true });
+        return;
+      }
+
+      const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
+      if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        await interaction.reply({ content: "❌ Eu preciso da permissão **Gerenciar Cargos** para entregar esse cargo.", ephemeral: true });
+        return;
+      }
+
+      if (!role.editable) {
+        await interaction.reply({
+          content: "❌ Não consigo entregar o cargo **" + role.name + "**. Coloque esse cargo abaixo do meu cargo mais alto.",
+          ephemeral: true
+        });
+        return;
+      }
+
+      const member = interaction.member;
+      if (member.roles.cache.has(role.id)) {
+        await interaction.reply({ content: "ℹ️ Você já possui o cargo " + role + ".", ephemeral: true, allowedMentions: { parse: [] } });
+        return;
+      }
+
+      await member.roles.add(role, "Cargo de fruta recebido pelo painel");
+      await interaction.reply({
+        content: "✅ Você recebeu o cargo " + role + " da fruta **" + fruit + "**!",
+        ephemeral: true,
+        allowedMentions: { parse: [] }
+      });
+    } catch (error) {
+      console.error("Erro no painel de cargos de frutas:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui entregar esse cargo. Verifique minhas permissões.", ephemeral: true });
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "server-panel") {
@@ -1374,6 +1507,22 @@ client.on("interactionCreate", async interaction => {
     const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
     const content = entries.map(([fruit, id]) => `• **${fruit}**: <@&${id}>`).join("\n");
     await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
+  } else if (interaction.commandName === "fruit-role-panel") {
+    const panel = buildFruitRolePanel(interaction.guildId);
+
+    if (!panel.messages.length) {
+      await interaction.reply({
+        content: "❌ Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    await interaction.reply(panel.messages[0]);
+
+    for (const message of panel.messages.slice(1)) {
+      await interaction.followUp(message);
+    }
   } else if (interaction.commandName === "remove-role") {
     const inputFruit = interaction.options.getString("fruit", true);
     const fruit = resolveFruitName(inputFruit);
