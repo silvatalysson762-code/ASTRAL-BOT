@@ -1032,12 +1032,18 @@ async function registerCommands() {
   await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
   console.log("[COMMANDS] Comandos globais publicados:", registeredCommands.map(command => "/" + command.name).join(", "));
 
-  for (const guild of client.guilds.cache.values()) {
+  const guildIds = [...new Set([
+    ...client.guilds.cache.keys(),
+    PROTECTED_GUILD_ID,
+    process.env.GUILD_ID
+  ].filter(Boolean))];
+
+  for (const guildId of guildIds) {
     try {
-      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guild.id), { body: registeredCommands });
-      console.log("[COMMANDS] Comandos publicados em " + guild.name + ".");
+      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId), { body: registeredCommands });
+      console.log("[COMMANDS] Comandos publicados no servidor " + guildId + ".");
     } catch (error) {
-      console.warn("[COMMANDS] Falha ao publicar em " + guild.name + ": " + error.message);
+      console.warn("[COMMANDS] Falha ao publicar no servidor " + guildId + ": " + error.message);
     }
   }
 }
