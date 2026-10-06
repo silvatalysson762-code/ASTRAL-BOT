@@ -1025,7 +1025,7 @@ function buildFruitRolePanelForMember(guildId, member, statusText = null) {
     const chunk = configured.slice(i, i + 25);
     const menu = new StringSelectMenuBuilder()
       .setCustomId("fruit_select:" + Math.floor(i / 25))
-      .setPlaceholder("🍇 Escolha uma fruta")
+      .setPlaceholder("🍎 Escolha uma fruta")
       .setMinValues(1)
       .setMaxValues(1)
       .addOptions(chunk.map(item => ({
@@ -1075,7 +1075,7 @@ function buildFruitRolePanel(guildId) {
     const chunk = configured.slice(i, i + 25);
     const menu = new StringSelectMenuBuilder()
       .setCustomId("fruit_select_public:" + Math.floor(i / 25))
-      .setPlaceholder("🍇 Escolha uma fruta")
+      .setPlaceholder("🍎 Escolha uma fruta")
       .setMinValues(1)
       .setMaxValues(1)
       .addOptions(chunk.map(item => ({
