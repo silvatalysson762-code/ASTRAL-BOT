@@ -38,6 +38,37 @@ function saveConfig(config) {
   fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
+
+function getAllowedGuildIds() {
+  const config = readConfig();
+  return Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
+}
+
+function isBotOwner(userId) {
+  const ownerId = client.application?.owner?.id;
+  return Boolean(ownerId && userId === ownerId);
+}
+
+function initializeGuildWhitelist() {
+  const config = readConfig();
+  if (!Array.isArray(config.allowedGuildIds)) {
+    config.allowedGuildIds = [...client.guilds.cache.keys()];
+    saveConfig(config);
+    console.log("[SECURITY] Lista de servidores permitidos inicializada com os servidores atuais.");
+  }
+}
+
+async function enforceGuildWhitelist() {
+  const allowed = new Set(getAllowedGuildIds());
+  for (const guild of client.guilds.cache.values()) {
+    if (!allowed.has(guild.id)) {
+      console.log("[SECURITY] Servidor não autorizado detectado: " + guild.name + " (" + guild.id + "). Saindo.");
+      try { await guild.leave(); } catch (error) {
+        console.warn("[SECURITY] Não foi possível sair de " + guild.name + ": " + error.message);
+      }
+    }
+  }
+}
 function getGuildConfig(guildId) {
   const config = readConfig();
   if (!guildId) return defaultGuildConfig();
@@ -917,6 +948,13 @@ const commands = [
   // General
   new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock"),
   new SlashCommandBuilder().setName("avatar").setDescription("Show a Roblox avatar").addStringOption(option => option.setName("username").setDescription("Roblox username").setRequired(true).setMaxLength(20)),
+  new SlashCommandBuilder().setName("server-panel").setDescription("Configure os servidores autorizados a usar o bot")
+    .addStringOption(option => option.setName("action").setDescription("Ação do painel").setRequired(true).addChoices(
+      { name: "Adicionar servidor", value: "add" },
+      { name: "Remover servidor", value: "remove" },
+      { name: "Listar servidores", value: "list" }
+    ))
+    .addStringOption(option => option.setName("server_id").setDescription("ID do servidor Discord").setRequired(false).setMinLength(17).setMaxLength(20)),
 
   // Stock tools
   new SlashCommandBuilder().setName("test-stock").setDescription("Preview all fruits and configured emojis")
@@ -987,6 +1025,7 @@ async function registerCommands() {
 }
 client.once("ready", async () => {
   migrateLegacyConfig();
+  initializeGuildWhitelist();
   await syncApplicationEmojis();
   console.log(`Bot conectado como ${client.user.tag}`);
   try {
@@ -999,6 +1038,22 @@ client.once("ready", async () => {
   // Se a fonte estiver indisponível, checkStock registra o erro e o agendador segue ativo.
   await checkStock(false, ["normal", "mirage"], false);
   startStockScheduler();
+  await enforceGuildWhitelist();
+});
+
+client.on("guildCreate", async guild => {
+  const allowed = new Set(getAllowedGuildIds());
+  if (allowed.has(guild.id)) {
+    console.log("[SECURITY] Entrei no servidor autorizado: " + guild.name + ".");
+    return;
+  }
+
+  console.log("[SECURITY] Entrei em servidor não autorizado: " + guild.name + " (" + guild.id + "). Saindo automaticamente.");
+  try {
+    await guild.leave();
+  } catch (error) {
+    console.warn("[SECURITY] Falha ao sair do servidor não autorizado: " + error.message);
+  }
 });
 
 process.on("unhandledRejection", error => {
@@ -1011,7 +1066,62 @@ process.on("uncaughtException", error => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "avatar") {
+  if (interaction.commandName === "server-panel") {
+    if (!isBotOwner(interaction.user.id)) {
+      await interaction.reply({ content: "❌ Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
+      return;
+    }
+
+    const action = interaction.options.getString("action", true);
+    const serverId = interaction.options.getString("server_id");
+    const config = readConfig();
+    config.allowedGuildIds = Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
+
+    if (action === "list") {
+      const entries = config.allowedGuildIds.map(id => {
+        const guild = client.guilds.cache.get(id);
+        return guild ? "• **" + guild.name + "** — \`" + id + "\`" : "• \`" + id + "\` — servidor não encontrado";
+      });
+      await interaction.reply({
+        content: "🛡️ **Servidores autorizados**\\n\\n" + (entries.join("\\n") || "Nenhum servidor autorizado."),
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (!/^\\d{17,20}$/.test(String(serverId || ""))) {
+      await interaction.reply({ content: "❌ Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
+      return;
+    }
+
+    if (action === "add") {
+      if (!config.allowedGuildIds.includes(serverId)) config.allowedGuildIds.push(serverId);
+      saveConfig(config);
+
+      const guild = client.guilds.cache.get(serverId);
+      await interaction.reply({
+        content: "✅ Servidor \`" + serverId + "\` adicionado à lista de permitidos." + (guild ? " O bot já está nesse servidor." : " Quando o bot entrar nesse servidor, ele permanecerá nele."),
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (action === "remove") {
+      config.allowedGuildIds = config.allowedGuildIds.filter(id => id !== serverId);
+      saveConfig(config);
+
+      const guild = client.guilds.cache.get(serverId);
+      if (guild) {
+        try { await guild.leave(); } catch {}
+      }
+
+      await interaction.reply({
+        content: "🗑️ Servidor \`" + serverId + "\` removido da lista." + (guild ? " O bot saiu dele automaticamente." : ""),
+        ephemeral: true
+      });
+      return;
+    }
+  } else if (interaction.commandName === "avatar") {
     await interaction.deferReply();
     try {
       const username = interaction.options.getString("username", true);
