@@ -39,6 +39,8 @@ function saveConfig(config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
+const PROTECTED_GUILD_ID = "1528047581845000353";
+
 function getAllowedGuildIds() {
   const config = readConfig();
   return Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
@@ -68,7 +70,7 @@ async function isBotOwner(userId) {
 function initializeGuildWhitelist() {
   const config = readConfig();
   if (!Array.isArray(config.allowedGuildIds)) {
-    config.allowedGuildIds = [...client.guilds.cache.keys()];
+    config.allowedGuildIds = [...new Set([...client.guilds.cache.keys(), PROTECTED_GUILD_ID])];
     saveConfig(config);
     console.log("[SECURITY] Lista de servidores permitidos inicializada com os servidores atuais.");
   }
@@ -77,7 +79,7 @@ function initializeGuildWhitelist() {
 async function enforceGuildWhitelist() {
   const allowed = new Set(getAllowedGuildIds());
   for (const guild of client.guilds.cache.values()) {
-    if (!allowed.has(guild.id)) {
+    if (!allowed.has(guild.id) && guild.id !== PROTECTED_GUILD_ID) {
       console.log("[SECURITY] Servidor não autorizado detectado: " + guild.name + " (" + guild.id + "). Saindo.");
       try { await guild.leave(); } catch (error) {
         console.warn("[SECURITY] Não foi possível sair de " + guild.name + ": " + error.message);
@@ -1059,7 +1061,7 @@ client.once("ready", async () => {
 
 client.on("guildCreate", async guild => {
   const allowed = new Set(getAllowedGuildIds());
-  if (allowed.has(guild.id)) {
+  if (allowed.has(guild.id) || guild.id === PROTECTED_GUILD_ID) {
     console.log("[SECURITY] Entrei no servidor autorizado: " + guild.name + ".");
     return;
   }
@@ -1092,6 +1094,15 @@ client.on("interactionCreate", async interaction => {
     const serverId = interaction.options.getString("server_id");
     const config = readConfig();
     config.allowedGuildIds = Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
+    if (!config.allowedGuildIds.includes(PROTECTED_GUILD_ID)) {
+      config.allowedGuildIds.push(PROTECTED_GUILD_ID);
+      saveConfig(config);
+    }
+
+    if (action === "remove" && serverId === PROTECTED_GUILD_ID) {
+      await interaction.reply({ content: "🔒 Esse servidor é protegido e não pode ser removido do painel.", ephemeral: true });
+      return;
+    }
 
     if (action === "list") {
       const entries = config.allowedGuildIds.map(id => {
