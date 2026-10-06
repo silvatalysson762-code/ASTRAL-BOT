@@ -568,6 +568,13 @@ function fruitEmoji(item) {
   return APPLICATION_FRUIT_EMOJIS[key] || "🍈";
 }
 
+function fruitEmojiObject(item) {
+  const markup = fruitEmoji(item);
+  const match = String(markup).match(/^<a?:([^:>]+):(\d+)>$/);
+  if (!match) return { name: "🍈" };
+  return { name: match[1], id: match[2] };
+}
+
 const SAVED_BELI_PRICES = {
   Rocket: 5000, Spin: 7500, Blade: 30000, Spring: 60000, Bomb: 80000, Smoke: 100000, Spike: 180000,
   Flame: 250000, Ice: 350000, Sand: 420000, Dark: 500000, Eagle: 550000, Diamond: 600000, Light: 650000,
@@ -1022,7 +1029,7 @@ function buildFruitRolePanelForMember(guildId, member) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
-        emoji: fruitEmoji(item.fruit),
+        emoji: fruitEmojiObject(item.fruit),
         description: member.roles.cache.has(item.roleId)
           ? "🟢 Você possui este cargo"
           : "🔴 Você não possui este cargo"
@@ -1071,7 +1078,7 @@ function buildFruitRolePanel(guildId) {
       .addOptions(chunk.map(item => ({
         label: item.fruit,
         value: fruitKey(item.fruit),
-        emoji: fruitEmoji(item.fruit),
+        emoji: fruitEmojiObject(item.fruit),
         description: "Clique para receber/remover"
       })));
     rows.push(new ActionRowBuilder().addComponents(menu));
@@ -1089,10 +1096,8 @@ function buildFruitRolePanel(guildId) {
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(title),
       new TextDisplayBuilder().setContent(description)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(title)
     );
 
   container.addActionRowComponents(...rows);
