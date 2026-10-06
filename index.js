@@ -106,12 +106,39 @@ async function enforceGuildWhitelist() {
 function getGuildConfig(guildId) {
   const config = readConfig();
   if (!guildId) return defaultGuildConfig();
+
   config.guilds = config.guilds || {};
+  const current = config.guilds[guildId] || defaultGuildConfig();
+
+  // Compatibilidade com configurações antigas que ficaram no nível raiz.
+  // Se os cargos já existirem no formato antigo, eles também ficam disponíveis
+  // para o painel novo, sem apagar a configuração atual do servidor.
+  const legacyRoles = config.roles || {};
+  const legacyAlerts = config.stockAlerts || {};
+
+  const merged = {
+    ...defaultGuildConfig(),
+    ...current,
+    roles: {
+      ...legacyRoles,
+      ...(current.roles || {})
+    },
+    titles: {
+      ...(config.titles || {}),
+      ...(current.titles || {})
+    },
+    stockAlerts: {
+      ...legacyAlerts,
+      ...(current.stockAlerts || {})
+    }
+  };
+
   if (!config.guilds[guildId]) {
-    config.guilds[guildId] = defaultGuildConfig();
+    config.guilds[guildId] = merged;
     saveConfig(config);
   }
-  return { ...defaultGuildConfig(), ...config.guilds[guildId], roles: config.guilds[guildId].roles || {}, titles: config.guilds[guildId].titles || {}, stockAlerts: config.guilds[guildId].stockAlerts || {} };
+
+  return merged;
 }
 function updateGuildConfig(guildId, updater) {
   if (!guildId) throw new Error("Este comando só pode ser usado dentro de um servidor.");
