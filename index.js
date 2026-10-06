@@ -44,9 +44,25 @@ function getAllowedGuildIds() {
   return Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
 }
 
-function isBotOwner(userId) {
-  const ownerId = client.application?.owner?.id;
-  return Boolean(ownerId && userId === ownerId);
+async function isBotOwner(userId) {
+  try {
+    const application = await client.application.fetch();
+    const owner = application.owner;
+
+    // Aplicação pessoal: owner.id é o ID do usuário.
+    if (owner?.id && userId === owner.id) return true;
+
+    // Aplicação pertencente a uma Team: ownerId é o ID do dono da Team.
+    if (owner?.ownerId && userId === owner.ownerId) return true;
+
+    // Permite definir explicitamente o dono no .env, sem depender do cache do Discord.
+    if (process.env.OWNER_ID && userId === process.env.OWNER_ID) return true;
+
+    return false;
+  } catch (error) {
+    console.warn("[SECURITY] Não foi possível verificar o dono da aplicação:", error.message);
+    return false;
+  }
 }
 
 function initializeGuildWhitelist() {
