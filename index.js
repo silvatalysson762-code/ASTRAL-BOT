@@ -1446,6 +1446,11 @@ client.on("interactionCreate", async interaction => {
           ...initialPanel,
           flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
         });
+
+        // No painel público, o primeiro clique serve somente para abrir
+        // o painel privado. A fruta escolhida ainda NÃO deve adicionar/remover
+        // cargo neste momento. A alteração só acontece no painel privado.
+        return;
       }
 
       // Impede dois cliques simultâneos de inverterem o cargo de volta.
