@@ -1028,9 +1028,12 @@ const commands = [
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   const registeredCommands = commands.map(c => c.toJSON());
+  // Usa o ID real do bot conectado. Isso evita que um CLIENT_ID antigo/incorreto
+  // faça os comandos serem publicados em outra aplicação.
+  const applicationId = client.user.id;
 
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: registeredCommands });
-  console.log("[COMMANDS] Comandos globais publicados:", registeredCommands.map(command => "/" + command.name).join(", "));
+  console.log("[COMMANDS] Aplicação detectada pelo token:", applicationId);
+  console.log("[COMMANDS] Registrando " + registeredCommands.length + " comandos...");
 
   const guildIds = [...new Set([
     ...client.guilds.cache.keys(),
@@ -1040,11 +1043,19 @@ async function registerCommands() {
 
   for (const guildId of guildIds) {
     try {
-      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId), { body: registeredCommands });
-      console.log("[COMMANDS] Comandos publicados no servidor " + guildId + ".");
+      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: registeredCommands });
+      console.log("[COMMANDS] Comandos publicados no servidor " + guildId + ": " +
+        registeredCommands.map(command => "/" + command.name).join(", "));
     } catch (error) {
-      console.warn("[COMMANDS] Falha ao publicar no servidor " + guildId + ": " + error.message);
+      console.error("[COMMANDS] ERRO ao publicar no servidor " + guildId + ":", error);
     }
+  }
+
+  try {
+    const active = await rest.get(Routes.applicationGuildCommands(applicationId, PROTECTED_GUILD_ID));
+    console.log("[COMMANDS] Discord confirmou " + active.length + " comandos no servidor protegido.");
+  } catch (error) {
+    console.error("[COMMANDS] Não consegui confirmar os comandos no servidor protegido:", error);
   }
 }
 client.once("ready", async () => {
