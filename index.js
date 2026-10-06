@@ -957,8 +957,8 @@ function buildFruitRolePanel(guildId) {
     }
 
     const title = pageIndex === 0
-      ? "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DE FRUTAS\n\nClique no botão da fruta para receber o cargo correspondente."
-      : "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\n\nClique no botão da fruta para receber o cargo correspondente.";
+      ? "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DE FRUTAS\n\nClique no botão da fruta para receber o cargo correspondente.\n\n> 🔔 **É essencial escolher o cargo da fruta que você deseja receber para receber as notificações de stock.**\n> 📢 As notificações serão enviadas no canal <#1555984553016033380>."
+      : "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DE FRUTAS • PÁGINA " + (pageIndex + 1) + "\n\nClique no botão da fruta para receber o cargo correspondente.\n\n> 🔔 **É essencial escolher o cargo da fruta que você deseja receber para receber as notificações de stock.**\n> 📢 As notificações serão enviadas no canal <#1555984553016033380>.";
 
     const container = new ContainerBuilder()
       .setAccentColor(0x00FFFF)
