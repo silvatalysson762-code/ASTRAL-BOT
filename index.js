@@ -1107,9 +1107,9 @@ function fruitRoleButton(fruit, roleId, targetWidth, hasRole = false) {
   return button;
 }
 
-function removeAllFruitRolesButton() {
+function removeAllFruitRolesButton(isPublic = false) {
   return new ButtonBuilder()
-    .setCustomId("fruit_roles:remove_all")
+    .setCustomId(isPublic ? "fruit_roles:remove_all:public" : "fruit_roles:remove_all")
     .setLabel("REMOVER TODOS OS CARGOS")
     .setEmoji({ name: "XXX", id: "1557086367844933702" })
     .setStyle(ButtonStyle.Secondary);
@@ -1142,7 +1142,7 @@ function buildFruitRolePanelForMember(guildId, member, statusText = null) {
     rows.push(new ActionRowBuilder().addComponents(menu));
   }
 
-  rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton()));
+  rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton(false)));
 
   const title = "# " + APPLICATION_FRUIT_EMOJIS.dragon + "  CARGOS DE FRUTAS";
   const description =
@@ -1190,7 +1190,7 @@ function buildFruitRolePanel(guildId) {
     rows.push(new ActionRowBuilder().addComponents(menu));
   }
 
-  rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton()));
+  rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton(true)));
 
   const title =
     "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + "  CARGOS DE FRUTAS";
@@ -1573,7 +1573,26 @@ client.on("messageCreate", async message => {
 client.on("interactionCreate", async interaction => {
   if (interaction.isButton() && interaction.customId.startsWith("fruit_roles:")) {
     try {
-      const isPrivate = interaction.message?.flags?.has?.(MessageFlags.Ephemeral);
+      // O painel público nunca deve ser alterado com o estado de outro usuário.
+      // Ao clicar nele, abrimos uma cópia privada somente para quem clicou.
+      const isPublicPanel = interaction.customId === "fruit_roles:remove_all:public";
+      const isPrivate = !isPublicPanel;
+
+      if (isPublicPanel) {
+        const member = await interaction.guild.members.fetch({
+          user: interaction.user.id,
+          force: true
+        }).catch(() => interaction.member);
+        const panel = buildFruitRolePanelForMember(interaction.guildId, member);
+        if (!panel) {
+          await interaction.reply({ content: "❌ Não há cargos de frutas configurados.", ephemeral: true });
+          return;
+        }
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 });
+        await interaction.editReply(panel);
+        return;
+      }
+
       if (isPrivate) await interaction.deferUpdate();
       else await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
@@ -1668,29 +1687,34 @@ client.on("interactionCreate", async interaction => {
       if (isPrivatePanel) {
         await interaction.deferUpdate();
       } else {
-        const initialPanel = buildFruitRolePanelForMember(interaction.guildId, interaction.member);
-        if (!initialPanel) {
+        // Re-renderiza o painel público usando o estado público, nunca o estado
+        // de quem clicou. Depois abre uma cópia privada para esse usuário.
+        const publicPanel = buildFruitRolePanel(interaction.guildId);
+        const member = await interaction.guild.members.fetch({
+          user: interaction.user.id,
+          force: true
+        }).catch(() => interaction.member);
+        const privatePanel = buildFruitRolePanelForMember(interaction.guildId, member);
+
+        if (!publicPanel || !privatePanel) {
           await interaction.reply({ content: "❌ Não há cargos de frutas configurados.", ephemeral: true });
           return;
         }
 
-        // Reconhece o clique e re-renderiza o painel público imediatamente.
-        // Isso limpa a fruta que ficou selecionada no menu.
+        // O menu público volta ao estado inicial para TODOS os usuários.
         await interaction.update({
-          ...initialPanel,
+          ...publicPanel,
           flags: MessageFlags.IsComponentsV2
         });
 
-        // Depois de limpar a seleção do painel público, abrimos o painel
-        // individual sem alterar o cargo da fruta clicada.
+        // Esta cópia é efêmera: somente quem clicou consegue vê-la e usá-la.
         await interaction.followUp({
-          ...initialPanel,
+          ...privatePanel,
           flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
         });
 
-        // No painel público, o primeiro clique serve somente para abrir
-        // o painel privado. A fruta escolhida ainda NÃO deve adicionar/remover
-        // cargo neste momento. A alteração só acontece no painel privado.
+        // A partir daqui, qualquer alteração de cargo acontece somente no
+        // painel privado daquele usuário.
         return;
       }
 
