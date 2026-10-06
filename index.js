@@ -916,7 +916,7 @@ function fruitButtonLabel(fruit, targetWidth) {
   const current = widthOf(text);
   const missing = Math.max(0, targetWidth - current);
   const spaces = Math.max(0, Math.ceil(missing / 0.72));
-  const padding = "\u2007".repeat(spaces);
+  const padding = "\u2009".repeat(spaces);
   return "\u200b" + padding + text + padding + "\u200b";
 }
 
