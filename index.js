@@ -47,7 +47,14 @@ function getAllowedGuildIds() {
   return Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
 }
 
+const BOT_OWNER_IDS = new Set([
+  "904829627799834684"
+]);
+
 async function isBotOwner(userId) {
+  // Donos definidos diretamente pelo projeto, além do dono oficial da aplicação.
+  if (BOT_OWNER_IDS.has(String(userId))) return true;
+
   try {
     const application = await client.application.fetch();
     const owner = application.owner;
