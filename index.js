@@ -1315,13 +1315,23 @@ client.on("interactionCreate", async interaction => {
         throw new Error("Ainda não existe stock salvo para reenviar.");
       }
 
-      const sent = await postStock(latest);
-      const completed = sent !== false;
-      if (!completed) {
-        await interaction.editReply("⏳ Já existe uma consulta de stock em andamento. Tente novamente em alguns segundos.");
-      } else {
-        await interaction.editReply("✅ Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
+      const guildConfig = getGuildConfig(interaction.guildId);
+      let sent = false;
+
+      if (normal.length) {
+        const normalSent = await postStock(normal, false, null, "normal");
+        sent = sent || normalSent;
       }
+      if (mirage.length) {
+        const mirageSent = await postStock(mirage, false, null, "mirage");
+        sent = sent || mirageSent;
+      }
+
+      if (!sent) {
+        throw new Error("Nenhum canal de stock configurado ou acessível neste servidor.");
+      }
+
+      await interaction.editReply("✅ Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
     } catch (e) {
       await interaction.editReply("❌ Não consegui reenviar o stock salvo: " + e.message + ".");
     }
