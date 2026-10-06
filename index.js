@@ -896,6 +896,17 @@ function invalidFruitMessage(input) {
   return "❌ **" + (value || "Fruta") + "** não é uma fruta válida do Blox Fruits.\n\nFrutas disponíveis: " + ALL_FRUITS.join(", ") + ".";
 }
 
+function configuredFruitRoleId(guildConfig, fruit) {
+  const key = fruitKey(fruit);
+  const roles = guildConfig?.roles || {};
+  const stockAlerts = guildConfig?.stockAlerts || {};
+
+  // O painel aceita o cargo configurado no stock normal ou no sistema de alertas.
+  // Prioriza o cargo de alerta quando ele existe, pois é o cargo que o usuário
+  // configurou para ser notificado quando a fruta aparecer.
+  return stockAlerts[key] || roles[key] || null;
+}
+
 function fruitRoleButton(fruit, roleId) {
   const emojiMarkup = fruitEmoji({ name: fruit });
   const emojiMatch = String(emojiMarkup).match(/^<(a?):([^:>]+):(\d{17,20})>$/);
@@ -917,9 +928,8 @@ function fruitRoleButton(fruit, roleId) {
 
 function buildFruitRolePanel(guildId) {
   const guildConfig = getGuildConfig(guildId);
-  const roles = guildConfig.roles || {};
   const configured = ALL_FRUITS
-    .map(fruit => ({ fruit, roleId: roles[fruitKey(fruit)] }))
+    .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
     .filter(item => /^\d{17,20}$/.test(String(item.roleId || "")));
 
   if (!configured.length) {
@@ -1200,7 +1210,7 @@ client.on("interactionCreate", async interaction => {
       }
 
       const guildConfig = getGuildConfig(interaction.guildId);
-      const roleId = guildConfig.roles?.[fruitKeyName];
+      const roleId = configuredFruitRoleId(guildConfig, fruit);
 
       if (!roleId || !/^\\d{17,20}$/.test(String(roleId))) {
         await interaction.reply({ content: "❌ Não existe um cargo configurado para **" + fruit + "**.", ephemeral: true });
