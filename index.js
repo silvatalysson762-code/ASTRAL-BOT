@@ -1393,14 +1393,36 @@ client.on("interactionCreate", async interaction => {
           member,
           removable.length ? "🔴 **Todos os cargos de frutas foram removidos.**" : "ℹ️ **Você não possuía cargos de frutas.**"
         );
-        if(!panel) return;
+
+        // A interação já foi reconhecida com deferReply/deferUpdate.
+        // Sempre finalizamos a interação, inclusive quando o painel não puder ser reconstruído.
+        if(!panel){
+          await interaction.editReply({ content:"❌ Não consegui reconstruir o painel de cargos." }).catch(error => {
+            console.error("[FRUIT ROLE] Falha ao finalizar remoção sem painel:", error?.message || error);
+          });
+          return;
+        }
 
         await interaction.editReply(panel);
         return;
       }
     }catch(error){
       console.error("Erro no botão de remoção de cargos:",error);
-      if(!interaction.replied&&!interaction.deferred) await interaction.reply({content:"❌ Não consegui processar o painel.",ephemeral:true}).catch(()=>{});
+
+      // Se a interação já foi deferida, reply() não a finaliza e o Discord
+      // fica mostrando o carregamento. Nesse caso usamos editReply().
+      if(interaction.deferred || interaction.replied){
+        await interaction.editReply({
+          content:"❌ Os cargos podem ter sido removidos, mas não consegui atualizar o painel. Tente clicar novamente."
+        }).catch(editError => {
+          console.error("[FRUIT ROLE] Falha ao finalizar interação após erro:", editError?.message || editError);
+        });
+      }else{
+        await interaction.reply({
+          content:"❌ Não consegui processar o painel.",
+          ephemeral:true
+        }).catch(()=>{});
+      }
     }
     return;
   }
