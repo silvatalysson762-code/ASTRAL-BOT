@@ -1499,7 +1499,7 @@ function buildMainPanel(guildId) {
             {
               label: "Configurações",
               description: "Configure o Astral Stock",
-              value: "config",
+              value: "settings",
               emoji: { name: "settings_button", id: "1557204872648982579" }
             },
             {
@@ -1517,7 +1517,7 @@ function buildMainPanel(guildId) {
             {
               label: "Preços",
               description: "Gerencie os preços salvos das frutas",
-              value: "config",
+              value: "prices",
               emoji: { name: "settings_button", id: "1557204872648982579" }
             }
           )
@@ -2249,7 +2249,7 @@ client.on("interactionCreate", async interaction => {
       }
 
       let panel;
-      if (action === "config") panel = buildConfigPanel(interaction.guildId);
+      if (action === "config" || action === "settings" || action === "prices") panel = buildConfigPanel(interaction.guildId);
       else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
       else if (action === "servers") panel = buildServerAdminPanel();
       else panel = buildMainPanel(interaction.guildId);
