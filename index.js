@@ -240,66 +240,6 @@ function getGuildConfig(guildId) {
 
   return merged;
 }
-async function updateBotServerProfile(guild, options = {}) {
-  if (!guild?.members?.me) throw new Error("Não consegui localizar o perfil do bot neste servidor.");
-
-  const reset = options.reset === true;
-  const name = options.name == null ? undefined : String(options.name).trim();
-  const avatarUrl = options.avatarUrl == null ? undefined : String(options.avatarUrl).trim();
-  const bannerUrl = options.bannerUrl == null ? undefined : String(options.bannerUrl).trim();
-
-  if (!reset && name === "" && !avatarUrl && !bannerUrl) {
-    throw new Error("Informe um nome, avatar, banner ou use resetar.");
-  }
-
-  if (!reset && name && name.length > 32) {
-    throw new Error("O nome do bot neste servidor pode ter no máximo 32 caracteres.");
-  }
-
-  async function downloadImage(url, label) {
-    const response = await fetch(url, {
-      headers: { "Accept": "image/png,image/jpeg,image/webp,image/gif,*/*" },
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!response.ok) throw new Error("Não consegui baixar o " + label + " enviado.");
-    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-    if (!contentType.startsWith("image/")) throw new Error("O " + label + " precisa ser uma imagem.");
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > 10 * 1024 * 1024) throw new Error("O " + label + " precisa ter no máximo 10 MB.");
-    return buffer;
-  }
-
-  let avatar = undefined;
-  let banner = undefined;
-
-  if (reset) {
-    avatar = null;
-    banner = null;
-  } else {
-    if (avatarUrl) avatar = await downloadImage(avatarUrl, "avatar");
-    if (bannerUrl) banner = await downloadImage(bannerUrl, "banner");
-  }
-
-  const edit = {};
-  if (reset || name !== undefined) edit.nick = reset ? null : (name || null);
-  if (reset || avatar !== undefined) edit.avatar = avatar;
-  if (reset || banner !== undefined) edit.banner = banner;
-
-  await guild.members.me.edit(edit);
-
-  updateGuildConfig(guild.id, config => {
-    if (reset) {
-      delete config.botProfile;
-    } else {
-      config.botProfile = {
-        ...(config.botProfile || {}),
-        ...(name !== undefined ? { name: name || null } : {}),
-        ...(avatarUrl ? { avatarUrl } : {}),
-        ...(bannerUrl ? { bannerUrl } : {})
-      };
-    }
-  });
-}
 function updateGuildConfig(guildId, updater) {
   if (!guildId) throw new Error("Este comando só pode ser usado dentro de um servidor.");
   const config = readConfig();
@@ -1412,12 +1352,6 @@ const commands = [
   new SlashCommandBuilder().setName("remove-role").setDescription("Remove a configured fruit role")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(fruitOption),
-  new SlashCommandBuilder().setName("personalizar-bot").setDescription("Personalize o nome e o avatar do bot neste servidor")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(option => option.setName("nome").setDescription("Nome do bot neste servidor").setRequired(false).setMaxLength(32))
-    .addAttachmentOption(option => option.setName("avatar").setDescription("Imagem do avatar do bot neste servidor").setRequired(false))
-    .addAttachmentOption(option => option.setName("banner").setDescription("Banner do perfil do bot neste servidor").setRequired(false))
-    .addBooleanOption(option => option.setName("resetar").setDescription("Restaurar nome, avatar e banner padrão").setRequired(false)),
   new SlashCommandBuilder().setName("fruit-role-panel").setDescription("Send a panel with buttons to receive configured fruit roles")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
@@ -1968,35 +1902,6 @@ client.on("interactionCreate", async interaction => {
         ephemeral: true
       });
       return;
-    }
-  } else if (interaction.commandName === "personalizar-bot") {
-    await interaction.deferReply({ ephemeral: true });
-    try {
-      const name = interaction.options.getString("nome");
-      const avatar = interaction.options.getAttachment("avatar");
-      const banner = interaction.options.getAttachment("banner");
-      const reset = interaction.options.getBoolean("resetar") === true;
-
-      if (!reset && !name && !avatar && !banner) {
-        await interaction.editReply("❌ Informe **nome**, envie um **avatar**, um **banner** ou marque **resetar**.");
-        return;
-      }
-
-      await updateBotServerProfile(interaction.guild, {
-        name,
-        avatarUrl: avatar?.url,
-        bannerUrl: banner?.url,
-        reset
-      });
-
-      await interaction.editReply(
-        reset
-          ? "✅ O perfil do bot foi restaurado ao padrão neste servidor."
-          : "✅ Perfil do bot atualizado **somente neste servidor**."
-      );
-    } catch (error) {
-      console.error("Erro no /personalizar-bot:", error);
-      await interaction.editReply("❌ " + (error.message || "Não consegui atualizar o perfil do bot."));
     }
   } else if (interaction.commandName === "avatar") {
     await interaction.deferReply();
