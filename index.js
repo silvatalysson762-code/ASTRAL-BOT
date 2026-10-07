@@ -1324,13 +1324,13 @@ function buildMainPanel(guildId) {
   const guildConfig = guildId ? getGuildConfig(guildId) : defaultGuildConfig();
   const normal = Array.isArray(readState().latestStock?.normal) ? readState().latestStock.normal.length : 0;
   const mirage = Array.isArray(readState().latestStock?.mirage) ? readState().latestStock.mirage.length : 0;
-  const onlineText = client.ws.status === 0 ? uiEmoji("success", "✅") + " **Online**" : uiEmoji("warning", "⚠️") + " **Reconectando**";
+  const onlineText = client.ws.status === 0 ? "<:60696:1557204563675848814> **Online**" : "<:60698:1557204568432185454> **Offline**";
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# " + uiEmoji("bot", "🤖") + " ASTRAL STOCK\n" +
-        "### " + uiEmoji("success", "✅") + " Central de controle\n\n" +
+        "### <:60581:1557204878001176586> Central de controle\n\n" +
         onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n" +
         (guild ? uiEmoji("server", "🏠") + " **Servidor:** " + guild.name : uiEmoji("server", "🏠") + " **Painel da aplicação**") + "\n\n" +
         "-# Escolha uma categoria abaixo para administrar o Astral Stock."
@@ -1338,9 +1338,7 @@ function buildMainPanel(guildId) {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("panel:config").setLabel("CONFIGURAÇÕES").setEmoji(uiEmoji("settings", "⚙️")).setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("panel:servers").setLabel("SERVIDORES AUTORIZADOS").setEmoji(uiEmoji("lock", "🔒")).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("panel:config").setLabel("CONFIGURAÇÕES").setEmoji({ name: "60578", id: "1557204872648982579" }).setStyle(ButtonStyle.Primary)
       )
     );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -1354,17 +1352,18 @@ function buildConfigPanel(guildId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# " + uiEmoji("settings", "⚙️") + " CONFIGURAÇÕES\n\n" +
+        "# <:60764:1557204540460240926> CONFIGURAÇÕES\n\n"+
         uiEmoji("package", "📦") + " **Canal do Stock:** " + stockChannel + "\n" +
         uiEmoji("alert", "🔔") + " **Canal de Alertas:** " + alertChannel + "\n" +
-        uiEmoji("bot", "🤖") + " **Status:** " + (client.ws.status === 0 ? "Online" : "Reconectando") + "\n\n" +
+        "🤖 **Status:** " + (client.ws.status === 0 ? "<:60696:1557204563675848814> Online" : "<:60698:1557204568432185454> Offline") + "\n\n" +
         "-# Para configurações detalhadas, use os comandos correspondentes."
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("panel:servers").setLabel("SERVIDORES AUTORIZADOS").setEmoji({ name: "60581", id: "1557204878001176586" }).setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji({ name: "60578", id: "1557204872648982579" }).setStyle(ButtonStyle.Secondary)
       )
     );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -1413,7 +1412,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DAS FRUTAS\n\n" +
+        "# <:60581:1557204878001176586> CARGOS DAS FRUTAS\n\n" +
         "Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n\n" +
         (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + uiEmoji("users","👥") + " Cargo atual: " + currentRole : uiEmoji("list","📋") + " Escolha uma fruta abaixo.")
       )
@@ -1432,7 +1431,7 @@ function buildServerAdminPanel() {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# " + uiEmoji("lock", "🔒") + " SERVIDORES AUTORIZADOS\n\n" +
+        "# <:60581:1557204878001176586> SERVIDORES AUTORIZADOS\n\n" +
         (lines.join("\n") || "Nenhum servidor autorizado.") + "\n\n" +
         "-# Somente o dono da aplicação pode alterar esta lista."
       )
