@@ -1558,6 +1558,31 @@ function buildMainPanel(guildId, userId) {
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
+
+function buildSupportPanel() {
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## 🍎 Suporte\n" +
+        "> Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.\n\n" +
+        "> 🍎 Clique no botão abaixo para abrir um atendimento\n" +
+        "-# Responderemos o mais rápido possível"
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:open")
+          .setLabel("ABRIR ATENDIMENTO")
+          .setEmoji("🎫")
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildConfigPanel(guildId) {
   const config = getGuildConfig(guildId);
   const stockChannel = config.channelId ? "<#" + config.channelId + ">" : "Não configurado";
@@ -1766,6 +1791,8 @@ const commands = [
     .addStringOption(option => option.setName("server_id").setDescription("ID do servidor Discord").setRequired(false).setMinLength(17).setMaxLength(20)),
 
   new SlashCommandBuilder().setName("painel").setDescription("Abrir o painel central do Astral Stock"),
+  new SlashCommandBuilder().setName("suporte").setDescription("Abrir o painel de suporte e tickets")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   // Stock tools
   new SlashCommandBuilder().setName("test-stock").setDescription("Preview all fruits and configured emojis")
@@ -1980,6 +2007,42 @@ client.on("messageCreate", async message => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (interaction.isButton() && interaction.customId === "ticket:open") {
+    try {
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction.reply({ content: "❌ Esse atendimento só pode ser aberto dentro de um servidor.", ephemeral: true });
+        return;
+      }
+      const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
+      if (existing) {
+        await interaction.reply({ content: "🎫 Você já tem um atendimento aberto: <#" + existing.id + ">", ephemeral: true });
+        return;
+      }
+      const channel = await guild.channels.create({
+        name: "ticket-" + interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20),
+        type: 0,
+        topic: "astral-ticket:" + interaction.user.id,
+        permissionOverwrites: [
+          { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
+          { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
+          { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
+        ]
+      });
+      await channel.send({
+        content: "## 🎫 Atendimento\n> Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\n> Explique sua dúvida e aguarde nossa equipe.\n\n-# Um membro da equipe responderá o mais rápido possível."
+      });
+      await interaction.reply({ content: "🎫 Atendimento aberto: <#" + channel.id + ">", ephemeral: true });
+    } catch (error) {
+      console.error("[TICKET] Erro ao abrir atendimento:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+
   if (interaction.isButton() && interaction.customId.startsWith("fruit_roles:")) {
     try {
       // O painel público nunca deve ser alterado com o estado de outro usuário.
@@ -2520,7 +2583,20 @@ client.on("interactionCreate", async interaction => {
 
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "painel") {
+  if (interaction.commandName === "suporte") {
+    if (!interaction.guildId) {
+      await interaction.reply({ content: "❌ O painel de suporte só pode ser usado dentro de um servidor.", ephemeral: true });
+      return;
+    }
+    const canManage = await isBotOwner(interaction.user.id) ||
+      Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+    if (!canManage) {
+      await interaction.reply({ content: "❌ Você precisa da permissão **Gerenciar Servidor** para publicar o painel de suporte.", ephemeral: true });
+      return;
+    }
+    await interaction.reply(buildSupportPanel());
+    return;
+  } else if (interaction.commandName === "painel") {
     if (!interaction.guildId) {
       await interaction.reply({ content: uiEmoji("error", "❌") + " O painel só pode ser usado dentro de um servidor.", ephemeral: true });
       return;
