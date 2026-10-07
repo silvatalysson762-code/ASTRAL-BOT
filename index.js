@@ -1470,25 +1470,42 @@ function buildFruitRolePanel(guildId) {
 function buildMainPanel(guildId) {
   const normal = Array.isArray(readState().latestStock?.normal) ? readState().latestStock.normal.length : 0;
   const mirage = Array.isArray(readState().latestStock?.mirage) ? readState().latestStock.mirage.length : 0;
-  const onlineText = client.ws.status === 0 ? "<:60696:1557204563675848814> **Online**" : "<:60698:1557204568432185454> **Offline**";
+  const onlineText = client.ws.status === 0
+    ? "<:60696:1557204563675848814> **Online**"
+    : "<:60698:1557204568432185454> **Offline**";
+
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# <:60764:1557204540460240926> ASTRAL STOCK\n" +
         "### <:60581:1557204878001176586> Central de controle\n\n" +
-        onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n\n" +
-        "-# Escolha uma categoria abaixo para administrar o Astral Stock."
+        "-# Painel de gerenciamento do Astral Stock."
+      ),
+      new TextDisplayBuilder().setContent(
+        "## <:60606:15572045505665944104> Visão geral\n\n" +
+        onlineText + "\n" +
+        uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal\n" +
+        uiEmoji("statistics", "📊") + " **" + mirage + "** frutas na Mirage"
+      ),
+      new TextDisplayBuilder().setContent(
+        "## <:60578:1557204872648982579> O que deseja gerenciar?\n\n" +
+        "Selecione uma área abaixo para começar.\n\n" +
+        "-# As configurações são aplicadas em tempo real."
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("panel:config").setLabel("CONFIGURAÇÕES").setEmoji({ name: "60578", id: "1557204872648982579" }).setStyle(ButtonStyle.Primary)
+        new ButtonBuilder()
+          .setCustomId("panel:config")
+          .setLabel("CONFIGURAÇÕES")
+          .setEmoji({ name: "60758", id: "15572045410651322388" })
+          .setStyle(ButtonStyle.Primary)
       )
     );
+
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
-
 function buildConfigPanel(guildId) {
   const config = getGuildConfig(guildId);
   const stockChannel = config.channelId ? "<#" + config.channelId + ">" : "Não configurado";
