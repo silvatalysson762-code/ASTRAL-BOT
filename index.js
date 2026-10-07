@@ -1567,7 +1567,7 @@ function buildTicketConfigPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("ticket:config")
-          .setPlaceholder("<:ticket_plus:1557205110847701052> Selecione uma função")
+          .setPlaceholder("🎫 Selecione uma função")
           .addOptions(
             {
               label: "Configurar Aparência",
