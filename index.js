@@ -1476,11 +1476,11 @@ function buildMainPanel(guildId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# <:config_title:1557204540460240926> ASTRAL STOCK\n\n" +
-        "### <:settings:1557204510651322388> ESTOQUE\n" +
-        onlineText + "\n\n" +
-        "### <:control_center:1557204878001176586> O que deseja gerenciar?\n" +
-        "Selecione uma área abaixo para começar\n\n" +
+        "# <:config_title:1557204540460240926> ASTRAL STOCK\\n\\n" +
+        "### <:settings:1557204510651322388> ESTOQUE\\n" +
+        onlineText + "\\n\\n" +
+        "### <:control_center:1557204878001176586> O que deseja gerenciar?\\n" +
+        "Selecione uma área no menu abaixo para começar\\n\\n" +
         "-# Todas as ações são aplicadas em tempo real."
       )
     )
@@ -1488,12 +1488,12 @@ function buildMainPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("panel:manage")
-          .setPlaceholder("🏠 Selecione uma área para gerenciar")
+          .setPlaceholder("<:config_title:1557204540460240926> Selecione uma área para gerenciar")
           .addOptions(
             {
               label: "Estoque",
               description: "Gerencie as configurações do estoque",
-              value: "config",
+              value: "stock",
               emoji: { name: "settings", id: "1557204510651322388" }
             },
             {
@@ -1529,7 +1529,7 @@ function buildMainPanel(guildId) {
           .setCustomId("panel:restart")
           .setLabel("REINICIAR BOT")
           .setEmoji({ name: "refresh", id: "1557204768093372466" })
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Success)
       )
     );
 
@@ -2249,7 +2249,7 @@ client.on("interactionCreate", async interaction => {
       }
 
       let panel;
-      if (action === "config" || action === "settings" || action === "prices") panel = buildConfigPanel(interaction.guildId);
+      if (action === "config" || action === "stock" || action === "settings" || action === "prices") panel = buildConfigPanel(interaction.guildId);
       else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
       else if (action === "servers") panel = buildServerAdminPanel();
       else panel = buildMainPanel(interaction.guildId);
@@ -2275,7 +2275,7 @@ client.on("interactionCreate", async interaction => {
       }
 
       await interaction.reply({
-        content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**",
+        content: "<:refresh:1557204768093372466> **Reiniciando o Astral Stock...**",
         ephemeral: true
       });
 
