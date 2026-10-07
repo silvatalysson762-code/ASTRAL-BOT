@@ -1530,9 +1530,9 @@ function buildMainPanel(guildId, userId) {
           .setPlaceholder("🎫 Selecione uma área para gerenciar")
           .addOptions({
             label: "Ticket",
-            description: "Abra um atendimento com a equipe",
+            description: "Edite, personalize e configure seus tickets",
             value: "ticket",
-            emoji: "🎫"
+            emoji: { name: "ticket_plus", id: "1557205110847701052" }
           })
       )
     )
