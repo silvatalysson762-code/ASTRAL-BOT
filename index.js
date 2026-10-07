@@ -91,147 +91,6 @@ function splitDiscordText(text, maxLength = 1900) {
 }
 
 
-function parseEmojiInputs(input) {
-  const text = String(input || "");
-  const found = [];
-  const seen = new Set();
-
-  // Aceita emojis personalizados copiados do Discord:
-  // <:nome:id> e <a:nome:id>
-  const customEmojiRegex = /<a?:([A-Za-z0-9_~-]{1,64}):(\d{17,20})>/g;
-  for (const match of text.matchAll(customEmojiRegex)) {
-    const name = match[1];
-    const id = match[2];
-    const animated = match[0].startsWith("<a:");
-    const key = id + ":" + animated;
-    if (!seen.has(key)) {
-      seen.add(key);
-      found.push({ id, name, animated });
-    }
-  }
-
-  // Também aceita IDs separados por espaço, vírgula ou quebra de linha.
-  const idRegex = /\b\d{17,20}\b/g;
-  for (const match of text.matchAll(idRegex)) {
-    const id = match[0];
-    const key = id + ":false";
-    if (!seen.has(key)) {
-      seen.add(key);
-      found.push({ id, name: "emoji_" + id, animated: false });
-    }
-  }
-
-  // E aceita links diretos do CDN do Discord.
-  const urlRegex = /https?:\/\/(?:cdn|media)\.discordapp\.com\/emojis\/(\d{17,20})\.(png|gif|webp)(?:\?[^\s>]+)?/gi;
-  for (const match of text.matchAll(urlRegex)) {
-    const id = match[1];
-    const extension = match[2].toLowerCase();
-    const animated = extension === "gif";
-    const key = id + ":" + animated;
-    if (!seen.has(key)) {
-      seen.add(key);
-      found.push({ id, name: "emoji_" + id, animated });
-    }
-  }
-
-  return found;
-}
-
-async function downloadEmojisZip(input) {
-  const emojis = parseEmojiInputs(input);
-  if (!emojis.length) {
-    throw new Error("Nenhum emoji foi encontrado. Cole os emojis do Discord, os IDs ou os links do CDN.");
-  }
-
-  const archive = archiver("zip", { zlib: { level: 9 } });
-  const chunks = [];
-  const outputPromise = new Promise((resolve, reject) => {
-    archive.on("data", chunk => chunks.push(chunk));
-    archive.on("end", () => resolve(Buffer.concat(chunks)));
-    archive.on("error", reject);
-    archive.on("warning", error => {
-      if (error.code !== "ENOENT") reject(error);
-    });
-  });
-
-  let downloaded = 0;
-  const usedNames = new Set();
-  const manifest = [];
-
-  for (const emoji of emojis) {
-    const extension = emoji.animated ? "gif" : "png";
-    const baseName = String(emoji.name || ("emoji_" + emoji.id))
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .slice(0, 80) || ("emoji_" + emoji.id);
-
-    let filename = baseName + "." + extension;
-    let suffix = 2;
-    while (usedNames.has(filename.toLowerCase())) {
-      filename = baseName + "_" + suffix++ + "." + extension;
-    }
-    usedNames.add(filename.toLowerCase());
-
-    const imageUrl = "https://cdn.discordapp.com/emojis/" + emoji.id + "." + extension + "?size=160&quality=lossless";
-
-    try {
-      const imageResponse = await fetch(imageUrl, {
-        headers: { "User-Agent": "AstralStockDiscordBot/1.0" },
-        signal: AbortSignal.timeout(15000)
-      });
-
-      if (!imageResponse.ok) {
-        // Alguns emojis podem não ser animados mesmo quando o usuário
-        // forneceu apenas o ID. Tenta PNG como fallback.
-        if (emoji.animated) {
-          const fallback = await fetch(
-            "https://cdn.discordapp.com/emojis/" + emoji.id + ".png?size=160&quality=lossless",
-            {
-              headers: { "User-Agent": "AstralStockDiscordBot/1.0" },
-              signal: AbortSignal.timeout(15000)
-            }
-          );
-
-          if (fallback.ok) {
-            const imageBuffer = Buffer.from(await fallback.arrayBuffer());
-            archive.append(imageBuffer, { name: baseName + ".png" });
-            downloaded++;
-            manifest.push({ id: emoji.id, name: emoji.name, animated: true, downloaded: true });
-            continue;
-          }
-        }
-
-        console.warn("[EMOJI ZIP] Falha ao baixar " + emoji.id + ": HTTP " + imageResponse.status);
-        manifest.push({ id: emoji.id, name: emoji.name, animated: emoji.animated, downloaded: false });
-        continue;
-      }
-
-      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      archive.append(imageBuffer, { name: filename });
-      downloaded++;
-      manifest.push({ id: emoji.id, name: emoji.name, animated: emoji.animated, downloaded: true });
-    } catch (error) {
-      console.warn("[EMOJI ZIP] Falha ao baixar " + emoji.id + ": " + error.message);
-      manifest.push({ id: emoji.id, name: emoji.name, animated: emoji.animated, downloaded: false });
-    }
-  }
-
-  if (!downloaded) {
-    archive.abort();
-    throw new Error("Não consegui baixar nenhum dos emojis informados.");
-  }
-
-  archive.append(JSON.stringify(manifest, null, 2), { name: "emojis.json" });
-  archive.finalize();
-
-  const zipBuffer = await outputPromise;
-
-  return {
-    buffer: zipBuffer,
-    total: emojis.length,
-    downloaded
-  };
-}
-
 function defaultGuildConfig() {
   return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {} };
 }
@@ -1651,9 +1510,6 @@ const commands = [
   new SlashCommandBuilder().setName("ia").setDescription("Converse com a IA do Astral Stock")
     .setIntegrationTypes([0, 1]).setContexts([0])
     .addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar para a IA?").setRequired(true).setMaxLength(2000)),
-  new SlashCommandBuilder().setName("baixar-emojis").setDescription("Baixe emojis do Discord em um ZIP")
-    .addStringOption(option => option.setName("emojis").setDescription("Cole emojis, IDs ou links do CDN").setRequired(true).setMinLength(2).setMaxLength(4000)),
-
   new SlashCommandBuilder().setName("server-panel").setDescription("Configure os servidores autorizados a usar o bot")
     .addStringOption(option => option.setName("action").setDescription("Ação do painel").setRequired(true).addChoices(
       { name: "Adicionar servidor", value: "add" },
@@ -2354,7 +2210,36 @@ client.on("interactionCreate", async interaction => {
 
   if (!interaction.isChatInputCommand()) return;
   try {
-  if (interaction.commandName === "server-panel") {
+  if (interaction.commandName === "painel") {
+    if (!interaction.guildId) {
+      await interaction.reply({ content: uiEmoji("error", "❌") + " O painel só pode ser usado dentro de um servidor.", ephemeral: true });
+      return;
+    }
+
+    const canManage = await isBotOwner(interaction.user.id) ||
+      Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+
+    if (!canManage) {
+      await interaction.reply({
+        content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para abrir o painel.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    try {
+      await interaction.reply(buildMainPanel(interaction.guildId));
+    } catch (error) {
+      console.error("[PANEL] Erro ao abrir /painel:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: uiEmoji("error", "❌") + " Não consegui abrir o painel.",
+          ephemeral: true
+        }).catch(() => {});
+      }
+    }
+    return;
+  } else if (interaction.commandName === "server-panel") {
     if (!(await isBotOwner(interaction.user.id))) {
       await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
       return;
@@ -2487,32 +2372,7 @@ client.on("interactionCreate", async interaction => {
       console.error("Erro no /ia:", error);
       await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui falar com a IA agora."));
     }
-  } else if (interaction.commandName === "baixar-emojis") {
-    if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar /baixar-emojis.", ephemeral: true });
-      return;
-    }
-
-    await interaction.deferReply({ ephemeral: true });
-
-    try {
-      const emojiInput = interaction.options.getString("emojis", true);
-      const result = await downloadEmojisZip(emojiInput);
-
-      const sizeMb = result.buffer.length / (1024 * 1024);
-      if (result.buffer.length > 24 * 1024 * 1024) {
-        throw new Error("O ZIP ficou maior que 24 MB e não pode ser enviado com segurança pelo Discord.");
-      }
-
-      await interaction.editReply({
-        content: uiEmoji("package", "📦") + " **Emojis preparados!**\nBaixados: **" + result.downloaded + "/" + result.total + "**\nCole os emojis/IDs de qualquer bot ou servidor que você tenha acesso no Discord.",
-        files: [new AttachmentBuilder(result.buffer, { name: "astral-emojis.zip" })]
-      });
-    } catch (error) {
-      console.error("Erro no /baixar-emojis:", error);
-      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui gerar o ZIP dos emojis."));
-    }
-  } else if (interaction.commandName === "test-stock") {
+ } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
       const emoji = fruitEmoji({ name });
       const price = savedBeliPrice(name);
