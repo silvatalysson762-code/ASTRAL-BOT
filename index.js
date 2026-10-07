@@ -1477,22 +1477,59 @@ function buildMainPanel(guildId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# <:60764:1557204540460240926> ASTRAL STOCK\n\n" +
-        "## <:60758:1557204510651322388> ESTOQUE\n\n" +
-        onlineText
-      ),
-      new TextDisplayBuilder().setContent(
-        "## <:60758:1557204510651322388> O que deseja gerenciar?\n\n" +
-        "Selecione uma área abaixo para começar.\n\n" +
-        "-# As configurações são aplicadas em tempo real."
+        "### <:60758:1557204510651322388> ESTOQUE\n" +
+        onlineText + "\n\n" +
+        "### <:60581:1557204878001176586> O que deseja gerenciar?\n" +
+        "Selecione uma área abaixo para começar\n\n" +
+        "-# Todas as ações são aplicadas em tempo real."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("panel:manage")
+          .setPlaceholder("🏠 Selecione uma área para gerenciar")
+          .addOptions(
+            {
+              label: "Estoque",
+              description: "Gerencie as configurações do estoque",
+              value: "config",
+              emoji: { name: "60758", id: "15572045410651322388" }
+            },
+            {
+              label: "Configurações",
+              description: "Configure o Astral Stock",
+              value: "config",
+              emoji: { name: "60578", id: "1557204872648982579" }
+            },
+            {
+              label: "Cargos das Frutas",
+              description: "Configure os cargos de cada fruta",
+              value: "fruit_roles",
+              emoji: fruitEmojiObject("Dragon")
+            },
+            {
+              label: "Servidores Autorizados",
+              description: "Gerencie os servidores autorizados",
+              value: "servers",
+              emoji: { name: "60581", id: "1557204878001176586" }
+            },
+            {
+              label: "Preços",
+              description: "Gerencie os preços salvos das frutas",
+              value: "config",
+              emoji: { name: "60767", id: "1557204546744741790" }
+            }
+          )
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("panel:config")
-          .setLabel("CONFIGURAÇÕES")
-          .setEmoji({ name: "60578", id: "1557204872648982579" })
-          .setStyle(ButtonStyle.Primary)
+          .setCustomId("panel:restart")
+          .setLabel("REINICIAR BOT / REBUILD")
+          .setEmoji({ name: "60706", id: "1557204768093372466" })
+          .setStyle(ButtonStyle.Danger)
       )
     );
 
@@ -2184,6 +2221,69 @@ client.on("interactionCreate", async interaction => {
           content: uiEmoji("error", "❌") + " Não consegui abrir o painel privado.",
           ephemeral: true
         }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "panel:manage") {
+    try {
+      const action = interaction.values?.[0];
+      if (!interaction.guildId) {
+        await interaction.reply({ content: "❌ Este painel só pode ser usado dentro de um servidor.", ephemeral: true });
+        return;
+      }
+
+      if (action === "servers" && !(await isBotOwner(interaction.user.id))) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode acessar os servidores autorizados.", ephemeral: true });
+        return;
+      }
+
+      if (action !== "servers") {
+        const canManage = await isBotOwner(interaction.user.id) ||
+          Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+        if (!canManage) {
+          await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para usar este painel.", ephemeral: true });
+          return;
+        }
+      }
+
+      let panel;
+      if (action === "config") panel = buildConfigPanel(interaction.guildId);
+      else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
+      else if (action === "servers") panel = buildServerAdminPanel();
+      else panel = buildMainPanel(interaction.guildId);
+
+      await interaction.update(panel);
+    } catch (error) {
+      console.error("[PANEL] Erro no menu principal:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:restart") {
+    try {
+      if (!(await isBotOwner(interaction.user.id))) {
+        await interaction.reply({
+          content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode reiniciar/rebuildar o bot.",
+          ephemeral: true
+        });
+        return;
+      }
+
+      await interaction.reply({
+        content: "<:60706:1557204768093372466> **Reiniciando o Astral Stock...**",
+        ephemeral: true
+      });
+
+      setTimeout(() => process.exit(0), 800);
+    } catch (error) {
+      console.error("[PANEL] Erro ao reiniciar:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui reiniciar o bot.", ephemeral: true }).catch(() => {});
       }
     }
     return;
