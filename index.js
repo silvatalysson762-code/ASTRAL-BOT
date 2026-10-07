@@ -843,15 +843,31 @@ async function syncApplicationEmojis() {
     const emojis = await client.application.emojis.fetch();
     const byName = new Map();
 
+    // Evita tentar renomear um emoji para um nome que já pertence a outro
+    // emoji da aplicação. O Discord não permite nomes duplicados.
+    const namesInUse = new Set(
+      [...emojis.values()]
+        .map(emoji => normalizeApplicationEmojiName(emoji.name))
+        .filter(Boolean)
+    );
+
     for (const emoji of emojis.values()) {
       const wantedName = APPLICATION_EMOJI_RENAMES[emoji.id] || APPLICATION_NUMERIC_EMOJI_RENAMES[emoji.name];
       if (!wantedName || emoji.name === wantedName) continue;
+
+      const normalizedWantedName = normalizeApplicationEmojiName(wantedName);
+      if (namesInUse.has(normalizedWantedName)) {
+        console.log("[EMOJIS] Nome " + wantedName + " já está em uso; mantendo " + emoji.name + " no emoji " + emoji.id + ".");
+        continue;
+      }
 
       let renamed = false;
       for (let attempt = 1; attempt <= 3 && !renamed; attempt++) {
         try {
           await emoji.setName(wantedName);
           renamed = true;
+          namesInUse.delete(normalizeApplicationEmojiName(emoji.name));
+          namesInUse.add(normalizedWantedName);
           console.log(`[EMOJIS] Renomeado ${emoji.id}: ${wantedName}`);
         } catch (error) {
           console.warn(`[EMOJIS] Falha ao renomear ${emoji.id} para ${wantedName} (tentativa ${attempt}/3): ${error.message}`);
