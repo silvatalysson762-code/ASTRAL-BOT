@@ -1569,7 +1569,7 @@ function buildSupportPanel(guild) {
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            "## 🍎 Suporte\n" +
+            "## <:config_title_alt:1557204540460240926> ASTRAL SUPORTE\n" +
             "> Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato."
           )
         )
@@ -1579,7 +1579,7 @@ function buildSupportPanel(guild) {
     )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "> 🍎 Clique no seletor abaixo para escolher o atendimento\n" +
+        "> <:arrow_down:1557204770178211870> Clique no seletor abaixo para escolher o atendimento\n" +
         "-# Responderemos o mais rápido possível"
       )
     );
