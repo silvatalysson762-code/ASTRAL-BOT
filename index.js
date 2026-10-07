@@ -1469,17 +1469,17 @@ function buildFruitRolePanel(guildId) {
 
 function buildMainPanel(guildId) {
   const onlineText = client.ws.status === 0
-    ? "<:60696:1557204563675848814> **Online**"
-    : "<:60698:1557204568432185454> **Offline**";
+    ? "<:online:1557204563675848814> **Online**"
+    : "<:offline:1557204568432185454> **Offline**";
 
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# <:60764:1557204540460240926> ASTRAL STOCK\n\n" +
-        "### <:60758:1557204510651322388> ESTOQUE\n" +
+        "# <:config_title:1557204540460240926> ASTRAL STOCK\n\n" +
+        "### <:settings:1557204510651322388> ESTOQUE\n" +
         onlineText + "\n\n" +
-        "### <:60581:1557204878001176586> O que deseja gerenciar?\n" +
+        "### <:control_center:1557204878001176586> O que deseja gerenciar?\n" +
         "Selecione uma área abaixo para começar\n\n" +
         "-# Todas as ações são aplicadas em tempo real."
       )
@@ -1494,13 +1494,13 @@ function buildMainPanel(guildId) {
               label: "Estoque",
               description: "Gerencie as configurações do estoque",
               value: "config",
-              emoji: { name: "60758", id: "1557204510651322388" }
+              emoji: { name: "settings", id: "1557204510651322388" }
             },
             {
               label: "Configurações",
               description: "Configure o Astral Stock",
               value: "config",
-              emoji: { name: "60578", id: "1557204872648982579" }
+              emoji: { name: "settings_button", id: "1557204872648982579" }
             },
             {
               label: "Cargos das Frutas",
@@ -1512,13 +1512,13 @@ function buildMainPanel(guildId) {
               label: "Servidores Autorizados",
               description: "Gerencie os servidores autorizados",
               value: "servers",
-              emoji: { name: "60581", id: "1557204878001176586" }
+              emoji: { name: "control_center", id: "1557204878001176586" }
             },
             {
               label: "Preços",
               description: "Gerencie os preços salvos das frutas",
               value: "config",
-              emoji: { name: "60767", id: "1557204546744741790" }
+              emoji: { name: "money_bag", id: "1557204546744741790" }
             }
           )
       )
