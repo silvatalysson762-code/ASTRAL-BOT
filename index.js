@@ -720,15 +720,25 @@ async function syncApplicationEmojis() {
     const byId = new Map([...refreshed.values()].map(emoji => [String(emoji.id), emoji]));
 
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
-      const id = String(value).match(/<a?:[^:>]+:(\d+)>/)?.[1];
-      const emoji = id && byId.get(id);
+      const match = String(value).match(/<a?:([^:>]+):(\d+)>/);
+      const id = match?.[2];
+      const currentName = match?.[1];
+      const emoji = (id && byId.get(id))
+        || refreshed.find(e => normalizeApplicationEmojiName(e.name) === normalizeApplicationEmojiName(currentName || key));
       if (emoji) APPLICATION_UI_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
-      const id = String(value).match(/<a?:[^:>]+:(\d+)>/)?.[1];
-      const emoji = id && byId.get(id);
-      if (emoji) APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
+      const match = String(value).match(/<a?:([^:>]+):(\d+)>/);
+      const id = match?.[2];
+      const currentName = match?.[1];
+      const emoji = (id && byId.get(id))
+        || refreshed.find(e => normalizeApplicationEmojiName(e.name) === normalizeApplicationEmojiName(currentName || key));
+      if (emoji) {
+        APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
+      } else {
+        console.warn("[EMOJIS] Fruta sem emoji encontrado: " + key + " (ID " + (id || "sem ID") + ")");
+      }
     }
 
     console.log(`[EMOJIS] Application Emojis carregados: ${refreshed.size}`);
