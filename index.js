@@ -1525,7 +1525,7 @@ function buildMainPanel(guildId) {
               label: "Preços",
               description: "Gerencie os preços salvos das frutas",
               value: "prices",
-              emoji: applicationEmojiObject("money", "$")
+              emoji: { name: "beli", id: "1556626992588267630" }
             }
           )
       )
