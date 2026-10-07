@@ -1483,13 +1483,13 @@ function buildMainPanel(guildId) {
         "-# Painel de gerenciamento do Astral Stock."
       ),
       new TextDisplayBuilder().setContent(
-        "## <:60606:15572045505665944104> Visão geral\n\n" +
+        "## <:60758:1557204510651322388> Visão geral\n\n" +
         onlineText + "\n" +
         uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal\n" +
         uiEmoji("statistics", "📊") + " **" + mirage + "** frutas na Mirage"
       ),
       new TextDisplayBuilder().setContent(
-        "## <:60578:1557204872648982579> O que deseja gerenciar?\n\n" +
+        "## <:60581:1557204878001176586> O que deseja gerenciar?\n\n" +
         "Selecione uma área abaixo para começar.\n\n" +
         "-# As configurações são aplicadas em tempo real."
       )
@@ -1499,7 +1499,7 @@ function buildMainPanel(guildId) {
         new ButtonBuilder()
           .setCustomId("panel:config")
           .setLabel("CONFIGURAÇÕES")
-          .setEmoji({ name: "60758", id: "15572045410651322388" })
+          .setEmoji({ name: "60578", id: "1557204872648982579" })
           .setStyle(ButtonStyle.Primary)
       )
     );
