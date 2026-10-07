@@ -2520,7 +2520,7 @@ client.on("interactionCreate", async interaction => {
       console.error("[PANEL] Erro ao abrir /painel:", error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: uiEmoji("error", "❌") + " Não consegui abrir o painel.",
+          content: "<:offline:1557204568432185454> Não consegui abrir o painel." + (error?.message ? "\n-# Erro: " + String(error.message).slice(0, 180) : ""),
           ephemeral: true
         }).catch(() => {});
       }
