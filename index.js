@@ -1591,7 +1591,10 @@ function buildSupportPanel(guild) {
     )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "> <:arrow_down:1557204770178211870> Clique no seletor abaixo para escolher o atendimento\n" +
+        "<:arrow_down:1557204770178211870> **Escolha o atendimento abaixo**"
+      ),
+      new TextDisplayBuilder().setContent(
+        "> Clique no seletor abaixo para escolher o atendimento\n" +
         "-# Responderemos o mais rápido possível"
       )
     );
