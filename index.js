@@ -1533,6 +1533,44 @@ function buildMainPanel(guildId, userId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
+function buildTicketConfigPanel(guildId) {
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> CONFIGURAÇÕES DO TICKET\n" +
+        "> Aqui você poderá personalizar o sistema de tickets da sua loja.\n\n" +
+        "### 🎫 O que deseja configurar?\n" +
+        "> Selecione uma função no menu abaixo para começar.\n" +
+        "-# As alterações serão aplicadas ao sistema de tickets."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:config")
+          .setPlaceholder("🎫 Selecione uma função")
+          .addOptions({
+            label: "Função",
+            description: "Configurar uma função do sistema de tickets",
+            value: "function",
+            emoji: "🎫"
+          })
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:main")
+          .setLabel("VOLTAR AO PAINEL")
+          .setEmoji({ name: "60578", id: "1557204872648982579" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildSupportPanel(guild) {
   const bannerUrl = guild?.bannerURL({ extension: "png", size: 1024 }) || null;
   const thumbnailUrl = guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
@@ -2046,15 +2084,23 @@ client.on("interactionCreate", async interaction => {
         return;
       }
       await interaction.reply({
-        ...buildSupportPanel(guild),
+        ...buildTicketConfigPanel(guild.id),
         flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
       });
     } catch (error) {
-      console.error("[PANEL] Erro ao abrir painel de suporte:", error);
+      console.error("[PANEL] Erro ao abrir configurações do ticket:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui abrir o painel de suporte.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "❌ Não consegui abrir as configurações do ticket.", ephemeral: true }).catch(() => {});
       }
     }
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config" && interaction.values[0] === "function") {
+    await interaction.reply({
+      content: "🎫 **Função** selecionada. Essa área ficará responsável pelas funções personalizáveis do sistema de tickets.",
+      ephemeral: true
+    });
     return;
   }
 
