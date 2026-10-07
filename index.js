@@ -1527,8 +1527,8 @@ function buildMainPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("panel:restart")
-          .setLabel("REINICIAR BOT / REBUILD")
-          .setEmoji({ name: "60706", id: "1557204768093372466" })
+          .setLabel("REINICIAR BOT")
+          .setEmoji({ name: "refresh_alt", id: "1557205141051019274", animated: true })
           .setStyle(ButtonStyle.Danger)
       )
     );
@@ -2268,14 +2268,14 @@ client.on("interactionCreate", async interaction => {
     try {
       if (!(await isBotOwner(interaction.user.id))) {
         await interaction.reply({
-          content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode reiniciar/rebuildar o bot.",
+          content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode reiniciar o bot.",
           ephemeral: true
         });
         return;
       }
 
       await interaction.reply({
-        content: "<:60706:1557204768093372466> **Reiniciando o Astral Stock...**",
+        content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**",
         ephemeral: true
       });
 
