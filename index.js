@@ -628,6 +628,14 @@ function applicationEmojiObject(name, fallback) {
   return { name: fallback || "•" };
 }
 
+function applicationEmojiTag(name, fallback = "") {
+  const wanted = normalizeApplicationEmojiName(name);
+  const emoji = client.application?.emojis?.cache?.find(
+    item => normalizeApplicationEmojiName(item.name) === wanted
+  );
+  return emoji ? applicationEmojiMarkup(emoji) : fallback;
+}
+
 const APPLICATION_EMOJI_RENAMES = {
   "1556626992588267630": "beli",
   "1556626990893629470": "stock_clock",
@@ -1478,17 +1486,26 @@ function buildFruitRolePanel(guildId) {
 }
 
 
-function buildMainPanel(guildId) {
+function buildMainPanel(guildId, userId) {
+  const home = applicationEmojiTag("home", "🏠");
+  const overview = applicationEmojiTag("chart", "📊");
+  const bell = applicationEmojiTag("bell", "🔔");
+  const updated = applicationEmojiTag("calendar_check", "⏰");
+  const manage = applicationEmojiTag("control_center", "⚙️");
+
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# " + applicationEmojiMarkup(client.application?.emojis?.cache?.find(e => normalizeApplicationEmojiName(e.name) === "home") || { name: "🏠" }) + " Painel de Controle\n\n" +
-        "## ASTRAL STOCK\n" +
-        "Olá! Aqui está o painel de controle do seu bot.\n\n" +
-        "---\n\n" +
-        "### <:control_center:1557204878001176586> O que deseja gerenciar?\n" +
-        "Selecione uma área no menu abaixo para começar"
+        "## " + home + " ASTRAL STORE\\n" +
+        "> **@USUARIO**\\n" +
+        "> Olá, " + (userId ? "<@" + userId + ">" : "@USUARIO") + "! Aqui está o resumo da sua loja.\\n\\n" +
+        "### " + overview + " Visão Geral\\n" +
+        ">>> " + bell + " Notificações não lidas: **0**\\n" +
+        updated + " Configurações atualizadas <t:" + Math.floor(Date.now() / 1000) + ":R>\\n\\n" +
+        "### " + manage + " O que deseja gerenciar?\\n" +
+        "> Selecione uma área no menu abaixo para começar\\n" +
+        "-# Todas as ações são aplicadas em tempo real"
       )
     )
     .addActionRowComponents(
@@ -2259,7 +2276,7 @@ client.on("interactionCreate", async interaction => {
       if (action === "config" || action === "stock" || action === "settings" || action === "prices") panel = buildConfigPanel(interaction.guildId);
       else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
       else if (action === "servers") panel = buildServerAdminPanel();
-      else panel = buildMainPanel(interaction.guildId);
+      else panel = buildMainPanel(interaction.guildId, interaction.user.id);
 
       await interaction.update(panel);
     } catch (error) {
@@ -2320,7 +2337,7 @@ client.on("interactionCreate", async interaction => {
       }
 
       let panel;
-      if (action === "main") panel = buildMainPanel(interaction.guildId);
+      if (action === "main") panel = buildMainPanel(interaction.guildId, interaction.user.id);
       else if (action === "config") panel = buildConfigPanel(interaction.guildId);
       else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
       else if (action === "servers") panel = buildServerAdminPanel();
@@ -2522,7 +2539,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     try {
-      await interaction.reply(buildMainPanel(interaction.guildId));
+      await interaction.reply(buildMainPanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[PANEL] Erro ao abrir /painel:", error);
       if (!interaction.replied && !interaction.deferred) {
