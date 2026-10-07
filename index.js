@@ -1500,10 +1500,10 @@ function buildMainPanel(guildId, userId) {
         "## " + home + " ASTRAL STORE\n" +
         "> Olá, " + (userId ? "<@" + userId + ">" : "@USUARIO") + "! Aqui está o resumo da sua loja.\n" +
         "### " + overview + " Visão Geral\n" +
-        ">>> " + bell + " Notificações não lidas: **0**\n" +
-        updated + " Configurações atualizadas <t:" + Math.floor(Date.now() / 1000) + ":R>\n\n" +
+        "> " + bell + " Notificações não lidas: **0**\n" +
+        "> " + updated + " Configurações atualizadas <t:" + Math.floor(Date.now() / 1000) + ":R>\n" +
         "### " + manage + " O que deseja gerenciar?\n" +
-        "> Selecione uma área no menu abaixo para começar\n\n" +
+        "> Selecione uma área no menu abaixo para começar\n" +
         "-# Todas as ações são aplicadas em tempo real"
       )
     )
