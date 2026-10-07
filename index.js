@@ -1320,8 +1320,6 @@ function buildFruitRolePanel(guildId) {
 
 
 function buildMainPanel(guildId) {
-  const guild = client.guilds.cache.get(guildId);
-  const guildConfig = guildId ? getGuildConfig(guildId) : defaultGuildConfig();
   const normal = Array.isArray(readState().latestStock?.normal) ? readState().latestStock.normal.length : 0;
   const mirage = Array.isArray(readState().latestStock?.mirage) ? readState().latestStock.mirage.length : 0;
   const onlineText = client.ws.status === 0 ? "<:60696:1557204563675848814> **Online**" : "<:60698:1557204568432185454> **Offline**";
@@ -1331,8 +1329,7 @@ function buildMainPanel(guildId) {
       new TextDisplayBuilder().setContent(
         "# " + uiEmoji("bot", "🤖") + " ASTRAL STOCK\n" +
         "### <:60581:1557204878001176586> Central de controle\n\n" +
-        onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n" +
-"\n" +
+        onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n\n" +
         "-# Escolha uma categoria abaixo para administrar o Astral Stock."
       )
     )
