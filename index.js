@@ -1468,8 +1468,6 @@ function buildFruitRolePanel(guildId) {
 
 
 function buildMainPanel(guildId) {
-  const normal = Array.isArray(readState().latestStock?.normal) ? readState().latestStock.normal.length : 0;
-  const mirage = Array.isArray(readState().latestStock?.mirage) ? readState().latestStock.mirage.length : 0;
   const onlineText = client.ws.status === 0
     ? "<:60696:1557204563675848814> **Online**"
     : "<:60698:1557204568432185454> **Offline**";
@@ -1480,9 +1478,7 @@ function buildMainPanel(guildId) {
       new TextDisplayBuilder().setContent(
         "# <:60764:1557204540460240926> ASTRAL STOCK\n\n" +
         "## <:60758:1557204510651322388> ESTOQUE\n\n" +
-        onlineText + "\n" +
-        uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal\n" +
-        uiEmoji("statistics", "📊") + " **" + mirage + "** frutas na Mirage"
+        onlineText
       ),
       new TextDisplayBuilder().setContent(
         "## <:60758:1557204510651322388> O que deseja gerenciar?\n\n" +
