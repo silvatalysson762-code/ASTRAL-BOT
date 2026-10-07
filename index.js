@@ -1327,7 +1327,7 @@ function buildMainPanel(guildId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# " + uiEmoji("bot", "🤖") + " ASTRAL STOCK\n" +
+        "# <:60764:1557204540460240926> ASTRAL STOCK\n" +
         "### <:60581:1557204878001176586> Central de controle\n\n" +
         onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n\n" +
         "-# Escolha uma categoria abaixo para administrar o Astral Stock."
