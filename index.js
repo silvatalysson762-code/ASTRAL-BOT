@@ -1631,10 +1631,12 @@ function buildTicketConfigPanel(guildId) {
         new ButtonBuilder()
           .setCustomId("ticket:sync_message")
           .setLabel("SINCRONIZAR MENSAGEM")
+          .setEmoji({ name: "settings_alt", id: "1557204510651322388" })
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("ticket:post_message")
           .setLabel("POSTAR MENSAGEM")
+          .setEmoji({ name: "check_alt", id: "1557204542960181299" })
           .setStyle(ButtonStyle.Success)
       )
     )
@@ -1643,11 +1645,12 @@ function buildTicketConfigPanel(guildId) {
         new ButtonBuilder()
           .setCustomId("panel:main")
           .setLabel("VOLTAR")
-          .setEmoji({ name: "60578", id: "1557204872648982579" })
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId("ticket:preview")
           .setLabel("PRÉVIA")
+          .setEmoji({ name: "eye", id: "1557204822569259091" })
           .setStyle(ButtonStyle.Secondary)
       )
     );
@@ -1664,7 +1667,7 @@ function buildSupportPreviewPanel(guild) {
       new ButtonBuilder()
         .setCustomId("ticket:preview_back")
         .setLabel("VOLTAR")
-        .setEmoji({ name: "60578", id: "1557204872648982579" })
+        .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
         .setStyle(ButtonStyle.Secondary)
     )
   );
