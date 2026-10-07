@@ -1693,7 +1693,9 @@ const commands = [
     ))
     .addStringOption(option => option.setName("server_id").setDescription("ID do servidor Discord").setRequired(false).setMinLength(17).setMaxLength(20)),
 
-  new SlashCommandBuilder().setName("painel").setDescription("Abrir o painel central do Astral Stock"),\n\n  // Stock tools
+  new SlashCommandBuilder().setName("painel").setDescription("Abrir o painel central do Astral Stock"),
+
+  // Stock tools
   new SlashCommandBuilder().setName("test-stock").setDescription("Preview all fruits and configured emojis")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("refresh-stock").setDescription("Fetch and publish the current stock")
