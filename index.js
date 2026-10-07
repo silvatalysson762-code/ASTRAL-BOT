@@ -91,7 +91,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {} };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null };
 }
 function readConfig() {
   try {
@@ -1629,12 +1629,45 @@ function buildTicketConfigPanel(guildId) {
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
+          .setCustomId("ticket:sync_message")
+          .setLabel("SINCRONIZAR MENSAGEM")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("ticket:post_message")
+          .setLabel("POSTAR MENSAGEM")
+          .setStyle(ButtonStyle.Success)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
           .setCustomId("panel:main")
-          .setLabel("VOLTAR AO PAINEL")
+          .setLabel("VOLTAR")
           .setEmoji({ name: "60578", id: "1557204872648982579" })
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("ticket:preview")
+          .setLabel("PRÉVIA")
           .setStyle(ButtonStyle.Secondary)
       )
     );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildSupportPreviewPanel(guild) {
+  const supportPanel = buildSupportPanel(guild);
+  const container = supportPanel.components[0];
+
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("ticket:preview_back")
+        .setLabel("VOLTAR")
+        .setEmoji({ name: "60578", id: "1557204872648982579" })
+        .setStyle(ButtonStyle.Secondary)
+    )
+  );
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -2185,6 +2218,90 @@ client.on("interactionCreate", async interaction => {
       ephemeral: true
     });
     return;
+  }
+
+  if (interaction.isButton() && ["ticket:sync_message", "ticket:post_message", "ticket:preview", "ticket:preview_back"].includes(interaction.customId)) {
+    try {
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction.reply({ content: "❌ Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
+        return;
+      }
+
+      if (interaction.customId === "ticket:preview") {
+        await interaction.reply({
+          ...buildSupportPreviewPanel(guild),
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      if (interaction.customId === "ticket:preview_back") {
+        await interaction.update(buildTicketConfigPanel(guild.id));
+        return;
+      }
+
+      if (interaction.customId === "ticket:post_message") {
+        if (!interaction.channel || !interaction.channel.isTextBased()) {
+          await interaction.reply({ content: "❌ Este canal não pode receber a mensagem de suporte.", ephemeral: true });
+          return;
+        }
+
+        const sent = await interaction.channel.send(buildSupportPanel(guild));
+        updateGuildConfig(guild.id, config => {
+          config.supportMessageChannelId = interaction.channel.id;
+          config.supportMessageId = sent.id;
+        });
+
+        await interaction.reply({
+          content: "<:ticket_plus:1557205110847701052> Mensagem de suporte publicada neste canal.",
+          ephemeral: true
+        });
+        return;
+      }
+
+      if (interaction.customId === "ticket:sync_message") {
+        const config = getGuildConfig(guild.id);
+        if (!config.supportMessageChannelId || !config.supportMessageId) {
+          await interaction.reply({
+            content: "<:ticket_plus:1557205110847701052> Nenhuma mensagem de suporte foi registrada. Use **POSTAR MENSAGEM** primeiro.",
+            ephemeral: true
+          });
+          return;
+        }
+
+        const channel = await guild.channels.fetch(config.supportMessageChannelId).catch(() => null);
+        if (!channel || !channel.isTextBased()) {
+          await interaction.reply({
+            content: "❌ Não encontrei o canal onde a mensagem de suporte foi publicada.",
+            ephemeral: true
+          });
+          return;
+        }
+
+        const message = await channel.messages.fetch(config.supportMessageId).catch(() => null);
+        if (!message) {
+          await interaction.reply({
+            content: "❌ Não encontrei a mensagem de suporte registrada. Publique uma nova mensagem.",
+            ephemeral: true
+          });
+          return;
+        }
+
+        await message.edit(buildSupportPanel(guild));
+        await interaction.reply({
+          content: "<:ticket_plus:1557205110847701052> Mensagem de suporte sincronizada com as configurações atuais.",
+          ephemeral: true
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("[TICKET] Erro nas ações da mensagem de suporte:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não foi possível concluir essa ação.", ephemeral: true }).catch(() => {});
+      }
+      return;
+    }
   }
 
   if (interaction.isButton() && interaction.customId === "ticket:open") {
