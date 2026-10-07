@@ -374,7 +374,7 @@ async function getStock() {
           throw new Error("A API retornou uma resposta que não é JSON válido.");
         }
 
-        const stock = normalizeStock(payload);
+        const stock = applySavedFruitPrices(normalizeStock(payload));
         const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
         const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
 
@@ -412,7 +412,7 @@ async function getStock() {
       const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
       const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
       if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
-      return [...normal, ...mirage];
+      return applySavedFruitPrices([...normal, ...mirage]);
     } catch (error) {
       failures.push(sourceUrl + ": " + error.message);
     }
@@ -466,7 +466,7 @@ async function sendStockAlerts(stock, groupKey, guildConfig) {
 }
 
 const APPLICATION_UI_EMOJIS = {
-  beli: "<:emoji_232:1556366446257242112>",
+  beli: "<:beli:1556626992588267630>",
   clock: "<a:stock_clock:1556626990893629470>",
   stockTitle: "<:stock_title:1556626988587639892>",
   mirageTitle: "<:mirage_title:1556626985487306752>",
@@ -764,9 +764,22 @@ function savedBeliPrice(name) {
   const key = Object.keys(SAVED_BELI_PRICES).find(k => fruitKey(k) === fruitKey(name));
   return key ? SAVED_BELI_PRICES[key] : null;
 }
+
+// Os preços oficiais da loja são fixos. A API não sobrescreve esses valores.
 function beliPrice(item) {
-  const apiPrice = item?.money_price ?? item?.price_beli ?? item?.price;
-  return apiPrice != null && apiPrice !== "" ? apiPrice : savedBeliPrice(safeName(item));
+  return savedBeliPrice(safeName(item));
+}
+
+function robuxPrice(item) {
+  return PERMANENT_ROBUX_PRICES[fruitKey(safeName(item))] ?? null;
+}
+
+function applySavedFruitPrices(stock) {
+  return (Array.isArray(stock) ? stock : []).map(item => ({
+    ...item,
+    money_price: beliPrice(item),
+    robux_price: robuxPrice(item)
+  }));
 }
 
 function stockTitle(groupKey, guildConfig = defaultGuildConfig()) {
@@ -818,8 +831,8 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
   const lines = stock.map(item => {
     const name = safeName(item);
     const price = beliPrice(item);
-    const robuxPrice = item.robux_price ?? PERMANENT_ROBUX_PRICES[fruitKey(name)];
-    return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPrice != null ? ` | ${Number(robuxPrice).toLocaleString("en-US")} ${APPLICATION_UI_EMOJIS.robux}` : ""}`;
+    const robuxPriceValue = robuxPrice(item);
+    return `${fruitEmoji(item)} **${name}**${price != null ? ` | ${APPLICATION_UI_EMOJIS.beli} \`${Number(price).toLocaleString("en-US")}\`` : ""}${robuxPriceValue != null ? ` | ${Number(robuxPriceValue).toLocaleString("en-US")} ${APPLICATION_UI_EMOJIS.robux}` : ""}`;
   });
   const mentions = roleMentions(stock, guildConfig);
   const body = [
@@ -876,13 +889,20 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
     const state = readState();
     state.stockSignatures = state.stockSignatures || {};
     state.latestStock = state.latestStock || {};
+
+    // Corrige preços antigos que já estavam salvos no state.json.
+    for (const key of ["normal", "mirage"]) {
+      if (Array.isArray(state.latestStock[key])) {
+        state.latestStock[key] = applySavedFruitPrices(state.latestStock[key]);
+      }
+    }
     const groups = [
       { key: "normal", type: "Normal" },
       { key: "mirage", type: "Mirage" }
     ].filter(group => onlyGroups.includes(group.key));
 
     for (const group of groups) {
-      const items = stock.filter(item => String(item.type || "").toLowerCase() === group.type.toLowerCase());
+      const items = applySavedFruitPrices(stock.filter(item => String(item.type || "").toLowerCase() === group.type.toLowerCase()));
       const sig = signature(items);
 
       if (items.length && (force || !state.stockSignatures[group.key] || sig !== state.stockSignatures[group.key])) {
