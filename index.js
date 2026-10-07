@@ -91,7 +91,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", banner: null, color: "00FFFF" } };
 }
 function readConfig() {
   try {
@@ -1549,6 +1549,115 @@ function buildMainPanel(guildId, userId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
+const ticketAppearanceDrafts = new Map();
+
+function normalizeTicketColor(value) {
+  const raw = String(value || "").trim().replace(/^#/, "");
+  if (!raw) return "00FFFF";
+  if (!/^[0-9A-Fa-f]{6}$/.test(raw)) throw new Error("A cor precisa estar no formato HEX, por exemplo **00FFFF**.");
+  return raw.toUpperCase();
+}
+
+function buildTicketAppearancePanel(guildId, userId) {
+  const config = getGuildConfig(guildId);
+  const saved = config.ticketAppearance || {};
+  const key = String(guildId) + ":" + String(userId);
+  const draft = ticketAppearanceDrafts.get(key) || saved;
+  const title = draft.title || "ASTRAL SUPORTE";
+  const description = draft.description || "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.";
+  const banner = draft.banner || "Não configurado";
+  const color = draft.color || "00FFFF";
+
+  const container = new ContainerBuilder()
+    .setAccentColor(parseInt(color.replace(/^#/, ""), 16) || 0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> CONFIGURAR APARÊNCIA\n" +
+        "> Personalize a mensagem principal do sistema de tickets.\n\n" +
+        "### <:ticket_plus:1557205110847701052> Aparência atual\n" +
+        "> **Título:** " + title + "\n" +
+        "> **Descrição:** " + description + "\n" +
+        "> **Banner:** " + banner + "\n" +
+        "> **Cor:** #" + color
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:appearance_edit")
+          .setLabel("EDITAR CAMPOS")
+          .setStyle(ButtonStyle.Secondary)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:main")
+          .setLabel("VOLTAR")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("ticket:appearance_save")
+          .setLabel("SALVAR")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildTicketAppearanceModal(guildId, userId) {
+  const config = getGuildConfig(guildId);
+  const saved = config.ticketAppearance || {};
+  const key = String(guildId) + ":" + String(userId);
+  const draft = ticketAppearanceDrafts.get(key) || saved;
+
+  return new ModalBuilder()
+    .setCustomId("ticket:appearance_modal")
+    .setTitle("Configurar Aparência")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("ticket_appearance_title")
+          .setLabel("Título")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(100)
+          .setValue(String(draft.title || "ASTRAL SUPORTE"))
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("ticket_appearance_description")
+          .setLabel("Descrição")
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(1000)
+          .setValue(String(draft.description || "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato."))
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("ticket_appearance_banner")
+          .setLabel("Banner (opcional)")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(500)
+          .setPlaceholder("https://...")
+          .setValue(String(draft.banner || ""))
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("ticket_appearance_color")
+          .setLabel("Cor (opcional)")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(7)
+          .setPlaceholder("00FFFF ou #00FFFF")
+          .setValue(String(draft.color || "00FFFF"))
+      )
+    );
+}
+
 function buildTicketConfigPanel(guildId) {
   const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
 
@@ -2204,8 +2313,13 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
+    const selected = interaction.values[0];
+    if (selected === "appearance") {
+      await interaction.update(buildTicketAppearancePanel(interaction.guildId, interaction.user.id));
+      return;
+    }
+
     const configLabels = {
-      appearance: "Configurar Aparência",
       add_function: "Adicionar Função",
       manage_functions: "Gerenciar Funções",
       opening_mode: "Modo de Abertura",
@@ -2215,7 +2329,6 @@ client.on("interactionCreate", async interaction => {
       interface_mode: "Modo de Interface",
       feedback: "Feedback"
     };
-    const selected = interaction.values[0];
     await interaction.reply({
       content: "<:ticket_plus:1557205110847701052> **" + (configLabels[selected] || "Configuração") + "** selecionada. Esta área ficará responsável por essa configuração do sistema de tickets.",
       ephemeral: true
