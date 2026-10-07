@@ -1555,8 +1555,8 @@ function buildTicketConfigPanel(guildId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> CONFIGURAÇÕES DO TICKET\n" +
-        "> Aqui você poderá personalizar o sistema de tickets da sua loja.\n\n" +
-        "### 🎫 O que deseja configurar?\n" +
+        "> Aqui você poderá personalizar o sistema de tickets da sua loja.\n" +
+        "### <:ticket_plus:1557205110847701052> O que deseja configurar?\n" +
         "> Selecione uma função no menu abaixo para começar.\n" +
         "-# As alterações serão aplicadas ao sistema de tickets."
       )
@@ -1565,12 +1565,12 @@ function buildTicketConfigPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("ticket:config")
-          .setPlaceholder("🎫 Selecione uma função")
+          .setPlaceholder("<:ticket_plus:1557205110847701052> Selecione uma função")
           .addOptions({
             label: "Função",
             description: "Configurar uma função do sistema de tickets",
             value: "function",
-            emoji: "🎫"
+            emoji: { name: "ticket_plus", id: "1557205110847701052" }
           })
       )
     )
