@@ -1498,10 +1498,10 @@ function buildMainPanel(guildId, userId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## " + home + " ASTRAL STORE\n" +
-        "> **@USUARIO**\n" +
+        "> **@USUARIO**\n\n" +
         "> Olá, " + (userId ? "<@" + userId + ">" : "@USUARIO") + "! Aqui está o resumo da sua loja.\n\n" +
         "### " + overview + " Visão Geral\n" +
-        ">>> " + bell + " Notificações não lidas: **0**\n" +
+        "\n>>> " + bell + " Notificações não lidas: **0**\n" +
         updated + " Configurações atualizadas <t:" + Math.floor(Date.now() / 1000) + ":R>\n\n" +
         "### " + manage + " O que deseja gerenciar?\n" +
         "> Selecione uma área no menu abaixo para começar\n" +
