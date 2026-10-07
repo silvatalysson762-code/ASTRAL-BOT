@@ -1479,16 +1479,13 @@ function buildMainPanel(guildId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# <:60764:1557204540460240926> ASTRAL STOCK\n\n" +
-        "-# Painel de gerenciamento do Astral Stock."
-      ),
-      new TextDisplayBuilder().setContent(
-        "## <:60758:1557204510651322388> Visão geral\n\n" +
+        "## <:60758:1557204510651322388> ESTOQUE\n\n" +
         onlineText + "\n" +
         uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal\n" +
         uiEmoji("statistics", "📊") + " **" + mirage + "** frutas na Mirage"
       ),
       new TextDisplayBuilder().setContent(
-        "## <:60581:1557204878001176586> O que deseja gerenciar?\n\n" +
+        "## <:60758:1557204510651322388> O que deseja gerenciar?\n\n" +
         "Selecione uma área abaixo para começar.\n\n" +
         "-# As configurações são aplicadas em tempo real."
       )
