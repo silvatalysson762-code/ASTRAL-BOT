@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
@@ -1561,13 +1561,24 @@ function buildMainPanel(guildId, userId) {
 
 function buildSupportPanel(guild) {
   const bannerUrl = guild?.bannerURL({ extension: "png", size: 1024 }) || null;
+  const thumbnailUrl = guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
 
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "## 🍎 Suporte\n" +
+            "> Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato."
+          )
+        )
+        .setThumbnailAccessory(
+          new ThumbnailBuilder().setURL(thumbnailUrl)
+        )
+    )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## 🍎 Suporte\n" +
-        "> Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.\n\n" +
         "> 🍎 Clique no seletor abaixo para escolher o atendimento\n" +
         "-# Responderemos o mais rápido possível"
       )
