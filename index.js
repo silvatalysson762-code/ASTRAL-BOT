@@ -1550,6 +1550,8 @@ function buildMainPanel(guildId, userId) {
 }
 
 function buildTicketConfigPanel(guildId) {
+  const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
+
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
@@ -1566,12 +1568,62 @@ function buildTicketConfigPanel(guildId) {
         new StringSelectMenuBuilder()
           .setCustomId("ticket:config")
           .setPlaceholder("<:ticket_plus:1557205110847701052> Selecione uma função")
-          .addOptions({
-            label: "Função",
-            description: "Configurar uma função do sistema de tickets",
-            value: "function",
-            emoji: { name: "ticket_plus", id: "1557205110847701052" }
-          })
+          .addOptions(
+            {
+              label: "Configurar Aparência",
+              description: "Título, descrição, cor e banner da mensagem",
+              value: "appearance",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Adicionar Função",
+              description: "Criar uma nova função de atendimento",
+              value: "add_function",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Gerenciar Funções",
+              description: "Editar ou remover funções existentes (6x)",
+              value: "manage_functions",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Modo de Abertura",
+              description: "Atual: Thread Privada",
+              value: "opening_mode",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Configurar Horários",
+              description: "Horários de atendimento (0/7 dias)",
+              value: "schedule",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Estatísticas",
+              description: "Estatísticas de tickets, staffs e desempenho",
+              value: "statistics",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Blacklist",
+              description: "Impedir usuários de abrir tickets (temporário ou permanente)",
+              value: "blacklist",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Modo de Interface",
+              description: "Modo atual: Container V2",
+              value: "interface_mode",
+              emoji: ticketEmoji
+            },
+            {
+              label: "Feedback",
+              description: "Avaliação de atendimento ao fechar o ticket (Ativado)",
+              value: "feedback",
+              emoji: ticketEmoji
+            }
+          )
       )
     )
     .addActionRowComponents(
@@ -2115,9 +2167,21 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config" && interaction.values[0] === "function") {
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
+    const configLabels = {
+      appearance: "Configurar Aparência",
+      add_function: "Adicionar Função",
+      manage_functions: "Gerenciar Funções",
+      opening_mode: "Modo de Abertura",
+      schedule: "Configurar Horários",
+      statistics: "Estatísticas",
+      blacklist: "Blacklist",
+      interface_mode: "Modo de Interface",
+      feedback: "Feedback"
+    };
+    const selected = interaction.values[0];
     await interaction.reply({
-      content: "🎫 **Função** selecionada. Essa área ficará responsável pelas funções personalizáveis do sistema de tickets.",
+      content: "<:ticket_plus:1557205110847701052> **" + (configLabels[selected] || "Configuração") + "** selecionada. Esta área ficará responsável por essa configuração do sistema de tickets.",
       ephemeral: true
     });
     return;
