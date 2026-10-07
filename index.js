@@ -466,7 +466,7 @@ async function sendStockAlerts(stock, groupKey, guildConfig) {
 }
 
 const APPLICATION_UI_EMOJIS = {
-  beli: "<:beli:1556626992588267630>",
+  beli: "<:emoji_232:1556366446257242112>",
   clock: "<a:stock_clock:1556626990893629470>",
   stockTitle: "<:stock_title:1556626988587639892>",
   mirageTitle: "<:mirage_title:1556626985487306752>",
@@ -714,15 +714,20 @@ async function syncApplicationEmojis() {
       .map(([key, value]) => key + "=" + value)
       .join(", "));
 
+    // Preserva exatamente o emoji definido pelo ID. Não usamos o nome para
+    // hidratar os emojis, porque nomes podem ser alterados/duplicados e isso
+    // pode trocar uma fruta por outro emoji sem querer.
+    const byId = new Map([...refreshed.values()].map(emoji => [String(emoji.id), emoji]));
+
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
-      const name = String(value).match(/<a?:([^:>]+):\d+>/)?.[1]?.toLowerCase();
-      const emoji = name && byName.get(name);
+      const id = String(value).match(/<a?:[^:>]+:(\d+)>/)?.[1];
+      const emoji = id && byId.get(id);
       if (emoji) APPLICATION_UI_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
     for (const [key, value] of Object.entries(APPLICATION_FRUIT_EMOJIS)) {
-      const name = String(value).match(/<a?:([^:>]+):\d+>/)?.[1]?.toLowerCase();
-      const emoji = name && byName.get(name);
+      const id = String(value).match(/<a?:[^:>]+:(\d+)>/)?.[1];
+      const emoji = id && byId.get(id);
       if (emoji) APPLICATION_FRUIT_EMOJIS[key] = applicationEmojiMarkup(emoji);
     }
 
