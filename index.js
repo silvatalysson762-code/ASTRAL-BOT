@@ -1528,7 +1528,7 @@ function buildMainPanel(guildId) {
         new ButtonBuilder()
           .setCustomId("panel:restart")
           .setLabel("REINICIAR BOT")
-          .setEmoji({ name: "refresh_alt", id: "1557205141051019274", animated: true })
+          .setEmoji({ name: "refresh_alt", id: "1557205140510191274", animated: true })
           .setStyle(ButtonStyle.Danger)
       )
     );
