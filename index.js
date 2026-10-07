@@ -617,6 +617,17 @@ function uiEmoji(key, fallback) {
   return APPLICATION_SEMANTIC_EMOJIS[key] || fallback || "";
 }
 
+function applicationEmojiObject(name, fallback) {
+  const wanted = normalizeApplicationEmojiName(name);
+  const emoji = client.application?.emojis?.cache?.find(
+    item => normalizeApplicationEmojiName(item.name) === wanted
+  );
+  if (emoji) {
+    return { name: emoji.name, id: emoji.id, animated: Boolean(emoji.animated) };
+  }
+  return { name: fallback || "•" };
+}
+
 const APPLICATION_EMOJI_RENAMES = {
   "1556626992588267630": "beli",
   "1556626990893629470": "stock_clock",
@@ -1468,17 +1479,14 @@ function buildFruitRolePanel(guildId) {
 
 
 function buildMainPanel(guildId) {
-  const onlineText = client.ws.status === 0
-    ? "<:online:1557204563675848814> **Online**"
-    : "<:offline:1557204568432185454> **Offline**";
-
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# 🏠 ASTRAL STOCK\n\n" +
-        "## Astral Stock\n" +
+        "# " + applicationEmojiMarkup(client.application?.emojis?.cache?.find(e => normalizeApplicationEmojiName(e.name) === "home") || { name: "🏠" }) + " Painel de Controle\n\n" +
+        "## ASTRAL STOCK\n" +
         "Olá! Aqui está o painel de controle do seu bot.\n\n" +
+        "---\n\n" +
         "### <:control_center:1557204878001176586> O que deseja gerenciar?\n" +
         "Selecione uma área no menu abaixo para começar"
       )
@@ -1493,13 +1501,13 @@ function buildMainPanel(guildId) {
               label: "Estoque",
               description: "Gerencie as configurações do estoque",
               value: "stock",
-              emoji: { name: "settings", id: "1557204510651322388" }
+              emoji: applicationEmojiObject("clipboard", "📋")
             },
             {
               label: "Configurações",
-              description: "Configure o Astral Stock",
+              description: "Configure as preferências do Astral Stock",
               value: "settings",
-              emoji: { name: "settings_button", id: "1557204872648982579" }
+              emoji: applicationEmojiObject("settings_button", "⚙️")
             },
             {
               label: "Cargos das Frutas",
@@ -1511,13 +1519,13 @@ function buildMainPanel(guildId) {
               label: "Servidores Autorizados",
               description: "Gerencie os servidores autorizados",
               value: "servers",
-              emoji: { name: "control_center", id: "1557204878001176586" }
+              emoji: applicationEmojiObject("users_alt", "👥")
             },
             {
               label: "Preços",
               description: "Gerencie os preços salvos das frutas",
               value: "prices",
-              emoji: { name: "settings_button", id: "1557204872648982579" }
+              emoji: applicationEmojiObject("money", "$")
             }
           )
       )
