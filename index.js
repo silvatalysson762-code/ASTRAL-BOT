@@ -1559,26 +1559,41 @@ function buildMainPanel(guildId, userId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildSupportPanel() {
+function buildSupportPanel(guild) {
+  const bannerUrl = guild?.bannerURL({ extension: "png", size: 1024 }) || null;
+
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## 🍎 Suporte\n" +
         "> Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.\n\n" +
-        "> 🍎 Clique no botão abaixo para abrir um atendimento\n" +
+        "> 🍎 Clique no seletor abaixo para escolher o atendimento\n" +
         "-# Responderemos o mais rápido possível"
       )
-    )
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("ticket:open")
-          .setLabel("ABRIR ATENDIMENTO")
-          .setEmoji("🎫")
-          .setStyle(ButtonStyle.Primary)
+    );
+
+  if (bannerUrl) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL(bannerUrl)
       )
     );
+  }
+
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("ticket:select")
+        .setPlaceholder("🎫 Selecione uma opção de atendimento")
+        .addOptions({
+          label: "Abrir atendimento",
+          description: "Abra um ticket com a equipe",
+          value: "open",
+          emoji: "🎫"
+        })
+    )
+  );
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -2007,6 +2022,37 @@ client.on("messageCreate", async message => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:select" && interaction.values[0] === "open") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const guild = interaction.guild;
+      if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
+      const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
+      if (existing) {
+        await interaction.editReply({ content: "🎫 Você já tem um atendimento aberto: <#" + existing.id + ">" });
+        return;
+      }
+      const channel = await guild.channels.create({
+        name: "ticket-" + interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20),
+        type: 0,
+        topic: "astral-ticket:" + interaction.user.id,
+        permissionOverwrites: [
+          { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
+          { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
+          { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
+        ]
+      });
+      await channel.send({
+        content: "## 🎫 Atendimento\n> Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\n> Explique sua dúvida e aguarde nossa equipe.\n\n-# Um membro da equipe responderá o mais rápido possível."
+      });
+      await interaction.editReply({ content: "🎫 Atendimento aberto: <#" + channel.id + ">" });
+    } catch (error) {
+      console.error("[TICKET] Erro ao abrir atendimento:", error);
+      await interaction.editReply({ content: "❌ Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
+    }
+    return;
+  }
+
   if (interaction.isButton() && interaction.customId === "ticket:open") {
     try {
       const guild = interaction.guild;
@@ -2594,7 +2640,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: "❌ Você precisa da permissão **Gerenciar Servidor** para publicar o painel de suporte.", ephemeral: true });
       return;
     }
-    await interaction.reply(buildSupportPanel());
+    await interaction.reply(buildSupportPanel(interaction.guild));
     return;
   } else if (interaction.commandName === "painel") {
     if (!interaction.guildId) {
