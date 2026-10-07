@@ -1332,7 +1332,7 @@ function buildMainPanel(guildId) {
         "# " + uiEmoji("bot", "🤖") + " ASTRAL STOCK\n" +
         "### <:60581:1557204878001176586> Central de controle\n\n" +
         onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n" +
-        (guild ? uiEmoji("server", "🏠") + " **Servidor:** " + guild.name : uiEmoji("server", "🏠") + " **Painel da aplicação**") + "\n\n" +
+"\n" +
         "-# Escolha uma categoria abaixo para administrar o Astral Stock."
       )
     )
