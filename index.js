@@ -2914,7 +2914,10 @@ client.on("interactionCreate", async interaction => {
     }
 
     try {
-      await interaction.reply(buildMainPanel(interaction.guildId, interaction.user.id));
+      await interaction.reply({
+        ...buildMainPanel(interaction.guildId, interaction.user.id),
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+      });
     } catch (error) {
       console.error("[PANEL] Erro ao abrir /painel:", error);
       if (!interaction.replied && !interaction.deferred) {
