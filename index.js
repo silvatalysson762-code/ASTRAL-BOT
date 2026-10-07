@@ -1518,7 +1518,7 @@ function buildMainPanel(guildId) {
               label: "Preços",
               description: "Gerencie os preços salvos das frutas",
               value: "config",
-              emoji: { name: "money_bag", id: "1557204546744741790" }
+              emoji: { name: "settings_button", id: "1557204872648982579" }
             }
           )
       )
@@ -1528,7 +1528,7 @@ function buildMainPanel(guildId) {
         new ButtonBuilder()
           .setCustomId("panel:restart")
           .setLabel("REINICIAR BOT")
-          .setEmoji({ name: "refresh_alt", id: "1557205140510191274", animated: true })
+          .setEmoji({ name: "refresh", id: "1557204768093372466" })
           .setStyle(ButtonStyle.Danger)
       )
     );
