@@ -1476,19 +1476,18 @@ function buildMainPanel(guildId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# <:config_title:1557204540460240926> ASTRAL STOCK\\n\\n" +
-        "### <:settings:1557204510651322388> ESTOQUE\\n" +
-        onlineText + "\\n\\n" +
-        "### <:control_center:1557204878001176586> O que deseja gerenciar?\\n" +
-        "Selecione uma área no menu abaixo para começar\\n\\n" +
-        "-# Todas as ações são aplicadas em tempo real."
+        "# 🏠 ASTRAL STOCK\n\n" +
+        "## Astral Stock\n" +
+        "Olá! Aqui está o painel de controle do seu bot.\n\n" +
+        "### <:control_center:1557204878001176586> O que deseja gerenciar?\n" +
+        "Selecione uma área no menu abaixo para começar"
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("panel:manage")
-          .setPlaceholder("<:config_title:1557204540460240926> Selecione uma área para gerenciar")
+          .setPlaceholder("🏠 Selecione uma área para gerenciar")
           .addOptions(
             {
               label: "Estoque",
