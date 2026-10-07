@@ -1488,10 +1488,10 @@ function buildFruitRolePanel(guildId) {
 
 function buildMainPanel(guildId, userId) {
   const home = applicationEmojiTag("home", "🏠");
-  const overview = applicationEmojiTag("chart", "📊");
-  const bell = applicationEmojiTag("bell", "🔔");
-  const updated = applicationEmojiTag("calendar_check", "⏰");
-  const manage = applicationEmojiTag("control_center", "⚙️");
+  const overview = applicationEmojiTag("sparkles", "✨");
+  const bell = applicationEmojiTag("bell_alert", "🔔");
+  const updated = applicationEmojiTag("alarm", "⏰");
+  const manage = applicationEmojiTag("settings_button", "⚙️");
 
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
