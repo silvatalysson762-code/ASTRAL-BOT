@@ -1494,7 +1494,7 @@ function buildMainPanel(guildId) {
               label: "Estoque",
               description: "Gerencie as configurações do estoque",
               value: "config",
-              emoji: { name: "60758", id: "15572045410651322388" }
+              emoji: { name: "60758", id: "1557204510651322388" }
             },
             {
               label: "Configurações",
