@@ -4,7 +4,7 @@ const path = require("node:path");
 const archiver = require("archiver");
 const {
   Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, REST, Routes,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits, AttachmentBuilder
 } = require("discord.js");
 
@@ -1453,6 +1453,135 @@ function buildFruitRolePanel(guildId) {
   };
 }
 
+
+function buildMainPanel(guildId) {
+  const guild = client.guilds.cache.get(guildId);
+  const guildConfig = guildId ? getGuildConfig(guildId) : defaultGuildConfig();
+  const normal = Array.isArray(readState().latestStock?.normal) ? readState().latestStock.normal.length : 0;
+  const mirage = Array.isArray(readState().latestStock?.mirage) ? readState().latestStock.mirage.length : 0;
+  const onlineText = client.ws.status === 0 ? uiEmoji("success", "✅") + " **Online**" : uiEmoji("warning", "⚠️") + " **Reconectando**";
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "# " + uiEmoji("bot", "🤖") + " ASTRAL STOCK\n" +
+        "### " + uiEmoji("success", "✅") + " Central de controle\n\n" +
+        onlineText + "  •  " + uiEmoji("statistics", "📊") + " **" + normal + "** frutas no Stock Normal  •  **" + mirage + "** na Mirage\n" +
+        (guild ? uiEmoji("server", "🏠") + " **Servidor:** " + guild.name : uiEmoji("server", "🏠") + " **Painel da aplicação**") + "\n\n" +
+        "-# Escolha uma categoria abaixo para administrar o Astral Stock."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("panel:config").setLabel("CONFIGURAÇÕES").setEmoji(uiEmoji("settings", "⚙️")).setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(APPLICATION_FRUIT_EMOJIS.dragon).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("panel:servers").setLabel("SERVIDORES AUTORIZADOS").setEmoji(uiEmoji("lock", "🔒")).setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildConfigPanel(guildId) {
+  const config = getGuildConfig(guildId);
+  const stockChannel = config.channelId ? "<#" + config.channelId + ">" : "Não configurado";
+  const alertChannel = config.stockAlertChannelId ? "<#" + config.stockAlertChannelId + ">" : "Não configurado";
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "# " + uiEmoji("settings", "⚙️") + " CONFIGURAÇÕES\n\n" +
+        uiEmoji("package", "📦") + " **Canal do Stock:** " + stockChannel + "\n" +
+        uiEmoji("alert", "🔔") + " **Canal de Alertas:** " + alertChannel + "\n" +
+        uiEmoji("bot", "🤖") + " **Status:** " + (client.ws.status === 0 ? "Online" : "Reconectando") + "\n\n" +
+        "-# Para configurações detalhadas, use os comandos correspondentes."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(APPLICATION_FRUIT_EMOJIS.dragon).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildFruitAdminPanel(guildId, selectedFruit = null) {
+  const config = getGuildConfig(guildId);
+  const current = selectedFruit ? configuredFruitRoleId(config, selectedFruit) : null;
+  const currentRole = current ? "<@&" + current + ">" : "Nenhum cargo configurado";
+  const fruits = ALL_FRUITS.map(fruit => ({
+    label: fruit,
+    value: fruitKey(fruit),
+    emoji: fruitEmojiObject(fruit),
+    description: configuredFruitRoleId(config, fruit) ? "Cargo configurado" : "Sem cargo"
+  }));
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId("admin_fruit_select")
+    .setPlaceholder("🍈 Selecione uma fruta para configurar")
+    .setMinValues(1).setMaxValues(1)
+    .addOptions(fruits.slice(0, 25));
+  const rows = [new ActionRowBuilder().addComponents(menu)];
+  if (fruits.length > 25) {
+    const menu2 = new StringSelectMenuBuilder()
+      .setCustomId("admin_fruit_select_2")
+      .setPlaceholder("🍓 Mais frutas")
+      .setMinValues(1).setMaxValues(1)
+      .addOptions(fruits.slice(25));
+    rows.push(new ActionRowBuilder().addComponents(menu2));
+  }
+  if (selectedFruit) {
+    const roleMenu = new RoleSelectMenuBuilder()
+      .setCustomId("admin_role_select:" + fruitKey(selectedFruit))
+      .setPlaceholder("Escolha o cargo para " + selectedFruit)
+      .setMinValues(1).setMaxValues(1);
+    rows.push(new ActionRowBuilder().addComponents(roleMenu));
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit)).setLabel("REMOVER CARGO").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR AO PAINEL").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+    ));
+  } else {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR AO PAINEL").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+    ));
+  }
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "# " + APPLICATION_FRUIT_EMOJIS.dragon + " CARGOS DAS FRUTAS\n\n" +
+        "Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n\n" +
+        (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + uiEmoji("users","👥") + " Cargo atual: " + currentRole : uiEmoji("list","📋") + " Escolha uma fruta abaixo.")
+      )
+    )
+    .addActionRowComponents(...rows);
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildServerAdminPanel() {
+  const ids = getAllowedGuildIds();
+  const lines = ids.map(id => {
+    const guild = client.guilds.cache.get(id);
+    return "• " + uiEmoji("server", "🏠") + " " + (guild ? "**" + guild.name + "**" : "Servidor não encontrado") + " • `" + id + "`";
+  });
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "# " + uiEmoji("lock", "🔒") + " SERVIDORES AUTORIZADOS\n\n" +
+        (lines.join("\n") || "Nenhum servidor autorizado.") + "\n\n" +
+        "-# Somente o dono da aplicação pode alterar esta lista."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("server:add").setLabel("ADICIONAR").setEmoji(uiEmoji("success", "✅")).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("server:remove").setLabel("REMOVER").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
@@ -1564,7 +1693,7 @@ const commands = [
     ))
     .addStringOption(option => option.setName("server_id").setDescription("ID do servidor Discord").setRequired(false).setMinLength(17).setMaxLength(20)),
 
-  // Stock tools
+  new SlashCommandBuilder().setName("painel").setDescription("Abrir o painel central do Astral Stock"),\n\n  // Stock tools
   new SlashCommandBuilder().setName("test-stock").setDescription("Preview all fruits and configured emojis")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("refresh-stock").setDescription("Fetch and publish the current stock")
