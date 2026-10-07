@@ -29,34 +29,6 @@ const aiCooldowns = new Map();
 const aiActiveChats = new Map();
 const AI_CHAT_TIMEOUT_MS = 30 * 60 * 1000;
 
-async function generateGeminiImage(prompt) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("A geração de imagens ainda não foi configurada. Adicione GEMINI_API_KEY nas variáveis de ambiente.");
-  }
-
-  const { GoogleGenAI } = require("@google/genai");
-  const ai = new GoogleGenAI({ apiKey });
-
-  const interaction = await ai.interactions.create({
-    model: process.env.GEMINI_IMAGE_MODEL || "gemini-nano-banana-2.1",
-    input: String(prompt).trim(),
-    response_format: {
-      type: "image",
-      mime_type: "image/jpeg",
-      aspect_ratio: process.env.GEMINI_IMAGE_ASPECT_RATIO || "1:1",
-      image_size: process.env.GEMINI_IMAGE_SIZE || "1K"
-    }
-  });
-
-  const imageData = interaction?.output_image?.data;
-  if (!imageData) {
-    throw new Error("A Gemini não retornou uma imagem.");
-  }
-
-  return Buffer.from(imageData, "base64");
-}
-
 async function askGroqAI(prompt, userId) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
@@ -1474,7 +1446,7 @@ function buildMainPanel(guildId) {
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("panel:config").setLabel("CONFIGURAÇÕES").setEmoji(uiEmoji("settings", "⚙️")).setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(APPLICATION_FRUIT_EMOJIS.dragon).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId("panel:servers").setLabel("SERVIDORES AUTORIZADOS").setEmoji(uiEmoji("lock", "🔒")).setStyle(ButtonStyle.Secondary)
       )
     );
@@ -1498,7 +1470,7 @@ function buildConfigPanel(guildId) {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(APPLICATION_FRUIT_EMOJIS.dragon).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
       )
     );
@@ -1679,9 +1651,6 @@ const commands = [
   new SlashCommandBuilder().setName("ia").setDescription("Converse com a IA do Astral Stock")
     .setIntegrationTypes([0, 1]).setContexts([0])
     .addStringOption(option => option.setName("pergunta").setDescription("O que você quer perguntar para a IA?").setRequired(true).setMaxLength(2000)),
-  new SlashCommandBuilder().setName("imagem").setDescription("Gere uma imagem com a IA Gemini")
-    .setIntegrationTypes([0, 1]).setContexts([0])
-    .addStringOption(option => option.setName("prompt").setDescription("Descreva a imagem que você quer criar").setRequired(true).setMaxLength(2000)),
   new SlashCommandBuilder().setName("baixar-emojis").setDescription("Baixe emojis do Discord em um ZIP")
     .addStringOption(option => option.setName("emojis").setDescription("Cole emojis, IDs ou links do CDN").setRequired(true).setMinLength(2).setMaxLength(4000)),
 
@@ -1751,17 +1720,10 @@ async function registerCommands() {
   console.log("[COMMANDS] Aplicação detectada pelo token:", applicationId);
   console.log("[COMMANDS] Registrando " + registeredCommands.length + " comandos globalmente...");
 
-  // Comandos principais ficam globais. Somente /ia e /imagem ficam
-  // registrados no servidor para evitar duplicação e manter esses dois
-  // comandos separados dos comandos globais.
-  const globalCommands = registeredCommands.filter(command => {
-    const name = command?.name;
-    return name !== "ia" && name !== "imagem";
-  });
-  const aiImageCommands = registeredCommands.filter(command => {
-    const name = command?.name;
-    return name === "ia" || name === "imagem";
-  });
+  // Comandos principais ficam globais. /ia continua separado para manter
+  // o comportamento atual de registro por servidor.
+  const globalCommands = registeredCommands.filter(command => command?.name !== "ia");
+  const aiCommands = registeredCommands.filter(command => command?.name === "ia");
 
   try {
     await rest.put(Routes.applicationCommands(applicationId), { body: globalCommands });
@@ -1780,10 +1742,10 @@ async function registerCommands() {
     try {
       // Limpa qualquer registro antigo de guild para que os comandos
       // globais não apareçam duplicados no servidor.
-      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: aiImageCommands });
-      console.log("[COMMANDS] /ia e /imagem publicados no servidor " + guildId + ".");
+      await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: aiCommands });
+      console.log("[COMMANDS] /ia publicado no servidor " + guildId + ".");
     } catch (error) {
-      console.error("[COMMANDS] ERRO ao publicar /ia e /imagem no servidor " + guildId + ":", error);
+      console.error("[COMMANDS] ERRO ao publicar /ia no servidor " + guildId + ":", error);
     }
   }
 }
@@ -1888,33 +1850,6 @@ client.on("messageCreate", async message => {
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       });
-      return;
-    }
-
-    // Pedidos de imagem por menção, por exemplo:
-    // "@Astral Stock crie uma imagem de um dragão roxo".
-    // Isso é separado da IA de texto para não mandar o pedido de imagem para o Groq.
-    const imageRequest = /\\b(gera|gerar|gere|crie|criar|faça|fazer|faz|desenha|desenhar|desenhe|imagem|foto|banner|logo)\\b/i.test(prompt);
-
-    if (imageRequest) {
-      await message.channel.sendTyping();
-
-      try {
-        const imageBuffer = await generateGeminiImage(prompt);
-        await message.reply({
-          content: uiEmoji("image", "🎨") + " **Imagem gerada!**",
-          files: [new AttachmentBuilder(imageBuffer, { name: "astral-image.png" })],
-          allowedMentions: { repliedUser: false }
-        });
-      } catch (imageError) {
-        console.error("Erro na geração de imagem por menção:", imageError);
-        await message.reply({
-          content: uiEmoji("error", "❌") + (imageError.message || "Não consegui gerar a imagem agora."),
-          allowedMentions: { repliedUser: false }
-        });
-      }
-
-      aiActiveChats.set(chatKey, Date.now() + AI_CHAT_TIMEOUT_MS);
       return;
     }
 
@@ -2211,6 +2146,212 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  if (interaction.isButton() && interaction.customId.startsWith("panel:")) {
+    try {
+      const action = interaction.customId.slice("panel:".length);
+      if (!interaction.guildId) {
+        await interaction.reply({ content: "❌ Este painel só pode ser usado dentro de um servidor.", ephemeral: true });
+        return;
+      }
+
+      if (action === "servers" && !(await isBotOwner(interaction.user.id))) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode acessar os servidores autorizados.", ephemeral: true });
+        return;
+      }
+
+      if (action !== "servers") {
+        const member = interaction.member;
+        const canManage = await isBotOwner(interaction.user.id) ||
+          Boolean(member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+        if (!canManage) {
+          await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para usar este painel.", ephemeral: true });
+          return;
+        }
+      }
+
+      let panel;
+      if (action === "main") panel = buildMainPanel(interaction.guildId);
+      else if (action === "config") panel = buildConfigPanel(interaction.guildId);
+      else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
+      else if (action === "servers") panel = buildServerAdminPanel();
+      else return;
+
+      await interaction.update(panel);
+    } catch (error) {
+      console.error("[PANEL] Erro ao atualizar painel:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar o painel.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() &&
+      (interaction.customId === "admin_fruit_select" || interaction.customId === "admin_fruit_select_2")) {
+    try {
+      const canManage = await isBotOwner(interaction.user.id) ||
+        Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+      if (!canManage) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        return;
+      }
+
+      const fruit = ALL_FRUITS.find(name => fruitKey(name) === interaction.values?.[0]);
+      if (!fruit) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Fruta inválida.", ephemeral: true });
+        return;
+      }
+
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, fruit));
+    } catch (error) {
+      console.error("[PANEL] Erro ao selecionar fruta:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui abrir a configuração dessa fruta.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isRoleSelectMenu() && interaction.customId.startsWith("admin_role_select:")) {
+    try {
+      const canManage = await isBotOwner(interaction.user.id) ||
+        Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+      if (!canManage) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        return;
+      }
+
+      const fruitKeyName = interaction.customId.slice("admin_role_select:".length);
+      const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
+      const role = interaction.roles?.first?.();
+      if (!fruit || !role) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Fruta ou cargo inválido.", ephemeral: true });
+        return;
+      }
+
+      const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
+      if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Eu preciso da permissão **Gerenciar Cargos**.", ephemeral: true });
+        return;
+      }
+      if (!role.editable) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consigo gerenciar esse cargo. Ele precisa estar abaixo do meu cargo mais alto.", ephemeral: true });
+        return;
+      }
+
+      updateGuildConfig(interaction.guildId, config => {
+        config.roles = config.roles || {};
+        config.roles[fruitKey(fruit)] = role.id;
+      });
+
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, fruit));
+    } catch (error) {
+      console.error("[PANEL] Erro ao configurar cargo:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui configurar esse cargo.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("admin_fruit_remove:")) {
+    try {
+      const canManage = await isBotOwner(interaction.user.id) ||
+        Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+      if (!canManage) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        return;
+      }
+
+      const fruitKeyName = interaction.customId.slice("admin_fruit_remove:".length);
+      const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
+      if (!fruit) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Fruta inválida.", ephemeral: true });
+        return;
+      }
+
+      updateGuildConfig(interaction.guildId, config => {
+        config.roles = config.roles || {};
+        delete config.roles[fruitKey(fruit)];
+      });
+
+      await interaction.update(buildFruitAdminPanel(interaction.guildId));
+    } catch (error) {
+      console.error("[PANEL] Erro ao remover cargo:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui remover o cargo configurado.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && (interaction.customId === "server:add" || interaction.customId === "server:remove")) {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode alterar servidores autorizados.", ephemeral: true });
+      return;
+    }
+
+    const action = interaction.customId.endsWith(":add") ? "add" : "remove";
+    const modal = new ModalBuilder()
+      .setCustomId("server_modal:" + action)
+      .setTitle(action === "add" ? "Adicionar servidor" : "Remover servidor")
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("server_id")
+            .setLabel("ID do servidor Discord")
+            .setPlaceholder("Ex.: 123456789012345678")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMinLength(17)
+            .setMaxLength(20)
+        )
+      );
+
+    await interaction.showModal(modal);
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("server_modal:")) {
+    try {
+      if (!(await isBotOwner(interaction.user.id))) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode alterar servidores autorizados.", ephemeral: true });
+        return;
+      }
+
+      const action = interaction.customId.endsWith(":add") ? "add" : "remove";
+      const serverId = interaction.fields.getTextInputValue("server_id").trim();
+      if (!/^\\d{17,20}$/.test(serverId)) {
+        await interaction.reply({ content: uiEmoji("error", "❌") + " ID de servidor inválido.", ephemeral: true });
+        return;
+      }
+
+      const config = readConfig();
+      config.allowedGuildIds = Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : [];
+      if (!config.allowedGuildIds.includes(PROTECTED_GUILD_ID)) config.allowedGuildIds.push(PROTECTED_GUILD_ID);
+
+      if (action === "add") {
+        if (!config.allowedGuildIds.includes(serverId)) config.allowedGuildIds.push(serverId);
+        saveConfig(config);
+        await interaction.reply({ content: uiEmoji("success", "✅") + " Servidor **" + serverId + "** autorizado.", ephemeral: true });
+      } else {
+        if (serverId === PROTECTED_GUILD_ID) {
+          await interaction.reply({ content: uiEmoji("lock", "🔒") + " Esse servidor é protegido e não pode ser removido.", ephemeral: true });
+          return;
+        }
+        config.allowedGuildIds = config.allowedGuildIds.filter(id => id !== serverId);
+        saveConfig(config);
+        const guild = client.guilds.cache.get(serverId);
+        if (guild) await guild.leave().catch(() => {});
+        await interaction.reply({ content: uiEmoji("trash", "🗑️") + " Servidor **" + serverId + "** removido da lista.", ephemeral: true });
+      }
+    } catch (error) {
+      console.error("[PANEL] Erro no modal de servidores:", error);
+      if (!interaction.replied) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar os servidores autorizados.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "server-panel") {
@@ -2345,19 +2486,6 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("Erro no /ia:", error);
       await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui falar com a IA agora."));
-    }
-  } else if (interaction.commandName === "imagem") {
-    await interaction.deferReply();
-    try {
-      const prompt = interaction.options.getString("prompt", true);
-      const imageBuffer = await generateGeminiImage(prompt);
-      await interaction.editReply({
-        content: uiEmoji("image", "🎨") + " Imagem gerada pela Gemini.",
-        files: [new AttachmentBuilder(imageBuffer, { name: "astral-image.png" })]
-      });
-    } catch (error) {
-      console.error("Erro no /imagem:", error);
-      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui gerar a imagem agora."));
     }
   } else if (interaction.commandName === "baixar-emojis") {
     if (!(await isBotOwner(interaction.user.id))) {
