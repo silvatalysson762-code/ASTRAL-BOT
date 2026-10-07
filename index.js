@@ -706,6 +706,87 @@ const APPLICATION_FRUIT_EMOJIS = {
   dragon: "<:dragon:1556621255984029706>"
 };
 
+
+const APPLICATION_SEMANTIC_EMOJIS = {
+  error: "❌",
+  success: "✅",
+  warning: "⚠️",
+  alert: "🔔",
+  package: "📦",
+  image: "🎨",
+  user: "👤",
+  settings: "⚙️",
+  trash: "🗑️",
+  mute: "🔕",
+  statistics: "📊",
+  id: "🆔",
+  calendar: "📅",
+  users: "👥",
+  followers: "👣",
+  arrow: "➡️",
+  lock: "🔒",
+  key: "🔑",
+  bot: "🤖",
+  gem: "💎",
+  money: "💰",
+  list: "📋",
+  search: "🔍",
+  tools: "🛠️",
+  star: "⭐",
+  fire: "🔥",
+  sparkle: "✨"
+};
+
+const APPLICATION_SEMANTIC_ALIASES = {
+  error: ["error","erro","err","fail","failed","failure","wrong","cross","xmark","denied","no"],
+  success: ["success","sucesso","ok","check","done","complete","completed","yes"],
+  warning: ["warning","warn","aviso","attention","caution"],
+  alert: ["alert","alerta","bell","notification","notify","notificacao"],
+  package: ["package","zip","file","arquivo","download","box"],
+  image: ["image","imagem","photo","foto","picture","banner","art"],
+  user: ["user","usuario","profile","perfil","person","member"],
+  settings: ["settings","config","configuracao","gear","setup","admin"],
+  trash: ["trash","delete","deleted","remove","lixeira"],
+  mute: ["mute","silent","unmute","bell_off"],
+  statistics: ["stats","statistics","stat","grafico","chart","analytics"],
+  id: ["id","identifier","identificador"],
+  calendar: ["calendar","date","data"],
+  users: ["users","members","grupo","group","friends","amigos"],
+  followers: ["followers","follow","seguidores","following","seguindo"],
+  arrow: ["arrow","next","right","seta"],
+  lock: ["lock","locked","private","privado"],
+  key: ["key","token","security","seguranca"],
+  bot: ["bot","robot","automation","automacao"],
+  gem: ["gem","diamond","crystal","premium"],
+  money: ["money","cash","beli","coin","coins","dinheiro"],
+  list: ["list","menu","lista"],
+  search: ["search","find","lupa"],
+  tools: ["tools","tool","hammer","wrench","ferramenta"],
+  star: ["star","favorite","fav","estrela"],
+  fire: ["fire","flame","fogo"],
+  sparkle: ["sparkle","sparkles","shine","brilho"]
+};
+
+function normalizeApplicationEmojiName(name) {
+  return String(name || "").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function findSemanticApplicationEmoji(emojiMap, aliases) {
+  for (const alias of aliases) {
+    const exact = emojiMap.get(normalizeApplicationEmojiName(alias));
+    if (exact) return exact;
+  }
+  for (const [name, emoji] of emojiMap.entries()) {
+    const normalized = normalizeApplicationEmojiName(name);
+    if (aliases.some(alias => normalized.includes(normalizeApplicationEmojiName(alias)))) return emoji;
+  }
+  return null;
+}
+
+function uiEmoji(key, fallback) {
+  return APPLICATION_SEMANTIC_EMOJIS[key] || fallback || "";
+}
+
 const APPLICATION_EMOJI_RENAMES = {
   "1556626992588267630": "beli",
   "1556626990893629470": "stock_clock",
@@ -784,8 +865,24 @@ async function syncApplicationEmojis() {
 
     const refreshed = await client.application.emojis.fetch();
     for (const emoji of refreshed.values()) {
-      byName.set(String(emoji.name).toLowerCase(), emoji);
+      byName.set(normalizeApplicationEmojiName(emoji.name), applicationEmojiMarkup(emoji));
     }
+
+    // Analisa automaticamente todos os emojis da aplicação pelo nome.
+    // Assim, emojis novos também podem ser usados nas funções sem precisar
+    // cadastrar cada ID manualmente no código.
+    for (const [key, aliases] of Object.entries(APPLICATION_SEMANTIC_ALIASES)) {
+      const found = findSemanticApplicationEmoji(
+        new Map([...byName.entries()].map(([name, markup]) => [name, markup])),
+        aliases
+      );
+      if (found) APPLICATION_SEMANTIC_EMOJIS[key] = found;
+    }
+
+    console.log("[EMOJIS] Categorias detectadas: " + Object.entries(APPLICATION_SEMANTIC_EMOJIS)
+      .filter(([, value]) => value && value !== "❌" && value !== "✅" && value !== "⚠️" && value !== "🔔" && value !== "📦" && value !== "🎨" && value !== "👤" && value !== "⚙️")
+      .map(([key, value]) => key + "=" + value)
+      .join(", "));
 
     for (const [key, value] of Object.entries(APPLICATION_UI_EMOJIS)) {
       const name = String(value).match(/<a?:([^:>]+):\d+>/)?.[1]?.toLowerCase();
@@ -1336,7 +1433,7 @@ function buildFruitRolePanel(guildId) {
     "@everyone\n# " + APPLICATION_FRUIT_EMOJIS.dragon + "  CARGOS DE FRUTAS";
   const description =
     "### Escolha uma fruta abaixo para receber ou remover o cargo.\n\n" +
-    "🔔 **Selecione os cargos das frutas que você deseja receber para receber as notificações de stock.**\n" +
+    uiEmoji("alert", "🔔") + " **Selecione os cargos das frutas que você deseja receber para receber as notificações de stock.**\n" +
     "📢 As notificações serão enviadas no canal <#1555984553016033380>.";
 
   const container = new ContainerBuilder()
@@ -1638,7 +1735,7 @@ client.on("messageCreate", async message => {
 
       if (!normal.length && !mirage.length) {
         await message.reply({
-          content: "❌ Ainda não tenho um stock salvo para mostrar.",
+          content: uiEmoji("error", "❌") + " Ainda não tenho um stock salvo para mostrar.",
           allowedMentions: { repliedUser: false }
         });
         return;
@@ -1674,14 +1771,14 @@ client.on("messageCreate", async message => {
       try {
         const imageBuffer = await generateGeminiImage(prompt);
         await message.reply({
-          content: "🎨 **Imagem gerada!**",
+          content: uiEmoji("image", "🎨") + " **Imagem gerada!**",
           files: [new AttachmentBuilder(imageBuffer, { name: "astral-image.png" })],
           allowedMentions: { repliedUser: false }
         });
       } catch (imageError) {
         console.error("Erro na geração de imagem por menção:", imageError);
         await message.reply({
-          content: "❌ " + (imageError.message || "Não consegui gerar a imagem agora."),
+          content: uiEmoji("error", "❌") + (imageError.message || "Não consegui gerar a imagem agora."),
           allowedMentions: { repliedUser: false }
         });
       }
@@ -1707,7 +1804,7 @@ client.on("messageCreate", async message => {
   } catch (error) {
     console.error("Erro na IA por mensagem:", error);
     await message.reply({
-      content: "❌ " + (error.message || "Não consegui falar com a IA agora."),
+      content: uiEmoji("error", "❌") + (error.message || "Não consegui falar com a IA agora."),
       allowedMentions: { repliedUser: false }
     });
   }
@@ -1728,7 +1825,7 @@ client.on("interactionCreate", async interaction => {
         }).catch(() => interaction.member);
         const panel = buildFruitRolePanelForMember(interaction.guildId, member);
         if (!panel) {
-          await interaction.reply({ content: "❌ Não há cargos de frutas configurados.", ephemeral: true });
+          await interaction.reply({ content: uiEmoji("error", "❌") + " Não há cargos de frutas configurados.", ephemeral: true });
           return;
         }
         await interaction.deferReply({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 });
@@ -1752,7 +1849,7 @@ client.on("interactionCreate", async interaction => {
 
         const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
         if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          const msg={content:"❌ Eu preciso da permissão **Gerenciar Cargos**."};
+          const msg={content:uiEmoji("error", "❌") + " Eu preciso da permissão **Gerenciar Cargos**."};
           if(isPrivate) await interaction.followUp({...msg,ephemeral:true}); else await interaction.editReply(msg);
           return;
         }
@@ -1790,7 +1887,7 @@ client.on("interactionCreate", async interaction => {
         // A interação já foi reconhecida com deferReply/deferUpdate.
         // Sempre finalizamos a interação, inclusive quando o painel não puder ser reconstruído.
         if(!panel){
-          await interaction.editReply({ content:"❌ Não consegui reconstruir o painel de cargos." }).catch(error => {
+          await interaction.editReply({ content:uiEmoji("error", "❌") + " Não consegui reconstruir o painel de cargos." }).catch(error => {
             console.error("[FRUIT ROLE] Falha ao finalizar remoção sem painel:", error?.message || error);
           });
           return;
@@ -1812,7 +1909,7 @@ client.on("interactionCreate", async interaction => {
         });
       }else{
         await interaction.reply({
-          content:"❌ Não consegui processar o painel.",
+          content:uiEmoji("error", "❌") + " Não consegui processar o painel.",
           ephemeral:true
         }).catch(()=>{});
       }
@@ -1845,7 +1942,7 @@ client.on("interactionCreate", async interaction => {
 
         if (!publicPanel || !privatePanel) {
           await interaction.followUp({
-            content: "❌ Não há cargos de frutas configurados.",
+            content: uiEmoji("error", "❌") + " Não há cargos de frutas configurados.",
             ephemeral: true
           });
           return;
@@ -1975,7 +2072,7 @@ client.on("interactionCreate", async interaction => {
       console.error("Erro no menu de cargos de frutas:", error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: "❌ Não consegui abrir o painel privado.",
+          content: uiEmoji("error", "❌") + " Não consegui abrir o painel privado.",
           ephemeral: true
         }).catch(() => {});
       }
@@ -1987,7 +2084,7 @@ client.on("interactionCreate", async interaction => {
   try {
   if (interaction.commandName === "server-panel") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: "❌ Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
       return;
     }
 
@@ -2018,7 +2115,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (!/^\d{17,20}$/.test(String(serverId || ""))) {
-      await interaction.reply({ content: "❌ Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("error", "❌") + " Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
       return;
     }
 
@@ -2028,7 +2125,7 @@ client.on("interactionCreate", async interaction => {
 
       const guild = client.guilds.cache.get(serverId);
       await interaction.reply({
-        content: "✅ Servidor \`" + serverId + "\` adicionado à lista de permitidos." + (guild ? " O bot já está nesse servidor." : " Quando o bot entrar nesse servidor, ele permanecerá nele."),
+        content: uiEmoji("success", "✅") + " Servidor \`" + serverId + "\` adicionado à lista de permitidos." + (guild ? " O bot já está nesse servidor." : " Quando o bot entrar nesse servidor, ele permanecerá nele."),
         ephemeral: true
       });
       return;
@@ -2044,7 +2141,7 @@ client.on("interactionCreate", async interaction => {
       }
 
       await interaction.reply({
-        content: "🗑️ Servidor \`" + serverId + "\` removido da lista." + (guild ? " O bot saiu dele automaticamente." : ""),
+        content: uiEmoji("trash", "🗑️") + " Servidor \`" + serverId + "\` removido da lista." + (guild ? " O bot saiu dele automaticamente." : ""),
         ephemeral: true
       });
       return;
@@ -2101,7 +2198,7 @@ client.on("interactionCreate", async interaction => {
       });
     } catch (error) {
       console.error("Erro no /avatar:", error);
-      await interaction.editReply("❌ " + (error.message || "Não consegui carregar esse avatar do Roblox."));
+      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui carregar esse avatar do Roblox."));
     }
   } else if (interaction.commandName === "ia") {
     await interaction.deferReply();
@@ -2116,7 +2213,7 @@ client.on("interactionCreate", async interaction => {
       }
     } catch (error) {
       console.error("Erro no /ia:", error);
-      await interaction.editReply("❌ " + (error.message || "Não consegui falar com a IA agora."));
+      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui falar com a IA agora."));
     }
   } else if (interaction.commandName === "imagem") {
     await interaction.deferReply();
@@ -2124,16 +2221,16 @@ client.on("interactionCreate", async interaction => {
       const prompt = interaction.options.getString("prompt", true);
       const imageBuffer = await generateGeminiImage(prompt);
       await interaction.editReply({
-        content: "🎨 Imagem gerada pela Gemini.",
+        content: uiEmoji("image", "🎨") + " Imagem gerada pela Gemini.",
         files: [new AttachmentBuilder(imageBuffer, { name: "astral-image.png" })]
       });
     } catch (error) {
       console.error("Erro no /imagem:", error);
-      await interaction.editReply("❌ " + (error.message || "Não consegui gerar a imagem agora."));
+      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui gerar a imagem agora."));
     }
   } else if (interaction.commandName === "baixar-emojis") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: "❌ Apenas o dono da aplicação pode usar /baixar-emojis.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar /baixar-emojis.", ephemeral: true });
       return;
     }
 
@@ -2149,12 +2246,12 @@ client.on("interactionCreate", async interaction => {
       }
 
       await interaction.editReply({
-        content: "📦 **Emojis preparados!**\nBaixados: **" + result.downloaded + "/" + result.total + "**\nCole os emojis/IDs de qualquer bot ou servidor que você tenha acesso no Discord.",
+        content: uiEmoji("package", "📦") + " **Emojis preparados!**\nBaixados: **" + result.downloaded + "/" + result.total + "**\nCole os emojis/IDs de qualquer bot ou servidor que você tenha acesso no Discord.",
         files: [new AttachmentBuilder(result.buffer, { name: "astral-emojis.zip" })]
       });
     } catch (error) {
       console.error("Erro no /baixar-emojis:", error);
-      await interaction.editReply("❌ " + (error.message || "Não consegui gerar o ZIP dos emojis."));
+      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui gerar o ZIP dos emojis."));
     }
   } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
@@ -2213,7 +2310,7 @@ client.on("interactionCreate", async interaction => {
     }
   } else if (interaction.commandName === "send-stock") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: "❌ Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
       return;
     }
 
@@ -2229,14 +2326,14 @@ client.on("interactionCreate", async interaction => {
       if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal", defaultGuildConfig()));
       if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage", defaultGuildConfig()));
       if (!components.length) {
-        await interaction.reply({ content: "❌ Ainda não existe stock salvo para enviar.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Ainda não existe stock salvo para enviar.", ephemeral: true });
         return;
       }
       await interaction.reply({ components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
     } catch (error) {
       console.error("Erro no /send-stock:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui enviar o stock salvo.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui enviar o stock salvo.", ephemeral: true });
       }
     }
   } else if (interaction.commandName === "stock") {
@@ -2256,7 +2353,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
     } catch (e) {
       console.error("Erro no /stock:", e);
-      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui mostrar o estoque agora.", ephemeral: true });
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui mostrar o estoque agora.", ephemeral: true });
     }
   } else if (interaction.commandName === "refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
@@ -2285,18 +2382,18 @@ client.on("interactionCreate", async interaction => {
         throw new Error("Nenhum canal de stock configurado ou acessível neste servidor.");
       }
 
-      await interaction.editReply("✅ Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
+      await interaction.editReply(uiEmoji("success", "✅") + " Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
     } catch (e) {
-      await interaction.editReply("❌ Não consegui reenviar o stock salvo: " + e.message + ".");
+      await interaction.editReply(uiEmoji("error", "❌") + " Não consegui reenviar o stock salvo: " + e.message + ".");
     }
   } else if (interaction.commandName === "set-stock-channel") {
     const channel = interaction.options.getChannel("channel", true);
     if (!channel.isTextBased() || !channel.send) {
-      await interaction.reply({ content: "❌ Escolha um canal de texto.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
       return;
     }
     updateGuildConfig(interaction.guildId, config => { config.channelId = channel.id; });
-    await interaction.reply({ content: "✅ Canal de stock configurado para " + channel + ".", ephemeral: true });
+    await interaction.reply({ content: uiEmoji("success", "✅") + " Canal de stock configurado para " + channel + ".", ephemeral: true });
   } else if (interaction.commandName === "set-stock-title") {
     const groupKey = interaction.options.getString("stock_type");
     const title = interaction.options.getString("title").trim();
@@ -2333,7 +2430,7 @@ client.on("interactionCreate", async interaction => {
 
     if (!panel.configured?.length) {
       await interaction.reply({
-        content: "❌ Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
+        content: uiEmoji("error", "❌") + " Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
         ephemeral: true
       });
       return;
@@ -2366,17 +2463,17 @@ client.on("interactionCreate", async interaction => {
     if (action === "set_channel") {
       const channel = interaction.options.getChannel("channel", true);
       if (!channel.isTextBased() || !channel.send) {
-        await interaction.reply({ content: "❌ Escolha um canal de texto.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
         return;
       }
       updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = channel.id; });
-      await interaction.reply({ content: "✅ Canal de alertas definido como " + channel + ".", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("success", "✅") + " Canal de alertas definido como " + channel + ".", ephemeral: true });
     } else if (action === "remove_channel") {
       if (!guildConfig.stockAlertChannelId) {
         await interaction.reply({ content: "Não há canal de alertas configurado.", ephemeral: true });
       } else {
         updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = null; });
-        await interaction.reply({ content: "🔕 Canal de alertas removido.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("mute", "🔕") + " Canal de alertas removido.", ephemeral: true });
       }
     } else if (action === "add_fruit") {
       const inputFruit = interaction.options.getString("fruit", true);
@@ -2393,7 +2490,7 @@ client.on("interactionCreate", async interaction => {
         config.stockAlerts = config.stockAlerts || {};
         config.stockAlerts[fruitKeyName] = role.id;
       });
-      await interaction.reply({ content: "🔔 Alerta ativado para **" + fruit + "**. Vou mencionar " + role + " no canal de alertas quando aparecer.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("alert", "🔔") + " Alerta ativado para **" + fruit + "**. Vou mencionar " + role + " no canal de alertas quando aparecer.", ephemeral: true });
     } else if (action === "remove_fruit") {
       const inputFruit = interaction.options.getString("fruit", true);
       const fruit = resolveFruitName(inputFruit);
@@ -2408,7 +2505,7 @@ client.on("interactionCreate", async interaction => {
         await interaction.reply({ content: "Não há alerta configurado para **" + fruit + "**.", ephemeral: true });
       } else {
         updateGuildConfig(interaction.guildId, config => { delete config.stockAlerts[fruitKeyName]; });
-        await interaction.reply({ content: "🔕 Alerta removido para **" + fruit + "**.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("mute", "🔕") + " Alerta removido para **" + fruit + "**.", ephemeral: true });
       }
     }  } else if (interaction.commandName === "stock-prediction" || interaction.commandName === "stock-statistics") {
     const groupKey = interaction.options.getString("stock_type", true);
@@ -2425,9 +2522,9 @@ client.on("interactionCreate", async interaction => {
     console.error(`Erro no comando /${interaction.commandName}:`, error);
     try {
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ content: `❌ Ocorreu um erro ao executar /${interaction.commandName}. Tente novamente.` });
+        await interaction.editReply({ content: `${uiEmoji("error", "❌")} Ocorreu um erro ao executar /${interaction.commandName}. Tente novamente.` });
       } else {
-        await interaction.reply({ content: "❌ Ocorreu um erro ao executar este comando.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "❌") + " Ocorreu um erro ao executar este comando.", ephemeral: true });
       }
     } catch (replyError) {
       console.error("Não foi possível responder à interação:", replyError);
