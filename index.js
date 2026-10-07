@@ -2039,32 +2039,21 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "panel:manage" && interaction.values[0] === "ticket") {
-    await interaction.deferReply({ ephemeral: true });
     try {
       const guild = interaction.guild;
-      if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
-      const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
-      if (existing) {
-        await interaction.editReply({ content: "🎫 Você já tem um atendimento aberto: <#" + existing.id + ">" });
+      if (!guild) {
+        await interaction.reply({ content: "❌ Esse painel só pode ser usado dentro de um servidor.", ephemeral: true });
         return;
       }
-      const channel = await guild.channels.create({
-        name: "ticket-" + interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20),
-        type: 0,
-        topic: "astral-ticket:" + interaction.user.id,
-        permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
-          { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
-          { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
-        ]
+      await interaction.reply({
+        ...buildSupportPanel(guild),
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
       });
-      await channel.send({
-        content: "## 🎫 Atendimento\\n> Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n> Explique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível."
-      });
-      await interaction.editReply({ content: "🎫 Atendimento aberto: <#" + channel.id + ">" });
     } catch (error) {
-      console.error("[TICKET] Erro ao abrir atendimento pelo painel principal:", error);
-      await interaction.editReply({ content: "❌ Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
+      console.error("[PANEL] Erro ao abrir painel de suporte:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui abrir o painel de suporte.", ephemeral: true }).catch(() => {});
+      }
     }
     return;
   }
