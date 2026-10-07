@@ -1,11 +1,10 @@
 require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
-const archiver = require("archiver");
 const {
   Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
-  SlashCommandBuilder, PermissionFlagsBits, AttachmentBuilder
+  SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID"];
