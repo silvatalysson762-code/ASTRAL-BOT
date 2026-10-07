@@ -1478,8 +1478,7 @@ function buildMainPanel(guildId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# <:60764:1557204540460240926> ASTRAL STOCK\n" +
-        "### <:60581:1557204878001176586> Central de controle\n\n" +
+        "# <:60764:1557204540460240926> ASTRAL STOCK\n\n" +
         "-# Painel de gerenciamento do Astral Stock."
       ),
       new TextDisplayBuilder().setContent(
