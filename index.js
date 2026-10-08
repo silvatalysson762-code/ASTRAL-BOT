@@ -3527,11 +3527,20 @@ client.on("interactionCreate", async interaction => {
         console.warn("[TICKET] Não consegui resetar o seletor do painel:", panelError?.message || panelError);
       }
 
-      await interaction.editReply({
+      const ticketReply = {
         content: result.alreadyOpen
-          ? "<:online:1557204563675848814> | Você já tem um atendimento aberto: <#" + target.id + ">"
-          : "<:online:1557204563675848814> | Ticket criado com sucesso! <#" + target.id + ">"
-      });
+          ? "<:online:1557204563675848814> | Você já tem um atendimento aberto!"
+          : "<:online:1557204563675848814> | Ticket criado com sucesso!",
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setLabel("Ir para o ticket")
+              .setStyle(ButtonStyle.Link)
+              .setURL("https://discord.com/channels/" + guild.id + "/" + target.id)
+          )
+        ]
+      };
+      await interaction.editReply(ticketReply);
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
       await interaction.editReply({ content: "<:offline:1557204568432185454> Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
@@ -4078,8 +4087,16 @@ client.on("interactionCreate", async interaction => {
       const target = result.target;
       await interaction.reply({
         content: result.alreadyOpen
-          ? "<:online:1557204563675848814> | Você já tem um atendimento aberto: <#" + target.id + ">"
-          : "<:online:1557204563675848814> | Ticket criado com sucesso! <#" + target.id + ">",
+          ? "<:online:1557204563675848814> | Você já tem um atendimento aberto!"
+          : "<:online:1557204563675848814> | Ticket criado com sucesso!",
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setLabel("Ir para o ticket")
+              .setStyle(ButtonStyle.Link)
+              .setURL("https://discord.com/channels/" + guild.id + "/" + target.id)
+          )
+        ],
         ephemeral: true
       });
     } catch (error) {
