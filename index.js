@@ -92,7 +92,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketFunctions: [] };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketFunctions: [] };
 }
 function readConfig() {
   try {
@@ -1573,7 +1573,8 @@ function buildTicketAppearancePanel(guildId, userId) {
   const draft = ticketAppearanceDrafts.get(key) || saved;
   const title = draft.title || "ASTRAL SUPORTE";
   const description = draft.description || "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.";
-  const banner = draft.banner || "Não configurado";
+  const thumbnail = draft.thumbnail || "Automática (ícone do servidor)";
+  const banner = draft.banner || "Automático (banner do servidor)";
   const color = draft.color || "00FFFF";
 
   const container = new ContainerBuilder()
@@ -1645,12 +1646,22 @@ function buildTicketAppearanceModal(guildId, userId) {
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
+          .setCustomId("ticket_appearance_thumbnail")
+          .setLabel("Thumbnail (opcional)")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(500)
+          .setPlaceholder("Vazio = ícone do servidor")
+          .setValue(String(draft.thumbnail || ""))
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
           .setCustomId("ticket_appearance_banner")
           .setLabel("Banner (opcional)")
           .setStyle(TextInputStyle.Short)
           .setRequired(false)
           .setMaxLength(500)
-          .setPlaceholder("https://...")
+          .setPlaceholder("Vazio = banner do servidor")
           .setValue(String(draft.banner || ""))
       ),
       new ActionRowBuilder().addComponents(
@@ -2056,7 +2067,7 @@ function buildSupportPanel(guild) {
   const guildConfig = getGuildConfig(guild?.id);
   const appearance = guildConfig.ticketAppearance || {};
   const bannerUrl = appearance.banner || guild?.bannerURL({ extension: "png", size: 1024 }) || null;
-  const thumbnailUrl = guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
+  const thumbnailUrl = appearance.thumbnail || guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
 
   const container = new ContainerBuilder()
     .setAccentColor(parseInt(String(appearance.color || "00FFFF").replace(/^#/, ""), 16) || 0x00FFFF)
@@ -2791,7 +2802,7 @@ client.on("interactionCreate", async interaction => {
         });
 
         await interaction.reply({
-          content: "<:ticket_plus:1557205110847701052> Mensagem de suporte publicada neste canal.",
+          content: "<:online:1557204563675848814> **Mensagem postada**",
           ephemeral: true
         });
         return;
@@ -2827,7 +2838,7 @@ client.on("interactionCreate", async interaction => {
 
         await message.edit(buildSupportPanel(guild));
         await interaction.reply({
-          content: "<:ticket_plus:1557205110847701052> Mensagem de suporte sincronizada com as configurações atuais.",
+          content: "<:online:1557204563675848814> **Mensagem sincronizada**",
           ephemeral: true
         });
         return;
@@ -3559,11 +3570,17 @@ client.on("interactionCreate", async interaction => {
 
       const title = interaction.fields.getTextInputValue("ticket_appearance_title").trim();
       const description = interaction.fields.getTextInputValue("ticket_appearance_description").trim();
+      const thumbnail = interaction.fields.getTextInputValue("ticket_appearance_thumbnail").trim();
       const banner = interaction.fields.getTextInputValue("ticket_appearance_banner").trim();
       const color = normalizeTicketColor(interaction.fields.getTextInputValue("ticket_appearance_color").trim());
 
       if (!title || !description) {
         await interaction.reply({ content: "❌ Título e descrição são obrigatórios.", ephemeral: true });
+        return;
+      }
+
+      if (thumbnail && !/^https?:\/\//i.test(thumbnail)) {
+        await interaction.reply({ content: "❌ A thumbnail precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
         return;
       }
 
@@ -3575,6 +3592,7 @@ client.on("interactionCreate", async interaction => {
       ticketAppearanceDrafts.set(String(guild.id) + ":" + String(interaction.user.id), {
         title,
         description,
+        thumbnail: thumbnail || null,
         banner: banner || null,
         color
       });
@@ -3605,6 +3623,7 @@ client.on("interactionCreate", async interaction => {
         config.ticketAppearance = {
           title: draft.title,
           description: draft.description,
+          thumbnail: draft.thumbnail || null,
           banner: draft.banner || null,
           color: normalizeTicketColor(draft.color)
         };
