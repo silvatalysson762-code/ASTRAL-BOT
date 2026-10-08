@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
+  Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
@@ -3415,6 +3415,29 @@ process.on("unhandledRejection", error => {
 process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
+// Apaga automaticamente a mensagem de sistema quando o bot adiciona alguém a uma thread de ticket.
+client.on("messageCreate", async message => {
+  try {
+    if (!message.guild || !message.channel?.isThread?.()) return;
+    if (message.type !== MessageType.ThreadMemberJoin) return;
+    if (message.author?.id !== client.user?.id) return;
+    const parent = message.channel.parent;
+    if (!parent || !parent.isTextBased()) return;
+    const config = getGuildConfig(message.guild.id);
+    const configuredPanelChannel = String(config.supportMessageChannelId || "");
+    const isTicketThread = message.channel.name && (
+      message.channel.name.includes("-") ||
+      (configuredPanelChannel && parent.id === configuredPanelChannel)
+    );
+    if (!isTicketThread) return;
+    await message.delete().catch(error => {
+      console.warn("[TICKET] Não consegui apagar a mensagem automática de entrada:", error.message);
+    });
+  } catch (error) {
+    console.warn("[TICKET] Erro ao limpar mensagem automática:", error.message);
+  }
+});
+
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.guild) return;
   if (!client.user) return;
