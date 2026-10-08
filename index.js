@@ -2913,10 +2913,23 @@ async function createAstralTicket(interaction, selectedFunction = null) {
 
     const staffRoleIds = configuredTicketStaffRoleIds(config);
     const staffMemberIds = new Set();
+
+    // Tenta atualizar o cache de membros para que todos os membros dos cargos configurados
+    // sejam convidados para a thread privada. Se a intenção privilegiada não estiver ativa,
+    // continua usando os membros já disponíveis no cache.
+    await guild.members.fetch().catch(error => {
+      console.warn("[TICKET] Não consegui atualizar a lista completa de membros; usando o cache disponível:", error?.message || error);
+    });
+
     for (const roleId of staffRoleIds) {
       const role = guild.roles.cache.get(roleId);
-      if (role) for (const member of role.members.values()) staffMemberIds.add(member.id);
+      if (role) {
+        for (const member of role.members.values()) staffMemberIds.add(member.id);
+      } else {
+        console.warn("[TICKET] Cargo de equipe configurado não encontrado:", roleId);
+      }
     }
+
     for (const memberId of staffMemberIds) {
       if (memberId === interaction.user.id || memberId === client.user.id) continue;
       await thread.members.add(memberId).catch(error => {
