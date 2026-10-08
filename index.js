@@ -3466,7 +3466,7 @@ client.on("interactionCreate", async interaction => {
 
       const modeName = nextMode === "embed" ? "Embed Clássico" : "Container V2";
       await interaction.followUp({
-        content: applicationEmojiTag("smoke", "<:smoke:1556626973558710342>") + " Modo de interface alterado para **" + modeName + "**.",
+        content: applicationEmojiTag("online", "<:online:1557204563675848814>") + " Modo de interface alterado para **" + modeName + "**.",
         ephemeral: true
       }).catch(() => {});
       return;
