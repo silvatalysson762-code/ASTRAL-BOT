@@ -1598,15 +1598,6 @@ function buildBotControlPanel() {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("panel:main")
-          .setLabel("Voltar")
-          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary)
-      )
-    )
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("panel:bot_customize_select")
           .setPlaceholder("🔑 Personalizar")
@@ -1642,6 +1633,15 @@ function buildBotControlPanel() {
               emoji: { name: "key_alt", id: "1557204516275879987" }
             }
           )
+      )
+    );
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:main")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
       )
     );
 
