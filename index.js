@@ -2229,12 +2229,16 @@ function buildServerAdminPanel() {
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
-const robloxAvatarCache = new Map();\nconst ROBLOX_AVATAR_CACHE_MS = 2 * 60 * 1000;\n\nasync function getRobloxAvatar(username) {
+const robloxAvatarCache = new Map();
+const ROBLOX_AVATAR_CACHE_MS = 2 * 60 * 1000;
+
+async function getRobloxAvatar(username) {
   const cleanUsername = String(username || "").trim();
+  if (!cleanUsername) throw new Error("Informe um nome de usuário do Roblox.");
+
   const cacheKey = cleanUsername.toLowerCase();
   const cached = robloxAvatarCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
-  if (!cleanUsername) throw new Error("Informe um nome de usuário do Roblox.");
 
   const userResponse = await fetch("https://users.roblox.com/v1/usernames/users", {
     method: "POST",
@@ -2255,7 +2259,7 @@ const robloxAvatarCache = new Map();\nconst ROBLOX_AVATAR_CACHE_MS = 2 * 60 * 10
     try {
       const response = await fetch(url, {
         headers: { "Accept": "application/json" },
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(5000)
       });
       if (!response.ok) return fallback;
       return await response.json();
@@ -2280,29 +2284,34 @@ const robloxAvatarCache = new Map();\nconst ROBLOX_AVATAR_CACHE_MS = 2 * 60 * 10
   const imageUrl = avatarData.data?.[0]?.imageUrl;
   if (!imageUrl) throw new Error("O Roblox não retornou a imagem desse avatar.");
 
-  // Roblox não fornece um total direto de jogos favoritos. Contamos as páginas,
-  // com um limite de segurança para evitar consultas excessivas.
+  // Roblox não fornece um total direto de jogos favoritos.
+  // Limitamos a busca para evitar várias consultas sequenciais.
   let favoriteGames = 0;
   let cursor = null;
   let favoritesComplete = true;
+
   for (let page = 0; page < 4; page++) {
     const params = new URLSearchParams({ sortOrder: "Desc", limit: "50" });
     if (cursor) params.set("cursor", cursor);
+
     const pageData = await jsonFetch(
       "https://games.roblox.com/v2/users/" + user.id + "/favorite/games?" + params.toString(),
       null
     );
+
     if (!pageData) {
       favoritesComplete = false;
       break;
     }
+
     favoriteGames += Array.isArray(pageData.data) ? pageData.data.length : 0;
     cursor = pageData.nextPageCursor || null;
+
     if (!cursor) break;
-    if (page === 3) favoritesComplete = Boolean(cursor) ? false : favoritesComplete;
+    if (page === 3) favoritesComplete = false;
   }
 
-  return {
+  const result = {
     id: user.id,
     username: user.name,
     displayName: user.displayName || user.name,
@@ -2314,7 +2323,12 @@ const robloxAvatarCache = new Map();\nconst ROBLOX_AVATAR_CACHE_MS = 2 * 60 * 10
     favoriteGames,
     favoritesComplete
   };
-  robloxAvatarCache.set(cacheKey, { data: result, expiresAt: Date.now() + ROBLOX_AVATAR_CACHE_MS });
+
+  robloxAvatarCache.set(cacheKey, {
+    data: result,
+    expiresAt: Date.now() + ROBLOX_AVATAR_CACHE_MS
+  });
+
   return result;
 }
 
