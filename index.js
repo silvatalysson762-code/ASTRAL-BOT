@@ -2764,8 +2764,10 @@ async function createAstralTicket(interaction, selectedFunction = null) {
   const scheduleCheck = isTicketScheduleCurrentlyOpen(config);
   if (!scheduleCheck.allowed) throw new Error(scheduleCheck.reason);
   const mode = config.ticketOpeningMode === "thread" ? "thread" : "channel";
-  const username = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20) || "usuario";
-  const ticketName = "ticket-" + username;
+  const username = interaction.user.username.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "usuario";
+  const functionTitle = String(selectedFunction?.name || "Atendimento");
+  const functionSlug = functionTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "atendimento";
+  const ticketName = functionSlug + "-" + username;
 
   if (mode === "thread") {
     const parent = interaction.channel;
