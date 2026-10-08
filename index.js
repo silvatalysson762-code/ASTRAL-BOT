@@ -3481,6 +3481,11 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
+    if (selected === "interface_mode") {
+      await interaction.update(buildTicketInterfaceModePanel(interaction.guildId, interaction.user.id));
+      return;
+    }
+
     const configLabels = {
       schedule: "Configurar Horários",
       statistics: "Estatísticas",
@@ -3527,7 +3532,7 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:schedule_day") {
     try {
       const dayKey = interaction.values[0];
       if (!TICKET_SCHEDULE_DAYS.some(day => day.key === dayKey)) throw new Error("Dia da semana inválido.");
