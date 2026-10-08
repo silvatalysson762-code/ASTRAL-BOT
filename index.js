@@ -1679,19 +1679,34 @@ async function resolveTicketFunctionEmoji(guild, emojiId) {
   return null;
 }
 
-function buildTicketFunctionModal() {
-  return new ModalBuilder()
-    .setCustomId("ticket:add_function_modal")
-    .setTitle("Adicionar Função")
-    .addComponents(
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_name").setLabel("NOME DA FUNÇÃO *").setPlaceholder("Insira aqui um nome, como: Suporte").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_pre_description").setLabel("PRÉ DESCRIÇÃO *").setPlaceholder('Insira aqui uma pré descrição, ex: "Preciso de ajuda..."').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(200)),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_description").setLabel("DESCRIÇÃO (OPCIONAL)").setPlaceholder("Insira aqui a descrição da função. Aparece dentro do ticket após aberto.").setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000)),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_banner").setLabel("BANNER (OPCIONAL)").setPlaceholder("Insira aqui uma URL de uma imagem ou GIF").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500)),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_emoji").setLabel("EMOJI DA FUNÇÃO").setPlaceholder("Insira um ID de um emoji do servidor ou da aplicação").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20))
-    );
-}
+function buildTicketFunctionModal(existingFunction = null) {
+  const editing = Boolean(existingFunction?.id);
+  const modal = new ModalBuilder()
+    .setCustomId(editing ? "ticket:edit_function_modal:" + existingFunction.id : "ticket:add_function_modal")
+    .setTitle(editing ? "Editar Função" : "Adicionar Função");
 
+  const name = new TextInputBuilder().setCustomId("ticket_function_name").setLabel("NOME DA FUNÇÃO").setPlaceholder("Insira aqui um nome, como: Suporte").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80);
+  const preDescription = new TextInputBuilder().setCustomId("ticket_function_pre_description").setLabel("PRÉ DESCRIÇÃO").setPlaceholder('Insira aqui uma pré descrição, ex: "Preciso de ajuda..."').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(200);
+  const description = new TextInputBuilder().setCustomId("ticket_function_description").setLabel("DESCRIÇÃO (OPCIONAL)").setPlaceholder("Insira aqui a descrição da função. Aparece dentro do ticket após aberto.").setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000);
+  const banner = new TextInputBuilder().setCustomId("ticket_function_banner").setLabel("BANNER (OPCIONAL)").setPlaceholder("Insira aqui uma URL de uma imagem ou GIF").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500);
+  const emoji = new TextInputBuilder().setCustomId("ticket_function_emoji").setLabel("EMOJI DA FUNÇÃO").setPlaceholder("Insira um ID de um emoji do servidor ou da aplicação").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20);
+
+  if (editing) {
+    name.setValue(String(existingFunction.name || ""));
+    preDescription.setValue(String(existingFunction.preDescription || ""));
+    if (existingFunction.description) description.setValue(String(existingFunction.description));
+    if (existingFunction.banner) banner.setValue(String(existingFunction.banner));
+    if (existingFunction.emoji?.id) emoji.setValue(String(existingFunction.emoji.id));
+  }
+
+  return modal.addComponents(
+    new ActionRowBuilder().addComponents(name),
+    new ActionRowBuilder().addComponents(preDescription),
+    new ActionRowBuilder().addComponents(description),
+    new ActionRowBuilder().addComponents(banner),
+    new ActionRowBuilder().addComponents(emoji)
+  );
+}
 
 function buildTicketManageFunctionsPanel(guildId) {
   const config = getGuildConfig(guildId);
@@ -3244,6 +3259,52 @@ client.on("interactionCreate", async interaction => {
         new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
       ));
     await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("ticket:function_edit:")) {
+    const functionId = interaction.customId.slice("ticket:function_edit:".length);
+    const fn = (getGuildConfig(interaction.guildId).ticketFunctions || []).find(item => item.id === functionId);
+    if (!fn) { await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true }); return; }
+    try { await interaction.showModal(buildTicketFunctionModal(fn)); }
+    catch (error) { console.error("[TICKET] Erro ao abrir edição:", error); if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui abrir a edição da função.", ephemeral: true }).catch(() => {}); }
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:edit_function_modal:")) {
+    try {
+      const guild = interaction.guild;
+      if (!guild) throw new Error("Essa configuração só pode ser usada dentro de um servidor.");
+      const functionId = interaction.customId.slice("ticket:edit_function_modal:".length);
+      const name = interaction.fields.getTextInputValue("ticket_function_name").trim();
+      const preDescription = interaction.fields.getTextInputValue("ticket_function_pre_description").trim();
+      const description = interaction.fields.getTextInputValue("ticket_function_description").trim();
+      const banner = interaction.fields.getTextInputValue("ticket_function_banner").trim();
+      const emojiInput = interaction.fields.getTextInputValue("ticket_function_emoji").trim();
+      if (!name || !preDescription) throw new Error("Nome da função e pré descrição são obrigatórios.");
+      if (banner && !/^https?:\/\//i.test(banner)) throw new Error("O banner precisa ser uma URL começando com http:// ou https://.");
+      let emoji = null;
+      if (emojiInput) {
+        const parsed = normalizeTicketFunctionEmoji(emojiInput);
+        emoji = await resolveTicketFunctionEmoji(guild, parsed.id);
+        if (!emoji) throw new Error("Não encontrei esse emoji no servidor nem nos emojis da aplicação.");
+      }
+      updateGuildConfig(guild.id, cfg => {
+        const target = (cfg.ticketFunctions || []).find(item => item.id === functionId);
+        if (!target) throw new Error("Essa função não existe mais.");
+        target.name = name;
+        target.preDescription = preDescription;
+        target.description = description || null;
+        target.banner = banner || null;
+        target.emoji = emoji;
+      });
+      const panel = buildTicketManageFunctionsPanel(guild.id);
+      if (interaction.message) await interaction.update(panel);
+      else await interaction.reply({ ...panel, flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    } catch (error) {
+      console.error("[TICKET] Erro ao editar função:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ " + (error.message || "Não consegui editar a função."), ephemeral: true }).catch(() => {});
+    }
     return;
   }
 
