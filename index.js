@@ -1602,12 +1602,6 @@ function buildBotControlPanel() {
               emoji: { name: "text_alt", id: "1557205064391589979" }
             },
             {
-              label: "Alterar Descrição",
-              description: "Mude a descrição do perfil do bot",
-              value: "description",
-              emoji: { name: "text_alt", id: "1557205064391589979" }
-            },
-            {
               label: "Alterar Avatar",
               description: "Mude a foto de perfil do bot",
               value: "avatar",
@@ -1683,14 +1677,6 @@ function buildBotCustomizeModal(type, userId) {
       value: client.user?.username || "",
       placeholder: "Astral Stock",
       max: 32
-    },
-    description: {
-      id: "description",
-      title: "Alterar Descrição",
-      label: "Descrição do bot",
-      value: settings.description,
-      placeholder: "Astral Stock • Blox Fruits",
-      max: 190
     },
     avatar: {
       id: "avatar",
@@ -3729,9 +3715,6 @@ client.on("interactionCreate", async interaction => {
         config.botSettings.banner = pending.banner;
         if (pending.banner) await client.user.setBanner(pending.banner);
       }
-      if (Object.prototype.hasOwnProperty.call(pending, "description")) {
-        config.botSettings.description = String(pending.description || "").slice(0, 190);
-      }
       if (Object.prototype.hasOwnProperty.call(pending, "accentColor")) {
         config.botSettings.accentColor = String(pending.accentColor || "00FFFF").replace(/^#/, "").toUpperCase();
       }
@@ -3803,8 +3786,6 @@ client.on("interactionCreate", async interaction => {
 
       if (type === "nickname") {
         if (!value) throw new Error("Informe um nome para o bot.");
-      } else if (type === "description") {
-        if (value.length > 190) throw new Error("A descrição pode ter no máximo 190 caracteres.");
       } else if (type === "accentColor") {
         value = value.replace(/^#/, "").trim().toUpperCase();
         if (!/^[0-9A-F]{6}$/.test(value)) throw new Error("A cor precisa estar no formato HEX, por exemplo **00FFFF**.");
