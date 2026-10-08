@@ -2236,9 +2236,25 @@ function buildTicketAppearanceModal(guildId, userId) {
 function normalizeTicketFunctionEmoji(value) {
   const raw = String(value || "").trim();
   if (!raw) return null;
-  const match = raw.match(/^(?:<a?:([A-Za-z0-9_]+):)?(\d{17,20})(?:>)?$/);
-  if (!match) throw new Error("O emoji precisa ser um ID válido de emoji do servidor ou da aplicação.");
-  return { id: match[2], name: match[1] || "ticket_emoji", animated: raw.startsWith("<a:") };
+
+  // Aceita tanto o ID puro quanto o formato copiado do Discord:
+  // <:nome:123456789012345678> ou <a:nome:123456789012345678>
+  const discordMatch = raw.match(/^<(a?):([A-Za-z0-9_]+):(\d{17,20})>$/);
+  if (discordMatch) {
+    return {
+      id: discordMatch[3],
+      name: discordMatch[2],
+      animated: discordMatch[1] === "a"
+    };
+  }
+
+  const idMatch = raw.match(/^(\d{17,20})$/);
+  if (idMatch) {
+    return { id: idMatch[1], name: "ticket_emoji", animated: false };
+  }
+
+  throw new Error("Use o ID do emoji ou cole o emoji no formato <:nome:ID>.");
+}
 }
 
 async function resolveTicketFunctionEmoji(guild, emojiId) {
