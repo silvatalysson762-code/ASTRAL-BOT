@@ -1692,6 +1692,89 @@ function buildTicketFunctionModal() {
     );
 }
 
+
+function buildTicketManageFunctionsPanel(guildId) {
+  const config = getGuildConfig(guildId);
+  const functions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> GERENCIAR FUNÇÕES\n" +
+        "> Selecione uma função abaixo para gerenciar as funções criadas.\n" +
+        "### <:ticket_plus:1557205110847701052> Funções de atendimento\n" +
+        (functions.length ? "> Escolha uma função no seletor abaixo." : "> Nenhuma função criada ainda. Volte e use **Adicionar Função** para criar uma.")
+      )
+    );
+  if (functions.length) {
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:manage_function_select")
+          .setPlaceholder("🎫 Selecione uma função")
+          .addOptions(functions.slice(0, 25).map(fn => ({
+            label: String(fn.name || "Atendimento").slice(0, 100),
+            description: String(fn.preDescription || "Função de atendimento").slice(0, 100),
+            value: String(fn.id),
+            ...(fn.emoji?.id ? { emoji: { id: String(fn.emoji.id), name: String(fn.emoji.name || "ticket_emoji"), animated: Boolean(fn.emoji.animated) } } : {})
+          })))
+      )
+    );
+  }
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:manage_functions_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:reorder_functions").setLabel("REORDENAR").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary)
+    )
+  );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+const ticketReorderSelections = new Map();
+
+function buildTicketFunctionReorderPanel(guildId, userId) {
+  const config = getGuildConfig(guildId);
+  const functions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
+  const selectedId = ticketReorderSelections.get(String(guildId) + ":" + String(userId)) || null;
+  const selectedIndex = functions.findIndex(fn => fn.id === selectedId);
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> REORDENAR FUNÇÕES\n" +
+        "> Selecione uma função e use os botões para mudar a ordem no painel de tickets.\n\n" +
+        (functions.length ? functions.map((fn, i) => "**" + (i + 1) + ".** " + String(fn.name || "Atendimento") + (i === selectedIndex ? " ← **selecionada**" : "")).join("\n") : "> Nenhuma função criada ainda.")
+      )
+    );
+  if (functions.length) {
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:reorder_select")
+          .setPlaceholder("🎫 Selecione uma função")
+          .addOptions(functions.slice(0, 25).map(fn => ({
+            label: String(fn.name || "Atendimento").slice(0, 100),
+            description: String(fn.preDescription || "Função de atendimento").slice(0, 100),
+            value: String(fn.id),
+            ...(fn.emoji?.id ? { emoji: { id: String(fn.emoji.id), name: String(fn.emoji.name || "ticket_emoji"), animated: Boolean(fn.emoji.animated) } } : {})
+          })))
+      )
+    );
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket:reorder_up").setLabel("SUBIR").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex <= 0),
+        new ButtonBuilder().setCustomId("ticket:reorder_down").setLabel("DESCER").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex < 0 || selectedIndex >= functions.length - 1)
+      )
+    );
+  }
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:reorder_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+    )
+  );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildTicketConfigPanel(guildId) {
   const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
 
@@ -2388,6 +2471,11 @@ client.on("interactionCreate", async interaction => {
           await interaction.reply({ content: "❌ Não consegui abrir o formulário de adicionar função.", ephemeral: true }).catch(() => {});
         }
       }
+      return;
+    }
+
+    if (selected === "manage_functions") {
+      await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
       return;
     }
 
@@ -3122,6 +3210,88 @@ client.on("interactionCreate", async interaction => {
       console.error("[PANEL] Erro no modal de servidores:", error);
       if (!interaction.replied) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar os servidores autorizados.", ephemeral: true }).catch(() => {});
     }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:manage_functions_back") {
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:manage_function_select") {
+    const id = interaction.values[0];
+    const config = getGuildConfig(interaction.guildId);
+    const fn = (config.ticketFunctions || []).find(item => item.id === id);
+    if (!fn) {
+      await interaction.reply({ content: "❌ Essa função não existe mais. Atualize a tela.", ephemeral: true });
+      return;
+    }
+    const container = new ContainerBuilder()
+      .setAccentColor(0x00FFFF)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> GERENCIAR FUNÇÃO\n" +
+        "### <:ticket_plus:1557205110847701052> " + String(fn.name || "Atendimento") + "\n" +
+        "> **Pré descrição:** " + String(fn.preDescription || "Não configurada") + "\n" +
+        "> **Descrição:** " + String(fn.description || "Não configurada") + "\n" +
+        "> **Banner:** " + String(fn.banner || "Não configurado") + "\n" +
+        "> **Emoji:** " + (fn.emoji?.id ? "<:" + String(fn.emoji.name || "ticket_emoji") + ":" + String(fn.emoji.id) + ">" : "Não configurado")
+      ))
+      .addActionRowComponents(new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket:function_edit:" + fn.id).setLabel("EDITAR FUNÇÃO").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("ticket:function_delete:" + fn.id).setLabel("EXCLUIR FUNÇÃO").setStyle(ButtonStyle.Danger)
+      ))
+      .addActionRowComponents(new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+      ));
+    await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:manage_function_select_back") {
+    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:reorder_functions") {
+    await interaction.update(buildTicketFunctionReorderPanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:reorder_back") {
+    ticketReorderSelections.delete(String(interaction.guildId) + ":" + String(interaction.user.id));
+    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:reorder_select") {
+    ticketReorderSelections.set(String(interaction.guildId) + ":" + String(interaction.user.id), interaction.values[0]);
+    await interaction.update(buildTicketFunctionReorderPanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+
+  if (interaction.isButton() && (interaction.customId === "ticket:reorder_up" || interaction.customId === "ticket:reorder_down")) {
+    const key = String(interaction.guildId) + ":" + String(interaction.user.id);
+    const selectedId = ticketReorderSelections.get(key);
+    if (!selectedId) {
+      await interaction.reply({ content: "❌ Selecione uma função primeiro.", ephemeral: true });
+      return;
+    }
+    const config = getGuildConfig(interaction.guildId);
+    const functions = Array.isArray(config.ticketFunctions) ? [...config.ticketFunctions] : [];
+    const index = functions.findIndex(fn => fn.id === selectedId);
+    if (index < 0) {
+      await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true });
+      return;
+    }
+    const direction = interaction.customId === "ticket:reorder_up" ? -1 : 1;
+    const target = index + direction;
+    if (target < 0 || target >= functions.length) {
+      await interaction.update(buildTicketFunctionReorderPanel(interaction.guildId, interaction.user.id));
+      return;
+    }
+    [functions[index], functions[target]] = [functions[target], functions[index]];
+    updateGuildConfig(interaction.guildId, cfg => { cfg.ticketFunctions = functions; });
+    await interaction.update(buildTicketFunctionReorderPanel(interaction.guildId, interaction.user.id));
     return;
   }
 
