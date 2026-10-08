@@ -497,8 +497,8 @@ async function completePendingRestartConfirmation() {
 
   const isRebuild = pending.type === "rebuild";
   const content = isRebuild
-    ? "<:online:1557204563675848814> **Rebuild concluído com sucesso!**\\nCódigo atualizado, comandos e emojis sincronizados e o Astral Stock está online novamente."
-    : "<:online:1557204563675848814> **Astral Stock reiniciado com sucesso!**\\nO bot voltou online normalmente.";
+    ? "<:online:1557204563675848814> **Rebuild concluído com sucesso!**\nCódigo atualizado, comandos e emojis sincronizados e o Astral Stock está online novamente."
+    : "<:online:1557204563675848814> **Astral Stock reiniciado com sucesso!**\nO bot voltou online normalmente.";
 
   try {
     const route = Routes.webhookMessage(client.user.id, String(pending.token), "@original");
