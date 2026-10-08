@@ -1592,7 +1592,7 @@ function buildTicketAppearancePanel(guildId, userId) {
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("panel:main")
+          .setCustomId("ticket:appearance_back")
           .setLabel("VOLTAR")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
@@ -2992,6 +2992,11 @@ client.on("interactionCreate", async interaction => {
       console.error("[PANEL] Erro no modal de servidores:", error);
       if (!interaction.replied) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar os servidores autorizados.", ephemeral: true }).catch(() => {});
     }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:appearance_back") {
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
     return;
   }
 
