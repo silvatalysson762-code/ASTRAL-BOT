@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
@@ -263,7 +263,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketFunctions: [], ticketSchedule: { enabled: false, allowOutsideHours: false, days: { sunday: { active: false, start: "09:00", end: "18:00" }, monday: { active: false, start: "09:00", end: "18:00" }, tuesday: { active: false, start: "09:00", end: "18:00" }, wednesday: { active: false, start: "09:00", end: "18:00" }, thursday: { active: false, start: "09:00", end: "18:00" }, friday: { active: false, start: "09:00", end: "18:00" }, saturday: { active: false, start: "09:00", end: "18:00" } } } };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketInterfaceMode: "v2", ticketFunctions: [], ticketSchedule: { enabled: false, allowOutsideHours: false, days: { sunday: { active: false, start: "09:00", end: "18:00" }, monday: { active: false, start: "09:00", end: "18:00" }, tuesday: { active: false, start: "09:00", end: "18:00" }, wednesday: { active: false, start: "09:00", end: "18:00" }, thursday: { active: false, start: "09:00", end: "18:00" }, friday: { active: false, start: "09:00", end: "18:00" }, saturday: { active: false, start: "09:00", end: "18:00" } } } };
 }
 function readConfig() {
   try {
@@ -2380,6 +2380,66 @@ function buildTicketFunctionReorderPanel(guildId, userId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
+const ticketInterfaceModeDrafts = new Map();
+
+function buildTicketInterfaceModePanel(guildId, userId) {
+  const config = getGuildConfig(guildId);
+  const draftKey = String(guildId) + ":" + String(userId || "");
+  const mode = ticketInterfaceModeDrafts.get(draftKey) || config.ticketInterfaceMode || "v2";
+  const v2Selected = mode === "v2";
+  const embedSelected = mode === "embed";
+
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> MODO DE INTERFACE\n" +
+        "> Escolha como será a mensagem exibida dentro do ticket quando ele for aberto.\n" +
+        "<:clipboard:1557204790843412542> **Modo atual:** " + (v2Selected ? "Container V2" : "Embed") + "\n" +
+        "> **Container V2:** mensagem moderna usando Components V2.\n" +
+        "> **Embed:** mensagem tradicional do Discord.\n" +
+        "-# Clique em SALVAR para aplicar a alteração."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:interface_mode")
+          .setPlaceholder("Selecione o modo de interface")
+          .addOptions(
+            {
+              label: "Container V2",
+              description: v2Selected ? "Modo atual • Components V2" : "Usar Container V2 no ticket",
+              value: "v2",
+              emoji: { name: "clipboard", id: "1557204790843412542" }
+            },
+            {
+              label: "Embed",
+              description: embedSelected ? "Modo atual • Embed tradicional" : "Usar Embed tradicional no ticket",
+              value: "embed",
+              emoji: { name: "file", id: "1557204826280951858" }
+            }
+          )
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:interface_mode_back")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("ticket:interface_mode_save")
+          .setLabel("Salvar")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 const ticketOpeningModeDrafts = new Map();
 
 function buildTicketOpeningModePanel(guildId, userId) {
@@ -2575,6 +2635,47 @@ function isTicketScheduleCurrentlyOpen(config) {
   if (currentMinutes < startMinutes || currentMinutes >= endMinutes) return { allowed: false, reason: "O atendimento está fechado neste momento. Tente novamente dentro do horário configurado." };
   return { allowed: true };
 }
+async function sendTicketOpeningMessage(target, config, selectedFunction, ticketText) {
+  const title = String(selectedFunction?.name || "Atendimento");
+  const description = String(ticketText || "").replace(/\\n/g, "\n");
+  const appearance = config.ticketAppearance || {};
+  const rawColor = String(appearance.color || "00FFFF").replace(/^#/, "");
+  const color = /^[0-9A-Fa-f]{6}$/.test(rawColor) ? parseInt(rawColor, 16) : 0x00FFFF;
+
+  if ((config.ticketInterfaceMode || "v2") === "embed") {
+    const embed = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(title)
+      .setDescription(description);
+    if (appearance.thumbnail) embed.setThumbnail(String(appearance.thumbnail));
+    await target.send({ embeds: [embed] });
+    return;
+  }
+
+  const container = new ContainerBuilder()
+    .setAccentColor(color)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent("## " + title + "\n> " + description.replace(/\n/g, "\n> "))
+    );
+
+  if (appearance.thumbnail) {
+    container.addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent("> Atendimento iniciado. Nossa equipe responderá em breve.")
+        )
+        .setThumbnailAccessory(
+          new ThumbnailBuilder().setURL(String(appearance.thumbnail))
+        )
+    );
+  }
+
+  await target.send({
+    components: [container],
+    flags: MessageFlags.IsComponentsV2
+  });
+}
+
 async function createAstralTicket(interaction, selectedFunction = null) {
   const guild = interaction.guild;
   if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
@@ -2609,9 +2710,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       ? selectedFunction.description
       : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
 
-    await thread.send({
-      content: "## 🎫 " + (selectedFunction?.name || "Atendimento") + "\\n> " + ticketText
-    });
+    await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
 
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
 
@@ -2636,9 +2735,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     ? selectedFunction.description
     : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
 
-  await channel.send({
-    content: "## 🎫 " + (selectedFunction?.name || "Atendimento") + "\\n> " + ticketText
-  });
+  await sendTicketOpeningMessage(channel, config, selectedFunction, ticketText);
 
   if (selectedFunction?.banner) await channel.send({ content: selectedFunction.banner });
 
@@ -2709,7 +2806,7 @@ function buildTicketConfigPanel(guildId) {
             },
             {
               label: "Modo de Interface",
-              description: "Modo atual: Container V2",
+              description: "Modo atual: " + (((getGuildConfig(guildId).ticketInterfaceMode || "v2") === "embed") ? "Embed" : "Container V2"),
               value: "interface_mode",
               emoji: { name: "briefcase", id: "1557205067910742057" }
             },
@@ -3398,7 +3495,39 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:schedule_day") {
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:interface_mode") {
+    const mode = interaction.values[0];
+    if (!["v2", "embed"].includes(mode)) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Modo de interface inválido.", ephemeral: true });
+      return;
+    }
+    ticketInterfaceModeDrafts.set(String(interaction.guildId) + ":" + String(interaction.user.id), mode);
+    await interaction.update(buildTicketInterfaceModePanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:interface_mode_save") {
+    const key = String(interaction.guildId) + ":" + String(interaction.user.id);
+    const mode = ticketInterfaceModeDrafts.get(key);
+    if (!mode) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Selecione um modo primeiro.", ephemeral: true });
+      return;
+    }
+    updateGuildConfig(interaction.guildId, config => {
+      config.ticketInterfaceMode = mode;
+    });
+    ticketInterfaceModeDrafts.delete(key);
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:interface_mode_back") {
+    ticketInterfaceModeDrafts.delete(String(interaction.guildId) + ":" + String(interaction.user.id));
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
+    return;
+  }
+
+
     try {
       const dayKey = interaction.values[0];
       if (!TICKET_SCHEDULE_DAYS.some(day => day.key === dayKey)) throw new Error("Dia da semana inválido.");
