@@ -3895,22 +3895,26 @@ client.on("interactionCreate", async interaction => {
     await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
     try {
-      // Responde primeiro para o usuário não ficar preso no "carregando".
       const usedDiscloudApi = Boolean(String(process.env.DISCLOUD_TOKEN || "").trim());
       await interaction.editReply({
         content: "<a:refresh_alt:1557205141051019274> **O Astral Stock está sendo reiniciado...**\nAguarde alguns segundos."
       });
 
-      // A chamada para a Discloud acontece em segundo plano. Assim o Discord
-      // recebe a confirmação imediatamente, mesmo se a API demorar.
+      // Salva o token para a nova instância editar esta mesma resposta
+      // quando o bot realmente voltar online.
+      setPendingRestartConfirmation("restart", interaction.token);
+
       if (usedDiscloudApi) {
         void restartOnDiscloud()
           .then(() => console.log("[PANEL] Reinício enviado para a Discloud."))
           .catch(async error => {
             console.error("[PANEL] Erro ao reiniciar pela Discloud:", error);
             try {
+              const state = readState();
+              delete state.pendingRestartConfirmation;
+              saveState(state);
               await interaction.editReply({
-                content: "<:offline:1557204568432185454> **Não consegui reiniciar o bot.**\\n" +
+                content: "<:offline:1557204568432185454> **Não consegui reiniciar o bot.**\n" +
                   String(error?.message || "A Discloud recusou o reinício.").slice(0, 500)
               });
             } catch {}
@@ -4005,9 +4009,10 @@ client.on("interactionCreate", async interaction => {
       await syncApplicationEmojis();
 
       await interaction.editReply({ content: "<a:refresh_alt:1557205141051019274> **Rebuild em andamento...**\nReiniciando a aplicação." });
-      await restartOnDiscloud();
 
-      await interaction.editReply({ content: "<:online:1557204563675848814> **Rebuild concluído!**\nCódigo atualizado, comandos/emojis sincronizados e aplicação reiniciada." });
+      // A nova instância fará a confirmação final depois de realmente voltar online.
+      setPendingRestartConfirmation("rebuild", interaction.token);
+      await restartOnDiscloud();
     } catch (error) {
       console.error("[PANEL] Erro no rebuild:", error);
       await interaction.editReply({
