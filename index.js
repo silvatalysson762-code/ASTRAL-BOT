@@ -2685,7 +2685,10 @@ client.on("interactionCreate", async interaction => {
         config.ticketOpeningMode = mode;
       });
       ticketOpeningModeDrafts.delete(key);
-      await interaction.update(buildTicketConfigPanel(interaction.guildId));
+      await interaction.reply({
+        content: "<:online:1557204563675848814> **Salvo**",
+        ephemeral: true
+      });
     } catch (error) {
       console.error("[TICKET] Erro ao salvar modo de abertura:", error);
       if (!interaction.replied && !interaction.deferred) {
@@ -3608,7 +3611,10 @@ client.on("interactionCreate", async interaction => {
       });
 
       ticketAppearanceDrafts.delete(key);
-      await interaction.update(buildTicketAppearancePanel(guild.id, interaction.user.id));
+      await interaction.reply({
+        content: "<:online:1557204563675848814> **Salvo**",
+        ephemeral: true
+      });
     } catch (error) {
       console.error("[TICKET] Erro ao salvar aparência:", error);
       await interaction.reply({ content: "❌ Não consegui salvar a aparência.", ephemeral: true }).catch(() => {});
