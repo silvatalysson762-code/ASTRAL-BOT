@@ -5166,7 +5166,7 @@ client.on("interactionCreate", async interaction => {
       // Reconhece a interação imediatamente para mostrar "Abrindo painel..."
       // e depois substitui o aviso pelo painel privado em Components V2.
       await interaction.reply({
-        content: "<:online:1557204563676618814> Abrindo painel...",
+        content: "<:online:1557204563675848814> Abrindo painel...",
         ephemeral: true
       });
 
