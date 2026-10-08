@@ -928,7 +928,7 @@ const APPLICATION_FRUIT_EMOJIS = {
 
 
 const APPLICATION_SEMANTIC_EMOJIS = {
-  error: "❌",
+  error: "<:offline:1557204568432185454>",
   success: "✅",
   warning: "⚠️",
   alert: "🔔",
@@ -1283,7 +1283,7 @@ async function syncApplicationEmojis() {
     }
 
     console.log("[EMOJIS] Categorias detectadas: " + Object.entries(APPLICATION_SEMANTIC_EMOJIS)
-      .filter(([, value]) => value && value !== "❌" && value !== "✅" && value !== "⚠️" && value !== "🔔" && value !== "📦" && value !== "🎨" && value !== "👤" && value !== "⚙️")
+      .filter(([, value]) => value && value !== "<:offline:1557204568432185454>" && value !== "✅" && value !== "⚠️" && value !== "🔔" && value !== "📦" && value !== "🎨" && value !== "👤" && value !== "⚙️")
       .map(([key, value]) => key + "=" + value)
       .join(", "));
 
@@ -1717,7 +1717,7 @@ function resolveFruitName(input) {
 
 function invalidFruitMessage(input) {
   const value = String(input || "").trim();
-  return "❌ **" + (value || "Fruta") + "** não é uma fruta válida do Blox Fruits.\n\nFrutas disponíveis: " + ALL_FRUITS.join(", ") + ".";
+  return "<:offline:1557204568432185454> **" + (value || "Fruta") + "** não é uma fruta válida do Blox Fruits.\n\nFrutas disponíveis: " + ALL_FRUITS.join(", ") + ".";
 }
 
 function configuredFruitRoleId(guildConfig, fruit) {
@@ -3238,7 +3238,7 @@ client.on("messageCreate", async message => {
 
       if (!normal.length && !mirage.length) {
         await message.reply({
-          content: uiEmoji("error", "❌") + " Ainda não tenho um stock salvo para mostrar.",
+          content: uiEmoji("error", "<:offline:1557204568432185454>") + " Ainda não tenho um stock salvo para mostrar.",
           allowedMentions: { repliedUser: false }
         });
         return;
@@ -3280,7 +3280,7 @@ client.on("messageCreate", async message => {
   } catch (error) {
     console.error("Erro na IA por mensagem:", error);
     await message.reply({
-      content: uiEmoji("error", "❌") + (error.message || "Não consegui falar com a IA agora."),
+      content: uiEmoji("error", "<:offline:1557204568432185454>") + (error.message || "Não consegui falar com a IA agora."),
       allowedMentions: { repliedUser: false }
     });
   }
@@ -3319,7 +3319,7 @@ client.on("interactionCreate", async interaction => {
       });
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
-      await interaction.editReply({ content: "❌ Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
+      await interaction.editReply({ content: "<:offline:1557204568432185454> Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
     }
     return;
   }
@@ -3328,14 +3328,14 @@ client.on("interactionCreate", async interaction => {
     try {
       const guild = interaction.guild;
       if (!guild) {
-        await interaction.reply({ content: "❌ Esse painel só pode ser usado dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Esse painel só pode ser usado dentro de um servidor.", ephemeral: true });
         return;
       }
       await interaction.update(buildTicketConfigPanel(guild.id));
     } catch (error) {
       console.error("[PANEL] Erro ao abrir configurações do ticket:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui abrir as configurações do ticket.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir as configurações do ticket.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -3363,7 +3363,7 @@ client.on("interactionCreate", async interaction => {
       } catch (error) {
         console.error("[TICKET] Erro ao abrir adicionar função:", error);
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: "❌ Não consegui abrir o formulário de adicionar função.", ephemeral: true }).catch(() => {});
+          await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir o formulário de adicionar função.", ephemeral: true }).catch(() => {});
         }
       }
       return;
@@ -3542,7 +3542,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const guild = interaction.guild;
       if (!guild) {
-        await interaction.reply({ content: "❌ Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
         return;
       }
 
@@ -3553,11 +3553,11 @@ client.on("interactionCreate", async interaction => {
       const emojiInput = interaction.fields.getTextInputValue("ticket_function_emoji").trim();
 
       if (!name || !preDescription) {
-        await interaction.reply({ content: "❌ Nome da função e pré descrição são obrigatórios.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Nome da função e pré descrição são obrigatórios.", ephemeral: true });
         return;
       }
       if (banner && !/^https?:\/\//i.test(banner)) {
-        await interaction.reply({ content: "❌ O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
         return;
       }
 
@@ -3566,7 +3566,7 @@ client.on("interactionCreate", async interaction => {
         const parsed = normalizeTicketFunctionEmoji(emojiInput);
         emoji = await resolveTicketFunctionEmoji(guild, parsed.id);
         if (!emoji) {
-          await interaction.reply({ content: "❌ Não encontrei esse emoji no servidor nem nos emojis da aplicação.", ephemeral: true });
+          await interaction.reply({ content: "<:offline:1557204568432185454> Não encontrei esse emoji no servidor nem nos emojis da aplicação.", ephemeral: true });
           return;
         }
       }
@@ -3591,7 +3591,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[TICKET] Erro ao salvar função:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ " + (error.message || "Não consegui salvar a função."), ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui salvar a função."), ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -3601,7 +3601,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const guild = interaction.guild;
       if (!guild) {
-        await interaction.reply({ content: "❌ Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
         return;
       }
 
@@ -3620,7 +3620,7 @@ client.on("interactionCreate", async interaction => {
 
       if (interaction.customId === "ticket:post_message") {
         if (!interaction.channel || !interaction.channel.isTextBased()) {
-          await interaction.reply({ content: "❌ Este canal não pode receber a mensagem de suporte.", ephemeral: true });
+          await interaction.reply({ content: "<:offline:1557204568432185454> Este canal não pode receber a mensagem de suporte.", ephemeral: true });
           return;
         }
 
@@ -3650,7 +3650,7 @@ client.on("interactionCreate", async interaction => {
         const channel = await guild.channels.fetch(config.supportMessageChannelId).catch(() => null);
         if (!channel || !channel.isTextBased()) {
           await interaction.reply({
-            content: "❌ Não encontrei o canal onde a mensagem de suporte foi publicada.",
+            content: "<:offline:1557204568432185454> Não encontrei o canal onde a mensagem de suporte foi publicada.",
             ephemeral: true
           });
           return;
@@ -3659,7 +3659,7 @@ client.on("interactionCreate", async interaction => {
         const message = await channel.messages.fetch(config.supportMessageId).catch(() => null);
         if (!message) {
           await interaction.reply({
-            content: "❌ Não encontrei a mensagem de suporte registrada. Publique uma nova mensagem.",
+            content: "<:offline:1557204568432185454> Não encontrei a mensagem de suporte registrada. Publique uma nova mensagem.",
             ephemeral: true
           });
           return;
@@ -3675,7 +3675,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[TICKET] Erro nas ações da mensagem de suporte:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não foi possível concluir essa ação.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não foi possível concluir essa ação.", ephemeral: true }).catch(() => {});
       }
       return;
     }
@@ -3685,7 +3685,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const guild = interaction.guild;
       if (!guild) {
-        await interaction.reply({ content: "❌ Esse atendimento só pode ser aberto dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Esse atendimento só pode ser aberto dentro de um servidor.", ephemeral: true });
         return;
       }
       const result = await createAstralTicket(interaction);
@@ -3699,7 +3699,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -3720,7 +3720,7 @@ client.on("interactionCreate", async interaction => {
         }).catch(() => interaction.member);
         const panel = buildFruitRolePanelForMember(interaction.guildId, member);
         if (!panel) {
-          await interaction.reply({ content: uiEmoji("error", "❌") + " Não há cargos de frutas configurados.", ephemeral: true });
+          await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não há cargos de frutas configurados.", ephemeral: true });
           return;
         }
         await interaction.reply({ content: "<a:refresh_alt:1557205141051019274> Carregando", ephemeral: true });
@@ -3744,7 +3744,7 @@ client.on("interactionCreate", async interaction => {
 
         const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
         if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          const msg={content:uiEmoji("error", "❌") + " Eu preciso da permissão **Gerenciar Cargos**."};
+          const msg={content:uiEmoji("error", "<:offline:1557204568432185454>") + " Eu preciso da permissão **Gerenciar Cargos**."};
           if(isPrivate) await interaction.followUp({...msg,ephemeral:true}); else await interaction.editReply(msg);
           return;
         }
@@ -3782,7 +3782,7 @@ client.on("interactionCreate", async interaction => {
         // A interação já foi reconhecida com deferReply/deferUpdate.
         // Sempre finalizamos a interação, inclusive quando o painel não puder ser reconstruído.
         if(!panel){
-          await interaction.editReply({ content:uiEmoji("error", "❌") + " Não consegui reconstruir o painel de cargos." }).catch(error => {
+          await interaction.editReply({ content:uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui reconstruir o painel de cargos." }).catch(error => {
             console.error("[FRUIT ROLE] Falha ao finalizar remoção sem painel:", error?.message || error);
           });
           return;
@@ -3798,13 +3798,13 @@ client.on("interactionCreate", async interaction => {
       // fica mostrando o carregamento. Nesse caso usamos editReply().
       if(interaction.deferred || interaction.replied){
         await interaction.editReply({
-          content:"❌ Os cargos podem ter sido removidos, mas não consegui atualizar o painel. Tente clicar novamente."
+          content:"<:offline:1557204568432185454> Os cargos podem ter sido removidos, mas não consegui atualizar o painel. Tente clicar novamente."
         }).catch(editError => {
           console.error("[FRUIT ROLE] Falha ao finalizar interação após erro:", editError?.message || editError);
         });
       }else{
         await interaction.reply({
-          content:uiEmoji("error", "❌") + " Não consegui processar o painel.",
+          content:uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui processar o painel.",
           ephemeral:true
         }).catch(()=>{});
       }
@@ -3837,7 +3837,7 @@ client.on("interactionCreate", async interaction => {
 
         if (!publicPanel || !privatePanel) {
           await interaction.followUp({
-            content: uiEmoji("error", "❌") + " Não há cargos de frutas configurados.",
+            content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não há cargos de frutas configurados.",
             ephemeral: true
           });
           return;
@@ -3967,7 +3967,7 @@ client.on("interactionCreate", async interaction => {
       console.error("Erro no menu de cargos de frutas:", error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: uiEmoji("error", "❌") + " Não consegui abrir o painel privado.",
+          content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir o painel privado.",
           ephemeral: true
         }).catch(() => {});
       }
@@ -3979,12 +3979,12 @@ client.on("interactionCreate", async interaction => {
     try {
       const action = interaction.values?.[0];
       if (!interaction.guildId) {
-        await interaction.reply({ content: "❌ Este painel só pode ser usado dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Este painel só pode ser usado dentro de um servidor.", ephemeral: true });
         return;
       }
 
       if (action === "servers" && !(await isBotOwner(interaction.user.id))) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode acessar os servidores autorizados.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode acessar os servidores autorizados.", ephemeral: true });
         return;
       }
 
@@ -3992,7 +3992,7 @@ client.on("interactionCreate", async interaction => {
         const canManage = await isBotOwner(interaction.user.id) ||
           Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
         if (!canManage) {
-          await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para usar este painel.", ephemeral: true });
+          await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor** para usar este painel.", ephemeral: true });
           return;
         }
       }
@@ -4007,7 +4007,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro no menu principal:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4207,7 +4207,7 @@ client.on("interactionCreate", async interaction => {
     try {
       if (!(await isBotOwner(interaction.user.id))) {
         await interaction.reply({
-          content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode reiniciar o bot.",
+          content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode reiniciar o bot.",
           ephemeral: true
         });
         return;
@@ -4222,7 +4222,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro ao reiniciar:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui reiniciar o bot.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui reiniciar o bot.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4232,12 +4232,12 @@ client.on("interactionCreate", async interaction => {
     try {
       const action = interaction.customId.slice("panel:".length);
       if (!interaction.guildId) {
-        await interaction.reply({ content: "❌ Este painel só pode ser usado dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Este painel só pode ser usado dentro de um servidor.", ephemeral: true });
         return;
       }
 
       if (action === "servers" && !(await isBotOwner(interaction.user.id))) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode acessar os servidores autorizados.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode acessar os servidores autorizados.", ephemeral: true });
         return;
       }
 
@@ -4246,7 +4246,7 @@ client.on("interactionCreate", async interaction => {
         const canManage = await isBotOwner(interaction.user.id) ||
           Boolean(member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
         if (!canManage) {
-          await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para usar este painel.", ephemeral: true });
+          await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor** para usar este painel.", ephemeral: true });
           return;
         }
       }
@@ -4262,7 +4262,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro ao atualizar painel:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar o painel.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui atualizar o painel.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4274,13 +4274,13 @@ client.on("interactionCreate", async interaction => {
       const canManage = await isBotOwner(interaction.user.id) ||
         Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
       if (!canManage) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
         return;
       }
 
       const fruit = ALL_FRUITS.find(name => fruitKey(name) === interaction.values?.[0]);
       if (!fruit) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Fruta inválida.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Fruta inválida.", ephemeral: true });
         return;
       }
 
@@ -4288,7 +4288,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro ao selecionar fruta:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui abrir a configuração dessa fruta.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir a configuração dessa fruta.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4299,7 +4299,7 @@ client.on("interactionCreate", async interaction => {
       const canManage = await isBotOwner(interaction.user.id) ||
         Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
       if (!canManage) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
         return;
       }
 
@@ -4307,17 +4307,17 @@ client.on("interactionCreate", async interaction => {
       const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
       const role = interaction.roles?.first?.();
       if (!fruit || !role) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Fruta ou cargo inválido.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Fruta ou cargo inválido.", ephemeral: true });
         return;
       }
 
       const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
       if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Eu preciso da permissão **Gerenciar Cargos**.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Eu preciso da permissão **Gerenciar Cargos**.", ephemeral: true });
         return;
       }
       if (!role.editable) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consigo gerenciar esse cargo. Ele precisa estar abaixo do meu cargo mais alto.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consigo gerenciar esse cargo. Ele precisa estar abaixo do meu cargo mais alto.", ephemeral: true });
         return;
       }
 
@@ -4330,7 +4330,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro ao configurar cargo:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui configurar esse cargo.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui configurar esse cargo.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4341,14 +4341,14 @@ client.on("interactionCreate", async interaction => {
       const canManage = await isBotOwner(interaction.user.id) ||
         Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
       if (!canManage) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
         return;
       }
 
       const fruitKeyName = interaction.customId.slice("admin_fruit_remove:".length);
       const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
       if (!fruit) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Fruta inválida.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Fruta inválida.", ephemeral: true });
         return;
       }
 
@@ -4361,7 +4361,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro ao remover cargo:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui remover o cargo configurado.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui remover o cargo configurado.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4369,7 +4369,7 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton() && (interaction.customId === "server:add" || interaction.customId === "server:remove")) {
     if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode alterar servidores autorizados.", ephemeral: true });
+      await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode alterar servidores autorizados.", ephemeral: true });
       return;
     }
 
@@ -4397,14 +4397,14 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isModalSubmit() && interaction.customId.startsWith("server_modal:")) {
     try {
       if (!(await isBotOwner(interaction.user.id))) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode alterar servidores autorizados.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode alterar servidores autorizados.", ephemeral: true });
         return;
       }
 
       const action = interaction.customId.endsWith(":add") ? "add" : "remove";
       const serverId = interaction.fields.getTextInputValue("server_id").trim();
       if (!/^\\d{17,20}$/.test(serverId)) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " ID de servidor inválido.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " ID de servidor inválido.", ephemeral: true });
         return;
       }
 
@@ -4429,7 +4429,7 @@ client.on("interactionCreate", async interaction => {
       }
     } catch (error) {
       console.error("[PANEL] Erro no modal de servidores:", error);
-      if (!interaction.replied) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar os servidores autorizados.", ephemeral: true }).catch(() => {});
+      if (!interaction.replied) await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui atualizar os servidores autorizados.", ephemeral: true }).catch(() => {});
     }
     return;
   }
@@ -4444,7 +4444,7 @@ client.on("interactionCreate", async interaction => {
     const config = getGuildConfig(interaction.guildId);
     const fn = (config.ticketFunctions || []).find(item => item.id === id);
     if (!fn) {
-      await interaction.reply({ content: "❌ Essa função não existe mais. Atualize a tela.", ephemeral: true });
+      await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais. Atualize a tela.", ephemeral: true });
       return;
     }
     const container = new ContainerBuilder()
@@ -4491,7 +4491,7 @@ client.on("interactionCreate", async interaction => {
       const config = getGuildConfig(interaction.guildId);
       const fn = (config.ticketFunctions || []).find(item => item.id === functionId);
       if (!fn) {
-        await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais.", ephemeral: true });
         return;
       }
 
@@ -4504,7 +4504,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[TICKET] Erro ao excluir função:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui excluir a função.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui excluir a função.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4516,7 +4516,7 @@ client.on("interactionCreate", async interaction => {
       const config = getGuildConfig(interaction.guildId);
       const fn = (config.ticketFunctions || []).find(item => item.id === functionId);
       if (!fn) {
-        await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais.", ephemeral: true });
         return;
       }
 
@@ -4554,7 +4554,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[TICKET] Erro ao salvar função:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui salvar a função.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui salvar a função.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4563,9 +4563,9 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isButton() && interaction.customId.startsWith("ticket:function_edit:")) {
     const functionId = interaction.customId.slice("ticket:function_edit:".length);
     const fn = (getGuildConfig(interaction.guildId).ticketFunctions || []).find(item => item.id === functionId);
-    if (!fn) { await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true }); return; }
+    if (!fn) { await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais.", ephemeral: true }); return; }
     try { await interaction.showModal(buildTicketFunctionModal(fn)); }
-    catch (error) { console.error("[TICKET] Erro ao abrir edição:", error); if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ Não consegui abrir a edição da função.", ephemeral: true }).catch(() => {}); }
+    catch (error) { console.error("[TICKET] Erro ao abrir edição:", error); if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir a edição da função.", ephemeral: true }).catch(() => {}); }
     return;
   }
 
@@ -4601,7 +4601,7 @@ client.on("interactionCreate", async interaction => {
       else await interaction.reply({ ...panel, flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     } catch (error) {
       console.error("[TICKET] Erro ao editar função:", error);
-      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "❌ " + (error.message || "Não consegui editar a função."), ephemeral: true }).catch(() => {});
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui editar a função."), ephemeral: true }).catch(() => {});
     }
     return;
   }
@@ -4632,14 +4632,14 @@ client.on("interactionCreate", async interaction => {
     const key = String(interaction.guildId) + ":" + String(interaction.user.id);
     const selectedId = ticketReorderSelections.get(key);
     if (!selectedId) {
-      await interaction.reply({ content: "❌ Selecione uma função primeiro.", ephemeral: true });
+      await interaction.reply({ content: "<:offline:1557204568432185454> Selecione uma função primeiro.", ephemeral: true });
       return;
     }
     const config = getGuildConfig(interaction.guildId);
     const functions = Array.isArray(config.ticketFunctions) ? [...config.ticketFunctions] : [];
     const index = functions.findIndex(fn => fn.id === selectedId);
     if (index < 0) {
-      await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true });
+      await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais.", ephemeral: true });
       return;
     }
     const direction = interaction.customId === "ticket:reorder_up" ? -1 : 1;
@@ -4665,7 +4665,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[TICKET] Erro ao abrir aparência:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "❌ Não consegui abrir a configuração de aparência.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir a configuração de aparência.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -4675,7 +4675,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const guild = interaction.guild;
       if (!guild) {
-        await interaction.reply({ content: "❌ Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
         return;
       }
 
@@ -4686,17 +4686,17 @@ client.on("interactionCreate", async interaction => {
       const color = normalizeTicketColor(interaction.fields.getTextInputValue("ticket_appearance_color").trim());
 
       if (!title || !description) {
-        await interaction.reply({ content: "❌ Título e descrição são obrigatórios.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Título e descrição são obrigatórios.", ephemeral: true });
         return;
       }
 
       if (thumbnail && !/^https?:\/\//i.test(thumbnail)) {
-        await interaction.reply({ content: "❌ A thumbnail precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> A thumbnail precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
         return;
       }
 
       if (banner && !/^https?:\/\//i.test(banner)) {
-        await interaction.reply({ content: "❌ O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
         return;
       }
 
@@ -4714,7 +4714,7 @@ client.on("interactionCreate", async interaction => {
       });
     } catch (error) {
       console.error("[TICKET] Erro ao salvar rascunho da aparência:", error);
-      await interaction.reply({ content: "❌ " + error.message, ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + error.message, ephemeral: true }).catch(() => {});
     }
     return;
   }
@@ -4726,7 +4726,7 @@ client.on("interactionCreate", async interaction => {
       const draft = ticketAppearanceDrafts.get(key);
 
       if (!draft) {
-        await interaction.reply({ content: "❌ Clique em **EDITAR CAMPOS** primeiro.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Clique em **EDITAR CAMPOS** primeiro.", ephemeral: true });
         return;
       }
 
@@ -4747,7 +4747,7 @@ client.on("interactionCreate", async interaction => {
       });
     } catch (error) {
       console.error("[TICKET] Erro ao salvar aparência:", error);
-      await interaction.reply({ content: "❌ Não consegui salvar a aparência.", ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui salvar a aparência.", ephemeral: true }).catch(() => {});
     }
     return;
   }
@@ -4780,20 +4780,20 @@ client.on("interactionCreate", async interaction => {
   try {
   if (interaction.commandName === "suporte") {
     if (!interaction.guildId) {
-      await commandReply(interaction, { content: "❌ O painel de suporte só pode ser usado dentro de um servidor.", ephemeral: true });
+      await commandReply(interaction, { content: "<:offline:1557204568432185454> O painel de suporte só pode ser usado dentro de um servidor.", ephemeral: true });
       return;
     }
     const canManage = await isBotOwner(interaction.user.id) ||
       Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
     if (!canManage) {
-      await commandReply(interaction, { content: "❌ Você precisa da permissão **Gerenciar Servidor** para publicar o painel de suporte.", ephemeral: true });
+      await commandReply(interaction, { content: "<:offline:1557204568432185454> Você precisa da permissão **Gerenciar Servidor** para publicar o painel de suporte.", ephemeral: true });
       return;
     }
     await commandReply(interaction, buildSupportPanel(interaction.guild));
     return;
   } else if (interaction.commandName === "painel") {
     if (!interaction.guildId) {
-      await commandReply(interaction, { content: uiEmoji("error", "❌") + " O painel só pode ser usado dentro de um servidor.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " O painel só pode ser usado dentro de um servidor.", ephemeral: true });
       return;
     }
 
@@ -4802,7 +4802,7 @@ client.on("interactionCreate", async interaction => {
 
     if (!canManage) {
       await commandReply(interaction, {
-        content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para abrir o painel.",
+        content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor** para abrir o painel.",
         ephemeral: true
       });
       return;
@@ -4826,7 +4826,7 @@ client.on("interactionCreate", async interaction => {
     return;
   } else if (interaction.commandName === "server-panel") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
       return;
     }
 
@@ -4857,7 +4857,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (!/^\d{17,20}$/.test(String(serverId || ""))) {
-      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
       return;
     }
 
@@ -4941,7 +4941,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.deleteReply().catch(() => {});
     } catch (error) {
       console.error("Erro no /avatar:", error);
-      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui carregar esse avatar do Roblox."));
+      await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + (error.message || "Não consegui carregar esse avatar do Roblox."));
     }
   } else if (interaction.commandName === "ia") {
     await interaction.deferReply();
@@ -4956,7 +4956,7 @@ client.on("interactionCreate", async interaction => {
       }
     } catch (error) {
       console.error("Erro no /ia:", error);
-      await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui falar com a IA agora."));
+      await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + (error.message || "Não consegui falar com a IA agora."));
     }
  } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
@@ -5015,7 +5015,7 @@ client.on("interactionCreate", async interaction => {
     }
   } else if (interaction.commandName === "send-stock") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
       return;
     }
 
@@ -5031,14 +5031,14 @@ client.on("interactionCreate", async interaction => {
       if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal", defaultGuildConfig()));
       if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage", defaultGuildConfig()));
       if (!components.length) {
-        await commandReply(interaction, { content: uiEmoji("error", "❌") + " Ainda não existe stock salvo para enviar.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Ainda não existe stock salvo para enviar.", ephemeral: true });
         return;
       }
       await commandReply(interaction, { components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
     } catch (error) {
       console.error("Erro no /send-stock:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await commandReply(interaction, { content: uiEmoji("error", "❌") + " Não consegui enviar o stock salvo.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui enviar o stock salvo.", ephemeral: true });
       }
     }
   } else if (interaction.commandName === "stock") {
@@ -5058,7 +5058,7 @@ client.on("interactionCreate", async interaction => {
       await commandReply(interaction, { components, flags: MessageFlags.IsComponentsV2 });
     } catch (e) {
       console.error("Erro no /stock:", e);
-      if (!interaction.replied && !interaction.deferred) await commandReply(interaction, { content: uiEmoji("error", "❌") + " Não consegui mostrar o estoque agora.", ephemeral: true });
+      if (!interaction.replied && !interaction.deferred) await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui mostrar o estoque agora.", ephemeral: true });
     }
   } else if (interaction.commandName === "refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
@@ -5089,12 +5089,12 @@ client.on("interactionCreate", async interaction => {
 
       await interaction.editReply(uiEmoji("success", "✅") + " Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
     } catch (e) {
-      await interaction.editReply(uiEmoji("error", "❌") + " Não consegui reenviar o stock salvo: " + e.message + ".");
+      await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui reenviar o stock salvo: " + e.message + ".");
     }
   } else if (interaction.commandName === "set-stock-channel") {
     const channel = interaction.options.getChannel("channel", true);
     if (!channel.isTextBased() || !channel.send) {
-      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Escolha um canal de texto.", ephemeral: true });
       return;
     }
     updateGuildConfig(interaction.guildId, config => { config.channelId = channel.id; });
@@ -5135,7 +5135,7 @@ client.on("interactionCreate", async interaction => {
 
     if (!panel.configured?.length) {
       await commandReply(interaction, {
-        content: uiEmoji("error", "❌") + " Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
+        content: uiEmoji("error", "<:offline:1557204568432185454>") + " Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
         ephemeral: true
       });
       return;
@@ -5168,7 +5168,7 @@ client.on("interactionCreate", async interaction => {
     if (action === "set_channel") {
       const channel = interaction.options.getChannel("channel", true);
       if (!channel.isTextBased() || !channel.send) {
-        await commandReply(interaction, { content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("error", "<:offline:1557204568432185454>") + " Escolha um canal de texto.", ephemeral: true });
         return;
       }
       updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = channel.id; });
@@ -5227,9 +5227,9 @@ client.on("interactionCreate", async interaction => {
     console.error(`Erro no comando /${interaction.commandName}:`, error);
     try {
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ content: `${uiEmoji("error", "❌")} Ocorreu um erro ao executar /${interaction.commandName}. Tente novamente.` });
+        await interaction.editReply({ content: `${uiEmoji("error", "<:offline:1557204568432185454>")} Ocorreu um erro ao executar /${interaction.commandName}. Tente novamente.` });
       } else {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Ocorreu um erro ao executar este comando.", ephemeral: true });
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Ocorreu um erro ao executar este comando.", ephemeral: true });
       }
     } catch (replyError) {
       console.error("Não foi possível responder à interação:", replyError);
