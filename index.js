@@ -2579,7 +2579,7 @@ client.on("messageCreate", async message => {
 
 client.on("interactionCreate", async interaction => {
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:select") {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.reply({ content: "<a:refresh_alt:1557205141051019274> Carregando", ephemeral: true });
     try {
       const guild = interaction.guild;
       if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
@@ -2902,7 +2902,7 @@ client.on("interactionCreate", async interaction => {
           await interaction.reply({ content: uiEmoji("error", "❌") + " Não há cargos de frutas configurados.", ephemeral: true });
           return;
         }
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 });
+        await interaction.reply({ content: "<a:refresh_alt:1557205141051019274> Carregando", ephemeral: true });
         await interaction.editReply(panel);
         return;
       }
