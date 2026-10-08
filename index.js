@@ -2457,10 +2457,7 @@ client.on("interactionCreate", async interaction => {
         await interaction.reply({ content: "❌ Esse painel só pode ser usado dentro de um servidor.", ephemeral: true });
         return;
       }
-      await interaction.reply({
-        ...buildTicketConfigPanel(guild.id),
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-      });
+      await interaction.update(buildTicketConfigPanel(guild.id));
     } catch (error) {
       console.error("[PANEL] Erro ao abrir configurações do ticket:", error);
       if (!interaction.replied && !interaction.deferred) {
