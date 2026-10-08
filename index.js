@@ -2093,7 +2093,7 @@ function buildTicketConfigPanel(guildId) {
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> CONFIGURAÇÕES DO TICKET\n" +
         "> Aqui você poderá personalizar o sistema de tickets da sua loja.\n" +
-        "### <:ticket_plus:1557205110847701052> O que deseja configurar?\n" +
+        "### <:settings_button:1557204872648982579> O que deseja configurar?\n" +
         "> Selecione uma função no menu abaixo para começar.\n" +
         "-# As alterações serão aplicadas ao sistema de tickets."
       )
