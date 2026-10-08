@@ -1634,7 +1634,7 @@ function buildBotControlPanel() {
             }
           )
       )
-    );
+    )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -3709,7 +3709,7 @@ client.on("interactionCreate", async interaction => {
         config.botSettings.avatar = value;
         if (value) await client.user.setAvatar(value);
       } else if (type === "banner") {
-        if (value && !/^https?:\\/\\//i.test(value)) throw new Error("A URL do banner precisa começar com http:// ou https://.");
+        if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL do banner precisa começar com http:// ou https://.");
         config.botSettings.banner = value;
         if (value) await client.user.setBanner(value);
       } else if (type === "status1" || type === "status2") {
