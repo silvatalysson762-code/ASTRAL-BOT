@@ -1898,28 +1898,29 @@ function buildRolesPanel(guildId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:user:1557205116849758238> CARGOS\\n" +
-        "> Configure e organize os cargos do servidor.\\n\\n" +
-        "### <:user:1557205116849758238> Gerenciamento de cargos\\n" +
-        "> Selecione uma categoria abaixo para configurar os cargos."
+        "> Central de configuração de cargos da ASTRAL STORE.\\n" +
+        "> Organize os cargos do servidor de forma rápida e simples.\\n\\n" +
+        "### <:clipboard:1557204790843412542> Categorias\\n" +
+        "> Selecione abaixo o tipo de cargo que deseja configurar."
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("panel:roles_category")
-          .setPlaceholder("Selecione uma categoria")
+          .setPlaceholder("Selecione uma categoria de cargos")
           .setMinValues(1)
           .setMaxValues(1)
           .addOptions(
             {
               label: "Administrativo",
-              description: "Cargos e permissões administrativas",
+              description: "Configure os cargos administrativos",
               value: "administrative",
               emoji: { name: "user", id: "1557205116849758238" }
             },
             {
               label: "Stock Blox Fruits",
-              description: "Cargos relacionados às notificações de stock",
+              description: "Configure os cargos das notificações de stock",
               value: "stock_blox_fruits",
               emoji: fruitEmojiObject("Dragon")
             }
