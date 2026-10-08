@@ -194,44 +194,20 @@ function createStoredZip(files) {
 
 async function buildGitHubSourceZip() {
   const repo = "silvatalysson762-code/blox-fruits-stock-bot";
-  const branch = "main";
-  const headers = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "Astral-Stock-Bot/1.0"
-  };
-
-  const treeResponse = await fetch(
-    "https://api.github.com/repos/" + repo + "/git/trees/" + branch + "?recursive=1",
-    { headers, signal: AbortSignal.timeout(30000) }
-  );
-  const treeData = await treeResponse.json().catch(() => ({}));
-  if (!treeResponse.ok) throw new Error("Não consegui ler o código atual do GitHub.");
-
-  const blobs = (treeData.tree || []).filter(item =>
-    item.type === "blob" &&
-    !item.path.startsWith(".git/") &&
-    item.path !== ".env"
-  );
-
-  const files = [];
-  for (const item of blobs) {
-    const response = await fetch(
-      "https://api.github.com/repos/" + repo + "/git/blobs/" + item.sha,
-      { headers, signal: AbortSignal.timeout(30000) }
-    );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.encoding !== "base64") {
-      throw new Error("Não consegui baixar o arquivo " + item.path + " do GitHub.");
+  const response = await fetch(
+    "https://codeload.github.com/" + repo + "/zip/refs/heads/main",
+    {
+      headers: { "User-Agent": "Astral-Stock-Bot/1.0" },
+      signal: AbortSignal.timeout(120000)
     }
-    files.push({
-      name: item.path,
-      data: Buffer.from(data.content.replace(/\n/g, ""), "base64")
-    });
+  );
+
+  if (!response.ok) {
+    throw new Error("Não consegui baixar o código atual do GitHub (HTTP " + response.status + ").");
   }
 
-  return createStoredZip(files);
+  return Buffer.from(await response.arrayBuffer());
 }
-
 async function commitOnDiscloud() {
   const token = String(process.env.DISCLOUD_TOKEN || "").trim();
   if (!token) return false;
