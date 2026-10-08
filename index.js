@@ -77,6 +77,43 @@ async function askGroqAI(prompt, userId) {
   return text;
 }
 
+async function restartOnDiscloud() {
+  const token = String(process.env.DISCLOUD_TOKEN || "").trim();
+  if (!token) return false;
+
+  let appId = String(process.env.DISCLOUD_APP_ID || "").trim();
+
+  if (!appId) {
+    const userResponse = await fetch("https://api.discloud.app/v2/user", {
+      headers: { "api-token": token, Accept: "*/*" },
+      signal: AbortSignal.timeout(15000)
+    });
+    const userData = await userResponse.json().catch(() => ({}));
+    if (!userResponse.ok) {
+      throw new Error("Não consegui validar a API da Discloud.");
+    }
+
+    const apps = Array.isArray(userData?.user?.apps) ? userData.user.apps : [];
+    if (apps.length !== 1) {
+      throw new Error("Configure DISCLOUD_APP_ID com o ID da aplicação na Discloud.");
+    }
+    appId = String(apps[0]);
+  }
+
+  const response = await fetch("https://api.discloud.app/v2/apps/" + encodeURIComponent(appId) + "/restart", {
+    method: "PUT",
+    headers: { "api-token": token, Accept: "*/*" },
+    signal: AbortSignal.timeout(20000)
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.status === "error") {
+    throw new Error(data?.message || "A Discloud não conseguiu reiniciar a aplicação.");
+  }
+
+  return true;
+}
+
 async function downloadOriginalImage(url) {
   const response = await fetch(String(url), {
     headers: { "User-Agent": "Astral-Stock-Bot/1.0" },
@@ -3687,11 +3724,27 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode reiniciar o bot.", ephemeral: true });
       return;
     }
-    await interaction.reply({
-      content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**",
-      ephemeral: true
-    });
-    setTimeout(() => process.exit(0), 800);
+
+    await interaction.deferReply({ ephemeral: true }).catch(() => {});
+
+    try {
+      const usedDiscloudApi = await restartOnDiscloud();
+      if (usedDiscloudApi) {
+        await interaction.editReply({
+          content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**\nA Discloud recebeu o comando."
+        });
+      } else {
+        await interaction.editReply({
+          content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**"
+        });
+        setTimeout(() => process.exit(0), 800);
+      }
+    } catch (error) {
+      console.error("[PANEL] Erro ao reiniciar pela Discloud:", error);
+      await interaction.editReply({
+        content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui reiniciar o bot.").slice(0, 500)
+      }).catch(() => {});
+    }
     return;
   }
 
@@ -3763,6 +3816,10 @@ client.on("interactionCreate", async interaction => {
       await registerCommands();
       await syncApplicationEmojis();
       await interaction.editReply({ content: "<:online:1557204563675848814> **Rebuild concluído**\nComandos e emojis sincronizados." });
+
+      if (String(process.env.DISCLOUD_TOKEN || "").trim()) {
+        await restartOnDiscloud();
+      }
     } catch (error) {
       console.error("[PANEL] Erro no rebuild:", error);
       await interaction.editReply({ content: "<:offline:1557204568432185454> **Falha no rebuild**\n" + String(error?.message || "Não foi possível concluir o rebuild.").slice(0, 500) }).catch(() => {});
