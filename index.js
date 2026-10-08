@@ -1807,7 +1807,7 @@ function buildTicketOpeningModePanel(guildId, userId) {
         "> Escolha como os atendimentos serão criados quando alguém abrir um ticket.\n\n" +
         "<:ticket_plus:1557205110847701052> **Modo atual**\n" +
         "> " + (channelSelected ? "Canal Privado" : "Thread Privada") + "\n" +
-        "-# A escolha é salva automaticamente neste servidor."
+        "-# Clique em SALVAR para aplicar a alteração."
       )
     )
     .addActionRowComponents(
@@ -1847,6 +1847,75 @@ function buildTicketOpeningModePanel(guildId, userId) {
     );
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+
+async function createAstralTicket(interaction, selectedFunction = null) {
+  const guild = interaction.guild;
+  if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
+
+  const config = getGuildConfig(guild.id);
+  const mode = config.ticketOpeningMode === "thread" ? "thread" : "channel";
+  const username = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20) || "usuario";
+  const ticketName = "ticket-" + username;
+
+  if (mode === "thread") {
+    const parent = interaction.channel;
+    if (!parent || !parent.isTextBased() || !parent.threads?.create) {
+      throw new Error("O modo Thread Privada precisa ser usado em um canal de texto compatível com threads.");
+    }
+
+    const existing = parent.threads.cache.find(thread => thread.name === ticketName && !thread.archived && !thread.locked);
+    if (existing) return { mode, target: existing, alreadyOpen: true };
+
+    const thread = await parent.threads.create({
+      name: ticketName,
+      type: 12,
+      invitable: false,
+      autoArchiveDuration: 1440,
+      reason: "Astral Support Ticket"
+    });
+
+    await thread.members.add(interaction.user.id);
+
+    const ticketText = selectedFunction?.description
+      ? selectedFunction.description
+      : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
+
+    await thread.send({
+      content: "## 🎫 " + (selectedFunction?.name || "Atendimento") + "\\n> " + ticketText
+    });
+
+    if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
+
+    return { mode, target: thread, alreadyOpen: false };
+  }
+
+  const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
+  if (existing) return { mode, target: existing, alreadyOpen: true };
+
+  const channel = await guild.channels.create({
+    name: ticketName,
+    type: 0,
+    topic: "astral-ticket:" + interaction.user.id,
+    permissionOverwrites: [
+      { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
+      { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
+      { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
+    ]
+  });
+
+  const ticketText = selectedFunction?.description
+    ? selectedFunction.description
+    : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
+
+  await channel.send({
+    content: "## 🎫 " + (selectedFunction?.name || "Atendimento") + "\\n> " + ticketText
+  });
+
+  if (selectedFunction?.banner) await channel.send({ content: selectedFunction.banner });
+
+  return { mode, target: channel, alreadyOpen: false };
 }
 
 function buildTicketConfigPanel(guildId) {
@@ -2475,33 +2544,13 @@ client.on("interactionCreate", async interaction => {
       if (selectedValue !== "open" && !selectedFunction) {
         throw new Error("Essa função de atendimento não está mais disponível. Atualize o painel de tickets.");
       }
-      const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
-      if (existing) {
-        await interaction.editReply({ content: "🎫 Você já tem um atendimento aberto: <#" + existing.id + ">" });
-        return;
-      }
-      const channel = await guild.channels.create({
-        name: "ticket-" + interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20),
-        type: 0,
-        topic: "astral-ticket:" + interaction.user.id,
-        permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
-          { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
-          { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
-        ]
+      const result = await createAstralTicket(interaction, selectedFunction);
+      const target = result.target;
+      await interaction.editReply({
+        content: result.alreadyOpen
+          ? "🎫 Você já tem um atendimento aberto: <#" + target.id + ">"
+          : "🎫 Atendimento aberto: <#" + target.id + ">"
       });
-      const ticketText = selectedFunction?.description
-        ? selectedFunction.description
-        : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
-
-      await channel.send({
-        content: "## 🎫 " + (selectedFunction?.name || "Atendimento") + "\\n> " + ticketText
-      });
-
-      if (selectedFunction?.banner) {
-        await channel.send({ content: selectedFunction.banner });
-      }
-      await interaction.editReply({ content: "🎫 Atendimento aberto: <#" + channel.id + ">" });
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
       await interaction.editReply({ content: "❌ Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
@@ -2758,25 +2807,14 @@ client.on("interactionCreate", async interaction => {
         await interaction.reply({ content: "❌ Esse atendimento só pode ser aberto dentro de um servidor.", ephemeral: true });
         return;
       }
-      const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
-      if (existing) {
-        await interaction.reply({ content: "🎫 Você já tem um atendimento aberto: <#" + existing.id + ">", ephemeral: true });
-        return;
-      }
-      const channel = await guild.channels.create({
-        name: "ticket-" + interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20),
-        type: 0,
-        topic: "astral-ticket:" + interaction.user.id,
-        permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
-          { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
-          { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
-        ]
+      const result = await createAstralTicket(interaction);
+      const target = result.target;
+      await interaction.reply({
+        content: result.alreadyOpen
+          ? "🎫 Você já tem um atendimento aberto: <#" + target.id + ">"
+          : "🎫 Atendimento aberto: <#" + target.id + ">",
+        ephemeral: true
       });
-      await channel.send({
-        content: "## 🎫 Atendimento\n> Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\n> Explique sua dúvida e aguarde nossa equipe.\n\n-# Um membro da equipe responderá o mais rápido possível."
-      });
-      await interaction.reply({ content: "🎫 Atendimento aberto: <#" + channel.id + ">", ephemeral: true });
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
       if (!interaction.replied && !interaction.deferred) {
