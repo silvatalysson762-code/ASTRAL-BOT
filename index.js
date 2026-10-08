@@ -2370,7 +2370,7 @@ function buildTicketSchedulePanel(guildId) {
     return "<:online:1557204563675848814> **" + day.label + ":** `" + value.start + " - " + value.end + "`";
   });
   const container = new ContainerBuilder()
-    .setAccentColor(schedule.enabled ? getBotPanelAccentColor() : 0x3F3F46)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:calendar:1557204788880613437> CONFIGURAR HORÁRIOS DE ATENDIMENTO\n" +
