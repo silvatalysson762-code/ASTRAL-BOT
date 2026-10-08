@@ -1892,6 +1892,83 @@ function buildFruitRolePanel(guildId) {
 }
 
 
+function buildAdministrativeRolesPanel(guildId) {
+  const config = getGuildConfig(guildId);
+  const adminRoles = config.adminRoles || {};
+
+  const roleName = key => {
+    const roleId = adminRoles[key];
+    if (!roleId) return "Não configurado";
+    const role = client.guilds.cache.get(guildId)?.roles.cache.get(roleId);
+    return role ? "<@&" + roleId + ">" : "Não configurado";
+  };
+
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> CARGOS ADMINISTRATIVOS\\n" +
+        "> Configure os cargos utilizados pela ASTRAL STORE.\\n" +
+        "> Selecione abaixo qual cargo deseja configurar.\\n\\n" +
+        "### <:config_title_alt:1557204540460240926> Administrador: " + roleName("administrator") + "\\n" +
+        "### <:shield_alt:1557205099665956875> Moderador: " + roleName("moderator") + "\\n" +
+        "### <:control_center:1557204878001176586> Staff: " + roleName("staff") + "\\n" +
+        "### <:money_symbol_alt:1557204522009370634> Cliente: " + roleName("client") + "\\n" +
+        "### <:user:1557205116849758238> Membro: " + roleName("member")
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("panel:admin_role_type")
+          .setPlaceholder("Selecione o cargo que deseja configurar")
+          .addOptions(
+            {
+              label: "Administrador",
+              description: "Defina o cargo de administrador",
+              value: "administrator",
+              emoji: { name: "config_title_alt", id: "1557204540460240926" }
+            },
+            {
+              label: "Moderador",
+              description: "Defina o cargo de moderador",
+              value: "moderator",
+              emoji: { name: "shield_alt", id: "1557205099665956875" }
+            },
+            {
+              label: "Staff",
+              description: "Defina o cargo da equipe Staff",
+              value: "staff",
+              emoji: { name: "control_center", id: "1557204878001176586" }
+            },
+            {
+              label: "Cliente",
+              description: "Defina o cargo de cliente",
+              value: "client",
+              emoji: { name: "money_symbol_alt", id: "1557204522009370634" }
+            },
+            {
+              label: "Membro",
+              description: "Defina o cargo padrão de membro",
+              value: "member",
+              emoji: { name: "user", id: "1557205116849758238" }
+            }
+          )
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:main_roles")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildRolesPanel(guildId) {
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
@@ -3494,13 +3571,76 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (selected === "administrative") {
-      await interaction.update(buildRolesPanel(interaction.guildId));
-      await interaction.followUp({
-        content: "<:online:1557204563675848814> Categoria **Administrativo** selecionada.",
-        ephemeral: true
-      }).catch(() => {});
+      await interaction.update(buildAdministrativeRolesPanel(interaction.guildId));
       return;
     }
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "panel:admin_role_type") {
+    const selected = interaction.values[0];
+    const labels = {
+      administrator: "Administrador",
+      moderator: "Moderador",
+      staff: "Staff",
+      client: "Cliente",
+      member: "Membro"
+    };
+
+    await interaction.update({
+      components: [
+        new ContainerBuilder()
+          .setAccentColor(getBotPanelAccentColor())
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              "## <:config_title_alt:1557204540460240926> CONFIGURAR " + labels[selected].toUpperCase() + "\\n" +
+              "> Selecione o cargo do servidor que será usado como **" + labels[selected] + "**."
+            )
+          )
+          .addActionRowComponents(
+            new ActionRowBuilder().addComponents(
+              new RoleSelectMenuBuilder()
+                .setCustomId("panel:admin_role:" + selected)
+                .setPlaceholder("Selecione o cargo " + labels[selected].toLowerCase())
+                .setMinValues(1)
+                .setMaxValues(1)
+            )
+          )
+          .addActionRowComponents(
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId("panel:admin_roles_back")
+                .setLabel("Voltar")
+                .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+                .setStyle(ButtonStyle.Secondary)
+            )
+          )
+      ],
+      flags: MessageFlags.IsComponentsV2
+    });
+    return;
+  }
+
+  if (interaction.isRoleSelectMenu() && interaction.customId.startsWith("panel:admin_role:")) {
+    const roleType = interaction.customId.split(":")[2];
+    const roleId = interaction.values[0];
+
+    updateGuildConfig(interaction.guildId, config => {
+      config.adminRoles = config.adminRoles || {};
+      config.adminRoles[roleType] = roleId;
+    });
+
+    await interaction.update(buildAdministrativeRolesPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:admin_roles_back") {
+    await interaction.update(buildAdministrativeRolesPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:main_roles") {
+    await interaction.update(buildRolesPanel(interaction.guildId));
+    return;
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
