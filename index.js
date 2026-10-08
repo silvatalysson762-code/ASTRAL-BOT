@@ -2598,7 +2598,7 @@ client.on("interactionCreate", async interaction => {
         config.ticketOpeningMode = mode;
       });
       ticketOpeningModeDrafts.delete(key);
-      await interaction.update(buildTicketOpeningModePanel(interaction.guildId, interaction.user.id));
+      await interaction.update(buildTicketConfigPanel(interaction.guildId));
     } catch (error) {
       console.error("[TICKET] Erro ao salvar modo de abertura:", error);
       if (!interaction.replied && !interaction.deferred) {
