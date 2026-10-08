@@ -1646,7 +1646,7 @@ function buildBotControlPanel() {
         new ButtonBuilder()
           .setCustomId("panel:bot_save")
           .setLabel("Salvar")
-          .setEmoji("💾")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
           .setStyle(ButtonStyle.Success)
       )
     );
