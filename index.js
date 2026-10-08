@@ -1800,10 +1800,10 @@ function buildTicketOpeningModePanel(guildId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## <:config_title_alt:1557204540460240926> MODO DE ABERTURA\\n" +
-        "> Escolha como os atendimentos serão criados quando alguém abrir um ticket.\\n\\n" +
-        "<:ticket_plus:1557205110847701052> **Modo atual**\\n" +
-        "> " + (channelSelected ? "Canal Privado" : "Thread Privada") + "\\n" +
+        "## <:config_title_alt:1557204540460240926> MODO DE ABERTURA\n" +
+        "> Escolha como os atendimentos serão criados quando alguém abrir um ticket.\n\n" +
+        "<:ticket_plus:1557205110847701052> **Modo atual**\n" +
+        "> " + (channelSelected ? "Canal Privado" : "Thread Privada") + "\n" +
         "-# A escolha é salva automaticamente neste servidor."
       )
     )
