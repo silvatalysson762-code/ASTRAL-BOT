@@ -1582,7 +1582,7 @@ function buildTicketAppearancePanel(guildId, userId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> CONFIGURAR APARÊNCIA\n" +
-        "> Personalize a mensagem principal do sistema de tickets.\n\n" +
+        "> Personalize a mensagem principal do sistema de tickets.\n" +
         "### <:ticket_plus:1557205110847701052> Aparência atual\n" +
         "> **Título:** " + title + "\n" +
         "> **Descrição:** " + description + "\n" +
@@ -1610,7 +1610,7 @@ function buildTicketAppearancePanel(guildId, userId) {
         new ButtonBuilder()
           .setCustomId("ticket:appearance_save")
           .setLabel("Salvar")
-          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setEmoji({ name: "settings_button", id: "1557204872648982579" })
           .setStyle(ButtonStyle.Success)
       )
     );
