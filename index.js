@@ -1907,13 +1907,13 @@ function buildAdministrativeRolesPanel(guildId) {
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## <:config_title_alt:1557204540460240926> CARGOS ADMINISTRATIVOS\\n" +
-        "> Configure os cargos utilizados pela ASTRAL STORE.\\n" +
-        "> Selecione abaixo qual cargo deseja configurar.\\n\\n" +
-        "### <:config_title_alt:1557204540460240926> Administrador: " + roleName("administrator") + "\\n" +
-        "### <:shield_alt:1557205099665956875> Moderador: " + roleName("moderator") + "\\n" +
-        "### <:control_center:1557204878001176586> Staff: " + roleName("staff") + "\\n" +
-        "### <:money_symbol_alt:1557204522009370634> Cliente: " + roleName("client") + "\\n" +
+        "## <:config_title_alt:1557204540460240926> CARGOS ADMINISTRATIVOS\n" +
+        "> Configure os cargos utilizados pela ASTRAL STORE.\n" +
+        "> Selecione abaixo qual cargo deseja configurar.\n\n" +
+        "### <:config_title_alt:1557204540460240926> Administrador: " + roleName("administrator") + "\n" +
+        "### <:shield_alt:1557205099665956875> Moderador: " + roleName("moderator") + "\n" +
+        "### <:control_center:1557204878001176586> Staff: " + roleName("staff") + "\n" +
+        "### <:money_symbol_alt:1557204522009370634> Cliente: " + roleName("client") + "\n" +
         "### <:user:1557205116849758238> Membro: " + roleName("member")
       )
     )
@@ -1921,7 +1921,7 @@ function buildAdministrativeRolesPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("panel:admin_role_type")
-          .setPlaceholder("Selecione o cargo que deseja configurar")
+          .setPlaceholder("Selecione um cargo para configurar")
           .addOptions(
             {
               label: "Administrador",
@@ -1959,7 +1959,7 @@ function buildAdministrativeRolesPanel(guildId) {
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("panel:main_roles")
+          .setCustomId("panel:roles")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary)
@@ -2229,7 +2229,7 @@ function buildMainPanel(guildId, userId) {
             },
             {
               label: "Cargos",
-              description: "Configure os cargos das frutas",
+              description: "Gerencie os cargos do servidor",
               value: "roles",
               emoji: { name: "user", id: "1557205116849758238" }
             }
