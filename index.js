@@ -3735,7 +3735,7 @@ client.on("interactionCreate", async interaction => {
         "<:user_check:1557205120335224933> **Amigos:** " + avatar.friends.toLocaleString("pt-BR"),
         "<:users:1557205137154637864> **Seguidores:** " + avatar.followers.toLocaleString("pt-BR"),
         "<:user_add:1557205138689495101> **Seguindo:** " + avatar.following.toLocaleString("pt-BR"),
-        "<:star:1557205044305072160> **Jogo favorito:** " + favoriteText
+        "<:star:1557205044305072160> **Jogos favoritos:** " + favoriteText
       ].join("\n");
 
       // Container V2 com cabeçalho mais completo, mantendo a imagem do avatar.
