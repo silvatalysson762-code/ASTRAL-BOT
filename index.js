@@ -2144,7 +2144,7 @@ function buildTicketAppearancePanel(guildId, userId) {
         new ButtonBuilder()
           .setCustomId("ticket:appearance_edit")
           .setLabel("Editar campos")
-          .setEmoji({ name: "compass", id: "1557204910578335844" })
+          .setEmoji({ name: "shop", id: "1557204870896033843" })
           .setStyle(ButtonStyle.Primary)
       )
     )
@@ -4446,7 +4446,7 @@ client.on("interactionCreate", async interaction => {
         new ButtonBuilder()
           .setCustomId("ticket:function_edit:" + fn.id)
           .setLabel("Editar")
-          .setEmoji({ name: "compass", id: "1557204910578335844" })
+          .setEmoji({ name: "shop", id: "1557204870896033843" })
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("ticket:function_delete:" + fn.id)
@@ -4527,7 +4527,7 @@ client.on("interactionCreate", async interaction => {
           "### <:save:1557205052974960780> Função salva com sucesso."
         ))
         .addActionRowComponents(new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("ticket:function_edit:" + savedFn.id).setLabel("Editar").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId("ticket:function_edit:" + savedFn.id).setLabel("Editar").setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary),
           new ButtonBuilder().setCustomId("ticket:function_delete:" + savedFn.id).setLabel("Excluir").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
         ))
         .addActionRowComponents(new ActionRowBuilder().addComponents(
