@@ -1552,15 +1552,7 @@ function buildMainPanel(guildId, userId) {
           })
       )
     )
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("panel:restart")
-          .setLabel("REINICIAR BOT")
-          .setEmoji({ name: "refresh", id: "1557204768093372466" })
-          .setStyle(ButtonStyle.Success)
-      )
-    );
+;
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
