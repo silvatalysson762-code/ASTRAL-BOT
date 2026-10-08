@@ -2481,6 +2481,10 @@ client.on("messageCreate", async message => {
   }
 
   if (!prompt) {
+    await message.reply({
+      content: "🤖 Pode mandar sua pergunta agora. Enquanto a conversa estiver ativa, você não precisa me marcar novamente.",
+      allowedMentions: { repliedUser: false }
+    });
     return;
   }
 
