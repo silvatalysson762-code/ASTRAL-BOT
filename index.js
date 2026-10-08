@@ -4280,6 +4280,8 @@ client.on("interactionCreate", async interaction => {
       }
 
       if (interaction.customId === "ticket:sync_message") {
+        // Confirma a interação imediatamente para o Discord não marcar o botão como expirado.
+        await interaction.deferReply({ ephemeral: true });
         const config = getGuildConfig(guild.id);
         let channel = config.supportMessageChannelId
           ? await guild.channels.fetch(config.supportMessageChannelId).catch(() => null)
@@ -4326,7 +4328,7 @@ client.on("interactionCreate", async interaction => {
         }
 
         if (!channel || !message) {
-          await interaction.reply({
+          await interaction.editReply({
             content: "<:offline:1557204568432185454> Não consegui localizar o painel de suporte já publicado. Confira se o bot tem acesso ao canal e permissão para ler o histórico de mensagens.",
             ephemeral: true
           });
@@ -4338,7 +4340,7 @@ client.on("interactionCreate", async interaction => {
           saved.supportMessageChannelId = channel.id;
           saved.supportMessageId = message.id;
         });
-        await interaction.reply({
+        await interaction.editReply({
           content: "<:online:1557204563675848814> **Mensagem sincronizada**",
           ephemeral: true
         });
