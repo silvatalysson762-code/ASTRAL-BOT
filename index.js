@@ -2546,6 +2546,17 @@ client.on("interactionCreate", async interaction => {
       }
       const result = await createAstralTicket(interaction, selectedFunction);
       const target = result.target;
+
+      // Rebuild the original support panel so the selector returns to its placeholder.
+      // This also keeps the same panel message instead of sending a second panel.
+      try {
+        if (interaction.message?.editable) {
+          await interaction.message.edit(buildSupportPanel(guild));
+        }
+      } catch (panelError) {
+        console.warn("[TICKET] Não consegui resetar o seletor do painel:", panelError?.message || panelError);
+      }
+
       await interaction.editReply({
         content: result.alreadyOpen
           ? "🎫 Você já tem um atendimento aberto: <#" + target.id + ">"
