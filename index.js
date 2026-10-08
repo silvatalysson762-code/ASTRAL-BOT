@@ -3948,21 +3948,14 @@ client.on("interactionCreate", async interaction => {
     }
 
     try {
-      await commandReply(interaction, {
-        content: "<a:refresh_alt:1557205141051019274> Abrindo painel...",
-        ephemeral: true
-      });
-
-      await interaction.editReply({
-        content: null,
-        ...buildMainPanel(interaction.guildId, interaction.user.id)
-      });
+      await interaction.deferReply({ ephemeral: true });
+      await interaction.channel.send(buildMainPanel(interaction.guildId, interaction.user.id));
+      await interaction.deleteReply().catch(() => {});
     } catch (error) {
       console.error("[PANEL] Erro ao abrir /painel:", error);
-      if (!interaction.replied && !interaction.deferred) {
-        await commandReply(interaction, {
-          content: "<:offline:1557204568432185454> Não consegui abrir o painel." + (error?.message ? "\n-# Erro: " + String(error.message).slice(0, 180) : ""),
-          ephemeral: true
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({
+          content: "<:offline:1557204568432185454> Não consegui abrir o painel." + (error?.message ? "\n-# Erro: " + String(error.message).slice(0, 180) : "")
         }).catch(() => {});
       }
     }
