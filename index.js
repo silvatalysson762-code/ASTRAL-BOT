@@ -2386,19 +2386,15 @@ function buildTicketInterfaceModePanel(guildId, userId) {
   const config = getGuildConfig(guildId);
   const draftKey = String(guildId) + ":" + String(userId || "");
   const mode = ticketInterfaceModeDrafts.get(draftKey) || config.ticketInterfaceMode || "v2";
-  const v2Selected = mode === "v2";
-  const embedSelected = mode === "embed";
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> MODO DE INTERFACE\n" +
-        "> Escolha como será a mensagem exibida dentro do ticket quando ele for aberto.\n" +
-        "<:clipboard:1557204790843412542> **Modo atual:** " + (v2Selected ? "Container V2" : "Embed") + "\n" +
-        "> **Container V2:** mensagem moderna usando Components V2.\n" +
-        "> **Embed:** mensagem tradicional do Discord.\n" +
-        "-# Clique em SALVAR para aplicar a alteração."
+        "> Escolha o estilo da mensagem que será enviada quando o ticket for aberto.\n\n" +
+        "### <:clipboard:1557204790843412542> Interface do Ticket\n" +
+        "> **" + (mode === "embed" ? "Embed" : "Container V2") + "** está selecionado."
       )
     )
     .addActionRowComponents(
@@ -2409,13 +2405,13 @@ function buildTicketInterfaceModePanel(guildId, userId) {
           .addOptions(
             {
               label: "Container V2",
-              description: v2Selected ? "Modo atual • Components V2" : "Usar Container V2 no ticket",
+              description: "Interface moderna no estilo ShopEasy",
               value: "v2",
               emoji: { name: "clipboard", id: "1557204790843412542" }
             },
             {
               label: "Embed",
-              description: embedSelected ? "Modo atual • Embed tradicional" : "Usar Embed tradicional no ticket",
+              description: "Interface tradicional usando Embed",
               value: "embed",
               emoji: { name: "file", id: "1557204826280951858" }
             }
@@ -2439,7 +2435,6 @@ function buildTicketInterfaceModePanel(guildId, userId) {
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
-
 const ticketOpeningModeDrafts = new Map();
 
 function buildTicketOpeningModePanel(guildId, userId) {
