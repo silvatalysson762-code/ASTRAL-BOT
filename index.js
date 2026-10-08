@@ -2782,7 +2782,7 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
         ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel("Assumido")
-            .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Success).setDisabled(true)
+            .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Secondary).setDisabled(true)
         : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel("Assumir")
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel("Atribuir")
