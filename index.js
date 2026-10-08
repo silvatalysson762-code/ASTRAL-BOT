@@ -1951,7 +1951,7 @@ function buildRolesPanel(guildId) {
       new TextDisplayBuilder().setContent(
         "## <:user:1557205116849758238> CARGOS\n" +
         "> Central de configuração de cargos da ASTRAL STORE.\n" +
-        "> Organize os cargos do servidor de forma rápida e simples.\n\n" +
+        "> Organize os cargos do servidor de forma rápida e simples.\n" +
         "### <:clipboard:1557204790843412542> Categorias\n" +
         "> Selecione abaixo o tipo de cargo que deseja configurar."
       )
