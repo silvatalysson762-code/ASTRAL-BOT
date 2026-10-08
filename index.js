@@ -4443,13 +4443,80 @@ client.on("interactionCreate", async interaction => {
         "> **Emoji:** " + (fn.emoji?.id ? "<:" + String(fn.emoji.name || "ticket_emoji") + ":" + String(fn.emoji.id) + ">" : "Não configurado")
       ))
       .addActionRowComponents(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:function_edit:" + fn.id).setLabel("Editar função").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("ticket:function_delete:" + fn.id).setLabel("Excluir função").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder()
+          .setCustomId("ticket:function_edit:" + fn.id)
+          .setLabel("Editar função")
+          .setEmoji(applicationEmojiObject("text_alt", "✏️"))
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("ticket:function_save:" + fn.id)
+          .setLabel("Salvar")
+          .setEmoji(applicationEmojiObject("save", "💾"))
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("ticket:function_delete:" + fn.id)
+          .setLabel("Excluir função")
+          .setEmoji(applicationEmojiObject("trash", "🗑️"))
+          .setStyle(ButtonStyle.Danger)
       ))
       .addActionRowComponents(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder()
+          .setCustomId("ticket:manage_function_select_back")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
       ));
     await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("ticket:function_save:")) {
+    try {
+      const functionId = interaction.customId.slice("ticket:function_save:".length);
+      const config = getGuildConfig(interaction.guildId);
+      const fn = (config.ticketFunctions || []).find(item => item.id === functionId);
+      if (!fn) {
+        await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true });
+        return;
+      }
+
+      // As alterações do formulário já são persistidas ao enviar o modal.
+      // Este botão garante uma gravação explícita e atualiza o painel.
+      updateGuildConfig(interaction.guildId, cfg => {
+        cfg.ticketFunctions = Array.isArray(cfg.ticketFunctions) ? cfg.ticketFunctions : [];
+        const target = cfg.ticketFunctions.find(item => item.id === functionId);
+        if (target) Object.assign(target, fn);
+      });
+
+      const updatedConfig = getGuildConfig(interaction.guildId);
+      const savedFn = (updatedConfig.ticketFunctions || []).find(item => item.id === functionId) || fn;
+      const container = new ContainerBuilder()
+        .setAccentColor(getBotPanelAccentColor())
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+          "## <:config_title_alt:1557204540460240926> GERENCIAR FUNÇÃO\n" +
+          "### <:ticket_plus:1557205110847701052> " + String(savedFn.name || "Atendimento") + "\n" +
+          "> **Pré descrição:** " + String(savedFn.preDescription || "Não configurada") + "\n" +
+          "> **Descrição:** " + String(savedFn.description || "Não configurada") + "\n" +
+          "> **Banner:** " + String(savedFn.banner || "Não configurado") + "\n" +
+          "> **Emoji:** " + (savedFn.emoji?.id ? "<:" + String(savedFn.emoji.name || "ticket_emoji") + ":" + String(savedFn.emoji.id) + ">" : "Não configurado") + "\n\n" +
+          "### <:save:1557205052974960780> Função salva com sucesso."
+        ))
+        .addActionRowComponents(new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("ticket:function_edit:" + savedFn.id).setLabel("Editar função").setEmoji(applicationEmojiObject("text_alt", "✏️")).setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId("ticket:function_save:" + savedFn.id).setLabel("Salvar").setEmoji(applicationEmojiObject("save", "💾")).setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId("ticket:function_delete:" + savedFn.id).setLabel("Excluir função").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
+        ))
+        .addActionRowComponents(new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+        ));
+
+      await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    } catch (error) {
+      console.error("[TICKET] Erro ao salvar função:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui salvar a função.", ephemeral: true }).catch(() => {});
+      }
+    }
     return;
   }
 
