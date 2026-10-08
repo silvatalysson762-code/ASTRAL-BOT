@@ -100,7 +100,7 @@ async function restartOnDiscloud() {
     appId = String(apps[0]);
   }
 
-  const response = await fetch("https://api.discloud.app/v2/apps/" + encodeURIComponent(appId) + "/restart", {
+  const response = await fetch("https://api.discloud.app/v2/app/" + encodeURIComponent(appId) + "/restart", {
     method: "PUT",
     headers: { "api-token": token, Accept: "*/*" },
     signal: AbortSignal.timeout(20000)
