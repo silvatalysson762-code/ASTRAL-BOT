@@ -1915,7 +1915,7 @@ function buildTicketSchedulePanel(guildId) {
   const activeCount = result.activeCount;
   const statusEmoji = schedule.enabled ? "<:online:1557204563675848814>" : "<:offline:1557204568432185454>";
   const statusText = schedule.enabled ? "Ativado" : "Desativado";
-  const outsideEmoji = schedule.allowOutsideHours ? "<:online:1557204563675848814>" : "<:lock:1557204892178211234>";
+  const outsideEmoji = schedule.allowOutsideHours ? "<:online:1557204563675848814>" : "<:warning:1557204565877592085>";
   const outsideText = schedule.allowOutsideHours ? "Permitido" : "Bloqueado";
   const outsideSub = schedule.allowOutsideHours ? "Tickets podem ser abertos a qualquer momento" : "Apenas no horário configurado";
   const dayLines = TICKET_SCHEDULE_DAYS.map(day => {
@@ -1965,7 +1965,7 @@ function buildTicketSchedulePanel(guildId) {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:schedule_outside").setLabel("Permitir Fora do Horário").setEmoji({ name: "lock", id: "1557204892178211234" }).setStyle(schedule.allowOutsideHours ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("ticket:schedule_outside").setLabel("Permitir Fora do Horário").setEmoji({ name: "warning", id: "1557204565877592085" }).setStyle(schedule.allowOutsideHours ? ButtonStyle.Success : ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId("ticket:schedule_all_on").setLabel("Ativar todos os dias").setEmoji({ name: "check_alt", id: "1557204542960181299" }).setStyle(ButtonStyle.Success)
       )
     )
