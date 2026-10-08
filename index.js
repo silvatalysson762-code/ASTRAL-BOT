@@ -2229,8 +2229,11 @@ function buildServerAdminPanel() {
 const stockTypeOption = (option) => option.setName("stock_type").setDescription("Choose which stock to analyze").setRequired(true)
   .addChoices({ name: "Normal Stock", value: "normal" }, { name: "Mirage Stock", value: "mirage" });
 
-async function getRobloxAvatar(username) {
+const robloxAvatarCache = new Map();\nconst ROBLOX_AVATAR_CACHE_MS = 2 * 60 * 1000;\n\nasync function getRobloxAvatar(username) {
   const cleanUsername = String(username || "").trim();
+  const cacheKey = cleanUsername.toLowerCase();
+  const cached = robloxAvatarCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
   if (!cleanUsername) throw new Error("Informe um nome de usuário do Roblox.");
 
   const userResponse = await fetch("https://users.roblox.com/v1/usernames/users", {
@@ -2240,7 +2243,7 @@ async function getRobloxAvatar(username) {
       usernames: [cleanUsername],
       excludeBannedUsers: false
     }),
-    signal: AbortSignal.timeout(10000)
+    signal: AbortSignal.timeout(5000)
   });
 
   if (!userResponse.ok) throw new Error("Não consegui consultar o usuário do Roblox.");
@@ -2264,7 +2267,7 @@ async function getRobloxAvatar(username) {
   const avatarUrl =
     "https://thumbnails.roblox.com/v1/users/avatar" +
     "?userIds=" + encodeURIComponent(user.id) +
-    "&size=720x720&format=Png&isCircular=false";
+    "&size=420x420&format=Png&isCircular=false";
 
   const [avatarData, details, friends, followers, following] = await Promise.all([
     jsonFetch(avatarUrl, { data: [] }),
@@ -2282,7 +2285,7 @@ async function getRobloxAvatar(username) {
   let favoriteGames = 0;
   let cursor = null;
   let favoritesComplete = true;
-  for (let page = 0; page < 40; page++) {
+  for (let page = 0; page < 4; page++) {
     const params = new URLSearchParams({ sortOrder: "Desc", limit: "50" });
     if (cursor) params.set("cursor", cursor);
     const pageData = await jsonFetch(
@@ -2296,7 +2299,7 @@ async function getRobloxAvatar(username) {
     favoriteGames += Array.isArray(pageData.data) ? pageData.data.length : 0;
     cursor = pageData.nextPageCursor || null;
     if (!cursor) break;
-    if (page === 39) favoritesComplete = false;
+    if (page === 3) favoritesComplete = Boolean(cursor) ? false : favoritesComplete;
   }
 
   return {
@@ -2311,6 +2314,8 @@ async function getRobloxAvatar(username) {
     favoriteGames,
     favoritesComplete
   };
+  robloxAvatarCache.set(cacheKey, { data: result, expiresAt: Date.now() + ROBLOX_AVATAR_CACHE_MS });
+  return result;
 }
 
 const commands = [
