@@ -4445,21 +4445,21 @@ client.on("interactionCreate", async interaction => {
       .addActionRowComponents(new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:function_edit:" + fn.id)
-          .setLabel("Editar função")
-          .setEmoji(applicationEmojiObject("text_alt", "✏️"))
+          .setLabel("Editar")
+          .setEmoji({ name: "compass", id: "1557204910578335844" })
           .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("ticket:function_delete:" + fn.id)
+          .setLabel("Excluir")
+          .setEmoji(applicationEmojiObject("trash", "🗑️"))
+          .setStyle(ButtonStyle.Danger)
+      ))
+      .addActionRowComponents(new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:function_save:" + fn.id)
           .setLabel("Salvar")
           .setEmoji(applicationEmojiObject("save", "💾"))
           .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId("ticket:function_delete:" + fn.id)
-          .setLabel("Excluir função")
-          .setEmoji(applicationEmojiObject("trash", "🗑️"))
-          .setStyle(ButtonStyle.Danger)
-      ))
-      .addActionRowComponents(new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:manage_function_select_back")
           .setLabel("Voltar")
@@ -4467,6 +4467,31 @@ client.on("interactionCreate", async interaction => {
           .setStyle(ButtonStyle.Secondary)
       ));
     await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("ticket:function_delete:")) {
+    try {
+      const functionId = interaction.customId.slice("ticket:function_delete:".length);
+      const config = getGuildConfig(interaction.guildId);
+      const fn = (config.ticketFunctions || []).find(item => item.id === functionId);
+      if (!fn) {
+        await interaction.reply({ content: "❌ Essa função não existe mais.", ephemeral: true });
+        return;
+      }
+
+      updateGuildConfig(interaction.guildId, cfg => {
+        cfg.ticketFunctions = (Array.isArray(cfg.ticketFunctions) ? cfg.ticketFunctions : [])
+          .filter(item => item.id !== functionId);
+      });
+
+      await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET] Erro ao excluir função:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui excluir a função.", ephemeral: true }).catch(() => {});
+      }
+    }
     return;
   }
 
@@ -4502,11 +4527,11 @@ client.on("interactionCreate", async interaction => {
           "### <:save:1557205052974960780> Função salva com sucesso."
         ))
         .addActionRowComponents(new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("ticket:function_edit:" + savedFn.id).setLabel("Editar função").setEmoji(applicationEmojiObject("text_alt", "✏️")).setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId("ticket:function_save:" + savedFn.id).setLabel("Salvar").setEmoji(applicationEmojiObject("save", "💾")).setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId("ticket:function_delete:" + savedFn.id).setLabel("Excluir função").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId("ticket:function_edit:" + savedFn.id).setLabel("Editar").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId("ticket:function_delete:" + savedFn.id).setLabel("Excluir").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
         ))
         .addActionRowComponents(new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("ticket:function_save:" + savedFn.id).setLabel("Salvar").setEmoji(applicationEmojiObject("save", "💾")).setStyle(ButtonStyle.Success),
           new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
         ));
 
