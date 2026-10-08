@@ -3529,8 +3529,8 @@ client.on("interactionCreate", async interaction => {
 
       await interaction.editReply({
         content: result.alreadyOpen
-          ? "🎫 Você já tem um atendimento aberto: <#" + target.id + ">"
-          : "🎫 Atendimento aberto: <#" + target.id + ">"
+          ? "<:online:1557204563675848814> | Você já tem um atendimento aberto: <#" + target.id + ">"
+          : "<:online:1557204563675848814> | Ticket criado com sucesso! <#" + target.id + ">"
       });
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
@@ -4078,8 +4078,8 @@ client.on("interactionCreate", async interaction => {
       const target = result.target;
       await interaction.reply({
         content: result.alreadyOpen
-          ? "🎫 Você já tem um atendimento aberto: <#" + target.id + ">"
-          : "🎫 Atendimento aberto: <#" + target.id + ">",
+          ? "<:online:1557204563675848814> | Você já tem um atendimento aberto: <#" + target.id + ">"
+          : "<:online:1557204563675848814> | Ticket criado com sucesso! <#" + target.id + ">",
         ephemeral: true
       });
     } catch (error) {
