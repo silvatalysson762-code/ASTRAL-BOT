@@ -2880,7 +2880,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     try {
       const recent = await thread.messages.fetch({ limit: 10 });
       for (const systemMessage of recent.values()) {
-        if (systemMessage.type === MessageType.ThreadMemberJoin && systemMessage.author?.id === client.user.id) {
+        if (systemMessage.type === MessageType.ThreadMemberJoin) {
           await systemMessage.delete().catch(() => {});
         }
       }
@@ -3505,7 +3505,6 @@ client.on("messageCreate", async message => {
   try {
     if (!message.guild || !message.channel?.isThread?.()) return;
     if (message.type !== MessageType.ThreadMemberJoin) return;
-    if (message.author?.id !== client.user?.id) return;
     const parent = message.channel.parent;
     if (!parent || !parent.isTextBased()) return;
     const config = getGuildConfig(message.guild.id);
