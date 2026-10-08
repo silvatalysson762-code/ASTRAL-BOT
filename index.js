@@ -1831,7 +1831,7 @@ function buildTicketOpeningModePanel(guildId, userId) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> MODO DE ABERTURA\n" +
-        "> Escolha como os atendimentos serão criados quando alguém abrir um ticket.\n\n" +
+        "> Escolha como os atendimentos serão criados quando alguém abrir um ticket.\n" +
         "<:ticket_plus:1557205110847701052> **Modo atual**\n" +
         "> " + (channelSelected ? "Canal Privado" : "Thread Privada") + "\n" +
         "-# Clique em SALVAR para aplicar a alteração."
@@ -1868,7 +1868,7 @@ function buildTicketOpeningModePanel(guildId, userId) {
         new ButtonBuilder()
           .setCustomId("ticket:opening_mode_save")
           .setLabel("Salvar")
-          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setEmoji({ name: "settings_button", id: "1557204872648982579" })
           .setStyle(ButtonStyle.Success)
       )
     );
