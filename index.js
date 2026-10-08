@@ -3891,24 +3891,48 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  async function commandReply(interaction, payload) {
+    const isEphemeral = Boolean(payload?.ephemeral);
+    if (isEphemeral) {
+      return interaction.reply(payload);
+    }
+
+    if (!interaction.channel?.send) {
+      return interaction.reply(payload);
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    const cleanPayload = { ...payload };
+    delete cleanPayload.ephemeral;
+
+    try {
+      const sent = await interaction.channel.send(cleanPayload);
+      await interaction.deleteReply().catch(() => {});
+      return sent;
+    } catch (error) {
+      await interaction.deleteReply().catch(() => {});
+      throw error;
+    }
+  }
+
   if (!interaction.isChatInputCommand()) return;
   try {
   if (interaction.commandName === "suporte") {
     if (!interaction.guildId) {
-      await interaction.reply({ content: "❌ O painel de suporte só pode ser usado dentro de um servidor.", ephemeral: true });
+      await commandReply(interaction, { content: "❌ O painel de suporte só pode ser usado dentro de um servidor.", ephemeral: true });
       return;
     }
     const canManage = await isBotOwner(interaction.user.id) ||
       Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
     if (!canManage) {
-      await interaction.reply({ content: "❌ Você precisa da permissão **Gerenciar Servidor** para publicar o painel de suporte.", ephemeral: true });
+      await commandReply(interaction, { content: "❌ Você precisa da permissão **Gerenciar Servidor** para publicar o painel de suporte.", ephemeral: true });
       return;
     }
-    await interaction.reply(buildSupportPanel(interaction.guild));
+    await commandReply(interaction, buildSupportPanel(interaction.guild));
     return;
   } else if (interaction.commandName === "painel") {
     if (!interaction.guildId) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " O painel só pode ser usado dentro de um servidor.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "❌") + " O painel só pode ser usado dentro de um servidor.", ephemeral: true });
       return;
     }
 
@@ -3916,7 +3940,7 @@ client.on("interactionCreate", async interaction => {
       Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
 
     if (!canManage) {
-      await interaction.reply({
+      await commandReply(interaction, {
         content: uiEmoji("error", "❌") + " Você precisa da permissão **Gerenciar Servidor** para abrir o painel.",
         ephemeral: true
       });
@@ -3924,7 +3948,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     try {
-      await interaction.reply({
+      await commandReply(interaction, {
         content: "<a:refresh_alt:1557205141051019274> Abrindo painel...",
         ephemeral: true
       });
@@ -3936,7 +3960,7 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro ao abrir /painel:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
+        await commandReply(interaction, {
           content: "<:offline:1557204568432185454> Não consegui abrir o painel." + (error?.message ? "\n-# Erro: " + String(error.message).slice(0, 180) : ""),
           ephemeral: true
         }).catch(() => {});
@@ -3945,7 +3969,7 @@ client.on("interactionCreate", async interaction => {
     return;
   } else if (interaction.commandName === "server-panel") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar o painel de servidores.", ephemeral: true });
       return;
     }
 
@@ -3959,7 +3983,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (action === "remove" && serverId === PROTECTED_GUILD_ID) {
-      await interaction.reply({ content: "🔒 Esse servidor é protegido e não pode ser removido do painel.", ephemeral: true });
+      await commandReply(interaction, { content: "🔒 Esse servidor é protegido e não pode ser removido do painel.", ephemeral: true });
       return;
     }
 
@@ -3968,7 +3992,7 @@ client.on("interactionCreate", async interaction => {
         const guild = client.guilds.cache.get(id);
         return guild ? "• **" + guild.name + "** — \`" + id + "\`" : "• \`" + id + "\` — servidor não encontrado";
       });
-      await interaction.reply({
+      await commandReply(interaction, {
         content: "🛡️ **Servidores autorizados**\\n\\n" + (entries.join("\\n") || "Nenhum servidor autorizado."),
         ephemeral: true
       });
@@ -3976,7 +4000,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (!/^\d{17,20}$/.test(String(serverId || ""))) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Informe um ID de servidor Discord válido em **server_id**.", ephemeral: true });
       return;
     }
 
@@ -3985,7 +4009,7 @@ client.on("interactionCreate", async interaction => {
       saveConfig(config);
 
       const guild = client.guilds.cache.get(serverId);
-      await interaction.reply({
+      await commandReply(interaction, {
         content: uiEmoji("success", "✅") + " Servidor \`" + serverId + "\` adicionado à lista de permitidos." + (guild ? " O bot já está nesse servidor." : " Quando o bot entrar nesse servidor, ele permanecerá nele."),
         ephemeral: true
       });
@@ -4001,7 +4025,7 @@ client.on("interactionCreate", async interaction => {
         try { await guild.leave(); } catch {}
       }
 
-      await interaction.reply({
+      await commandReply(interaction, {
         content: uiEmoji("trash", "🗑️") + " Servidor \`" + serverId + "\` removido da lista." + (guild ? " O bot saiu dele automaticamente." : ""),
         ephemeral: true
       });
@@ -4118,7 +4142,7 @@ client.on("interactionCreate", async interaction => {
         new TextDisplayBuilder().setContent(content)
       );
 
-    await interaction.reply({
+    await commandReply(interaction, {
       components: [makeTestContainer(pages[0])],
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] }
@@ -4133,7 +4157,7 @@ client.on("interactionCreate", async interaction => {
     }
   } else if (interaction.commandName === "send-stock") {
     if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Apenas o dono da aplicação pode usar /send-stock.", ephemeral: true });
       return;
     }
 
@@ -4149,14 +4173,14 @@ client.on("interactionCreate", async interaction => {
       if (normal.length) components.push(stockContainer(normal, stockTitle("normal"), "normal", defaultGuildConfig()));
       if (mirage.length) components.push(stockContainer(mirage, stockTitle("mirage"), "mirage", defaultGuildConfig()));
       if (!components.length) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Ainda não existe stock salvo para enviar.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("error", "❌") + " Ainda não existe stock salvo para enviar.", ephemeral: true });
         return;
       }
-      await interaction.reply({ components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+      await commandReply(interaction, { components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
     } catch (error) {
       console.error("Erro no /send-stock:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui enviar o stock salvo.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("error", "❌") + " Não consegui enviar o stock salvo.", ephemeral: true });
       }
     }
   } else if (interaction.commandName === "stock") {
@@ -4173,10 +4197,10 @@ client.on("interactionCreate", async interaction => {
       if (!components.length) {
         components.push(stockContainer([], "🍈 STOCK ATUAL", null, getGuildConfig(interaction.guildId)));
       }
-      await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+      await commandReply(interaction, { components, flags: MessageFlags.IsComponentsV2 });
     } catch (e) {
       console.error("Erro no /stock:", e);
-      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui mostrar o estoque agora.", ephemeral: true });
+      if (!interaction.replied && !interaction.deferred) await commandReply(interaction, { content: uiEmoji("error", "❌") + " Não consegui mostrar o estoque agora.", ephemeral: true });
     }
   } else if (interaction.commandName === "refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
@@ -4212,11 +4236,11 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "set-stock-channel") {
     const channel = interaction.options.getChannel("channel", true);
     if (!channel.isTextBased() || !channel.send) {
-      await interaction.reply({ content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
       return;
     }
     updateGuildConfig(interaction.guildId, config => { config.channelId = channel.id; });
-    await interaction.reply({ content: uiEmoji("success", "✅") + " Canal de stock configurado para " + channel + ".", ephemeral: true });
+    await commandReply(interaction, { content: uiEmoji("success", "✅") + " Canal de stock configurado para " + channel + ".", ephemeral: true });
   } else if (interaction.commandName === "set-stock-title") {
     const groupKey = interaction.options.getString("stock_type");
     const title = interaction.options.getString("title").trim();
@@ -4224,7 +4248,7 @@ client.on("interactionCreate", async interaction => {
       config.titles = config.titles || {};
       config.titles[groupKey] = title;
     });
-    await interaction.reply({
+    await commandReply(interaction, {
       content: `Título do ${groupKey === "mirage" ? "Stock da Mirage" : "Stock Normal"} alterado para **${title}**.`,
       ephemeral: true
     });
@@ -4234,7 +4258,7 @@ client.on("interactionCreate", async interaction => {
     const role = interaction.options.getRole("role", true);
 
     if (!fruit) {
-      await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+      await commandReply(interaction, { content: invalidFruitMessage(inputFruit), ephemeral: true });
       return;
     }
 
@@ -4242,24 +4266,24 @@ client.on("interactionCreate", async interaction => {
       config.roles = config.roles || {};
       config.roles[fruitKey(fruit)] = role.id;
     });
-    await interaction.reply({ content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
+    await commandReply(interaction, { content: `Cargo ${role} configurado para **${fruit}**. Vou mencionar esse cargo quando a fruta aparecer no stock.`, ephemeral: true });
   } else if (interaction.commandName === "list-roles") {
     const roles = getGuildConfig(interaction.guildId).roles || {};
     const entries = Object.entries(roles).filter(([, id]) => /^\d{17,20}$/.test(String(id)));
     const content = entries.map(([fruit, id]) => `• ${fruitEmoji(fruit)} **${fruit}**: <@&${id}>`).join("\n");
-    await interaction.reply({ content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
+    await commandReply(interaction, { content: content || "Nenhum cargo configurado ainda. Use /configurar-fruta.", ephemeral: true, allowedMentions: { parse: [] } });
   } else if (interaction.commandName === "fruit-role-panel") {
     const panel = buildFruitRolePanel(interaction.guildId);
 
     if (!panel.configured?.length) {
-      await interaction.reply({
+      await commandReply(interaction, {
         content: uiEmoji("error", "❌") + " Nenhuma fruta possui cargo configurado. Use primeiro **/set-fruit-role**.",
         ephemeral: true
       });
       return;
     }
 
-    await interaction.reply({
+    await commandReply(interaction, {
       ...panel,
       flags: MessageFlags.IsComponentsV2
     });
@@ -4268,17 +4292,17 @@ client.on("interactionCreate", async interaction => {
     const fruit = resolveFruitName(inputFruit);
 
     if (!fruit) {
-      await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+      await commandReply(interaction, { content: invalidFruitMessage(inputFruit), ephemeral: true });
       return;
     }
 
     const fruitKeyName = fruitKey(fruit);
     const config = getGuildConfig(interaction.guildId);
     if (!config.roles[fruitKeyName]) {
-      await interaction.reply({ content: `Não há cargo configurado para **${fruit}**.`, ephemeral: true });
+      await commandReply(interaction, { content: `Não há cargo configurado para **${fruit}**.`, ephemeral: true });
     } else {
       updateGuildConfig(interaction.guildId, config => { delete config.roles[fruitKeyName]; });
-      await interaction.reply({ content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
+      await commandReply(interaction, { content: `Configuração de cargo removida para **${fruit}**.`, ephemeral: true });
     }
   } else if (interaction.commandName === "stock-alert") {
     const action = interaction.options.getString("action", true);
@@ -4286,17 +4310,17 @@ client.on("interactionCreate", async interaction => {
     if (action === "set_channel") {
       const channel = interaction.options.getChannel("channel", true);
       if (!channel.isTextBased() || !channel.send) {
-        await interaction.reply({ content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("error", "❌") + " Escolha um canal de texto.", ephemeral: true });
         return;
       }
       updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = channel.id; });
-      await interaction.reply({ content: uiEmoji("success", "✅") + " Canal de alertas definido como " + channel + ".", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("success", "✅") + " Canal de alertas definido como " + channel + ".", ephemeral: true });
     } else if (action === "remove_channel") {
       if (!guildConfig.stockAlertChannelId) {
-        await interaction.reply({ content: "Não há canal de alertas configurado.", ephemeral: true });
+        await commandReply(interaction, { content: "Não há canal de alertas configurado.", ephemeral: true });
       } else {
         updateGuildConfig(interaction.guildId, config => { config.stockAlertChannelId = null; });
-        await interaction.reply({ content: uiEmoji("mute", "🔕") + " Canal de alertas removido.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("mute", "🔕") + " Canal de alertas removido.", ephemeral: true });
       }
     } else if (action === "add_fruit") {
       const inputFruit = interaction.options.getString("fruit", true);
@@ -4304,7 +4328,7 @@ client.on("interactionCreate", async interaction => {
       const role = interaction.options.getRole("role", true);
 
       if (!fruit) {
-        await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+        await commandReply(interaction, { content: invalidFruitMessage(inputFruit), ephemeral: true });
         return;
       }
 
@@ -4313,33 +4337,33 @@ client.on("interactionCreate", async interaction => {
         config.stockAlerts = config.stockAlerts || {};
         config.stockAlerts[fruitKeyName] = role.id;
       });
-      await interaction.reply({ content: uiEmoji("alert", "🔔") + " Alerta ativado para **" + fruit + "**. Vou mencionar " + role + " no canal de alertas quando aparecer.", ephemeral: true });
+      await commandReply(interaction, { content: uiEmoji("alert", "🔔") + " Alerta ativado para **" + fruit + "**. Vou mencionar " + role + " no canal de alertas quando aparecer.", ephemeral: true });
     } else if (action === "remove_fruit") {
       const inputFruit = interaction.options.getString("fruit", true);
       const fruit = resolveFruitName(inputFruit);
 
       if (!fruit) {
-        await interaction.reply({ content: invalidFruitMessage(inputFruit), ephemeral: true });
+        await commandReply(interaction, { content: invalidFruitMessage(inputFruit), ephemeral: true });
         return;
       }
 
       const fruitKeyName = fruitKey(fruit);
       if (!guildConfig.stockAlerts?.[fruitKeyName]) {
-        await interaction.reply({ content: "Não há alerta configurado para **" + fruit + "**.", ephemeral: true });
+        await commandReply(interaction, { content: "Não há alerta configurado para **" + fruit + "**.", ephemeral: true });
       } else {
         updateGuildConfig(interaction.guildId, config => { delete config.stockAlerts[fruitKeyName]; });
-        await interaction.reply({ content: uiEmoji("mute", "🔕") + " Alerta removido para **" + fruit + "**.", ephemeral: true });
+        await commandReply(interaction, { content: uiEmoji("mute", "🔕") + " Alerta removido para **" + fruit + "**.", ephemeral: true });
       }
     }  } else if (interaction.commandName === "stock-prediction" || interaction.commandName === "stock-statistics") {
     const groupKey = interaction.options.getString("stock_type", true);
     const isPrediction = interaction.commandName === "stock-prediction";
-    await interaction.reply({ content: analyticsMessage(groupKey, isPrediction), ephemeral: true });
+    await commandReply(interaction, { content: analyticsMessage(groupKey, isPrediction), ephemeral: true });
   } else if (interaction.commandName === "stock-history") {
     const history = readState().history || [];
     const content = history.slice(0, 5).map((h, i) =>
       `**${i + 1}.** <t:${Math.floor(new Date(h.at).getTime() / 1000)}:R> • ${(h.stock || []).map(safeName).join(", ") || "Sem dados"}`
     ).join("\n");
-    await interaction.reply({ content: content || "Ainda não há histórico de alterações.", ephemeral: true });
+    await commandReply(interaction, { content: content || "Ainda não há histórico de alterações.", ephemeral: true });
   }
   } catch (error) {
     console.error(`Erro no comando /${interaction.commandName}:`, error);
