@@ -3646,18 +3646,55 @@ client.on("interactionCreate", async interaction => {
       const parts = interaction.customId.split(":");
       const action = parts[2];
       const ownerId = parts[3];
-      const modal = new ModalBuilder()
-        .setCustomId("ticket:member_modal:" + action + ":" + ownerId)
-        .setTitle(action === "add" ? "Adicionar membro" : "Remover membro")
-        .addComponents(new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId("member_id").setLabel("ID ou menção do membro")
-            .setPlaceholder("Ex.: 123456789012345678 ou @membro")
-            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(30)
-        ));
-      await interaction.showModal(modal);
+      const selector = new UserSelectMenuBuilder()
+        .setCustomId("ticket:member_select:" + action + ":" + ownerId)
+        .setPlaceholder(action === "add" ? "Escolha quem adicionar" : "Escolha quem remover")
+        .setMinValues(1).setMaxValues(1);
+      await interaction.reply({
+        content: action === "add" ? "Selecione o membro que deseja adicionar ao ticket:" : "Selecione o membro que deseja remover do ticket:",
+        components: [new ActionRowBuilder().addComponents(selector)],
+        ephemeral: true
+      });
     } catch (error) {
       console.error("[TICKET] Erro ao abrir modal de membros:", error);
       if (!interaction.replied) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir essa opção.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isUserSelectMenu() && interaction.customId.startsWith("ticket:member_select:")) {
+    try {
+      if (!(await interactionHasTicketStaffRole(interaction))) {
+        await interaction.update({ content: "<:offline:1557204568432185454> Apenas os cargos configurados podem gerenciar membros.", components: [] });
+        return;
+      }
+      const parts = interaction.customId.split(":");
+      const action = parts[2];
+      const ownerId = parts[3];
+      const memberId = interaction.values[0];
+      if (action === "remove" && memberId === ownerId) throw new Error("Não é possível remover o dono deste ticket.");
+      if (memberId === client.user.id) throw new Error("Não é possível remover o próprio bot do ticket.");
+      const member = await interaction.guild.members.fetch(memberId).catch(() => null);
+      if (!member) throw new Error("Não encontrei esse membro neste servidor.");
+      const target = interaction.channel;
+      if (!target) throw new Error("Não encontrei o canal deste ticket.");
+      if (target.isThread?.()) {
+        if (action === "add") await target.members.add(memberId);
+        else await target.members.remove(memberId);
+      } else if (action === "add") {
+        await target.permissionOverwrites.edit(memberId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+      } else {
+        await target.permissionOverwrites.delete(memberId);
+      }
+      await interaction.update({
+        content: action === "add"
+          ? "<:online:1557204563675848814> <@" + memberId + "> foi adicionado ao atendimento."
+          : "<:online:1557204563675848814> <@" + memberId + "> foi removido do atendimento.",
+        components: [],
+        allowedMentions: { users: [] }
+      });
+    } catch (error) {
+      await interaction.update({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui atualizar os membros do ticket."), components: [] }).catch(() => {});
     }
     return;
   }
@@ -3710,12 +3747,13 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     const ownerId = interaction.customId.split(":")[2];
-    // Assumir não altera o painel nem os botões: mantém os tamanhos e o layout originais.
-    await interaction.reply({
+    // Mantém o mesmo espaço do botão; muda apenas texto, emoji e cor para indicar que foi assumido.
+    await interaction.update(buildTicketControlPanel(ownerId, interaction.user.id));
+    await interaction.followUp({
       content: "<:ticket_check:1557205113100046347> Atendimento assumido por <@" + interaction.user.id + ">.",
       ephemeral: true,
       allowedMentions: { users: [] }
-    });
+    }).catch(() => {});
     return;
   }
 
