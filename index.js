@@ -1790,9 +1790,12 @@ function buildTicketFunctionReorderPanel(guildId, userId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildTicketOpeningModePanel(guildId) {
+const ticketOpeningModeDrafts = new Map();
+
+function buildTicketOpeningModePanel(guildId, userId) {
   const config = getGuildConfig(guildId);
-  const mode = config.ticketOpeningMode || "channel";
+  const draftKey = String(guildId) + ":" + String(userId || "");
+  const mode = ticketOpeningModeDrafts.get(draftKey) || config.ticketOpeningMode || "channel";
   const channelSelected = mode === "channel";
   const threadSelected = mode === "thread";
 
@@ -2548,7 +2551,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (selected === "opening_mode") {
-      await interaction.update(buildTicketOpeningModePanel(interaction.guildId));
+      await interaction.update(buildTicketOpeningModePanel(interaction.guildId, interaction.user.id));
       return;
     }
 
@@ -2567,6 +2570,7 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton() && interaction.customId === "ticket:opening_mode_back") {
+    ticketOpeningModeDrafts.delete(String(interaction.guildId) + ":" + String(interaction.user.id));
     await interaction.update(buildTicketConfigPanel(interaction.guildId));
     return;
   }
@@ -2574,10 +2578,27 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:opening_mode") {
     try {
       const mode = interaction.values[0] === "thread" ? "thread" : "channel";
+      ticketOpeningModeDrafts.set(String(interaction.guildId) + ":" + String(interaction.user.id), mode);
+      await interaction.update(buildTicketOpeningModePanel(interaction.guildId, interaction.user.id));
+    } catch (error) {
+      console.error("[TICKET] Erro ao alterar modo de abertura:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "<:60698:1557204568432185454> Não consegui atualizar o modo de abertura.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:opening_mode_save") {
+    try {
+      const key = String(interaction.guildId) + ":" + String(interaction.user.id);
+      const current = getGuildConfig(interaction.guildId).ticketOpeningMode || "channel";
+      const mode = ticketOpeningModeDrafts.get(key) || current;
       updateGuildConfig(interaction.guildId, config => {
         config.ticketOpeningMode = mode;
       });
-      await interaction.update(buildTicketOpeningModePanel(interaction.guildId));
+      ticketOpeningModeDrafts.delete(key);
+      await interaction.update(buildTicketOpeningModePanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[TICKET] Erro ao salvar modo de abertura:", error);
       if (!interaction.replied && !interaction.deferred) {
