@@ -2384,52 +2384,31 @@ const ticketInterfaceModeDrafts = new Map();
 
 function buildTicketInterfaceModePanel(guildId, userId) {
   const config = getGuildConfig(guildId);
-  const draftKey = String(guildId) + ":" + String(userId || "");
-  const mode = ticketInterfaceModeDrafts.get(draftKey) || config.ticketInterfaceMode || "v2";
+  const mode = ticketInterfaceModeDrafts.get(String(guildId) + ":" + String(userId || "")) || config.ticketInterfaceMode || "v2";
+  const isEmbed = mode === "embed";
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> MODO DE INTERFACE\n" +
-        "> Escolha o estilo da mensagem que será enviada quando o ticket for aberto.\n\n" +
-        "### <:clipboard:1557204790843412542> Interface do Ticket\n" +
-        "> **" + (mode === "embed" ? "Embed" : "Container V2") + "** está selecionado."
+        "> Alternar entre Embed clássico e Container V2 quando abrir um ticket.\n\n" +
+        "### <:clipboard:1557204790843412542> Modo atual: " + (isEmbed ? "Embed Clássico" : "Container V2") + "\n" +
+        "> Clique no botão abaixo para alternar para o outro modo."
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("ticket:interface_mode")
-          .setPlaceholder("Selecione o modo de interface")
-          .addOptions(
-            {
-              label: "Container V2",
-              description: "Interface moderna no estilo ShopEasy",
-              value: "v2",
-              emoji: { name: "clipboard", id: "1557204790843412542" }
-            },
-            {
-              label: "Embed",
-              description: "Interface tradicional usando Embed",
-              value: "embed",
-              emoji: { name: "file", id: "1557204826280951858" }
-            }
-          )
-      )
-    )
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:interface_mode_toggle")
+          .setLabel(isEmbed ? "Mudar para Container V2" : "Mudar para Embed Clássico")
+          .setEmoji({ name: "clipboard", id: "1557204790843412542" })
+          .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("ticket:interface_mode_back")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("ticket:interface_mode_save")
-          .setLabel("Salvar")
-          .setEmoji({ name: "save", id: "1557205052974960780" })
-          .setStyle(ButtonStyle.Success)
+          .setStyle(ButtonStyle.Secondary)
       )
     );
 
@@ -3506,18 +3485,15 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isButton() && interaction.customId === "ticket:interface_mode_save") {
+  if (interaction.isButton() && interaction.customId === "ticket:interface_mode_toggle") {
     const key = String(interaction.guildId) + ":" + String(interaction.user.id);
-    const mode = ticketInterfaceModeDrafts.get(key);
-    if (!mode) {
-      await interaction.reply({ content: "<:offline:1557204568432185454> Selecione um modo primeiro.", ephemeral: true });
-      return;
-    }
+    const current = ticketInterfaceModeDrafts.get(key) || getGuildConfig(interaction.guildId).ticketInterfaceMode || "v2";
+    const nextMode = current === "embed" ? "v2" : "embed";
     updateGuildConfig(interaction.guildId, config => {
-      config.ticketInterfaceMode = mode;
+      config.ticketInterfaceMode = nextMode;
     });
     ticketInterfaceModeDrafts.delete(key);
-    await interaction.update(buildTicketConfigPanel(interaction.guildId));
+    await interaction.update(buildTicketInterfaceModePanel(interaction.guildId, interaction.user.id));
     return;
   }
 
