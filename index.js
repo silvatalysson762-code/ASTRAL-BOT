@@ -1929,15 +1929,14 @@ function buildTicketSchedulePanel(guildId) {
       new TextDisplayBuilder().setContent(
         "## <:calendar:1557204788880613437> CONFIGURAR HORÁRIOS DE ATENDIMENTO\n" +
         "> Configure os horários em que sua equipe estará disponível para atendimento via tickets.\n" +
-        "> **Controle completo de disponibilidade!**\n\n" +
         "### Status do Sistema\n" +
         statusEmoji + " `" + statusText + "`\n" +
-        "> " + (schedule.enabled ? "Atendimento segue os horários configurados" : "Atendimento disponível 24 horas") + "\n\n" +
+        "> " + (schedule.enabled ? "Atendimento segue os horários configurados" : "Atendimento disponível 24 horas") + "\n" +
         "### <:calendar:1557204788880613437> Horários Ativos\n" +
-        "> `" + activeCount + "/7 dias`\n\n" +
+        "> `" + activeCount + "/7 dias`\n" +
         "### <:ticket_plus:1557205110847701052> Abertura Fora do Horário\n" +
         outsideEmoji + " `" + outsideText + "`\n" +
-        "> " + outsideSub + "\n\n" +
+        "> " + outsideSub + "\n" +
         "### <:calendar:1557204788880613437> Horários Configurados\n" +
         dayLines.join("\n") +
         (schedule.enabled && activeCount === 0 ? "\n\n> Configure pelo menos um dia para ativar o sistema!" : "")      )
