@@ -1949,10 +1949,10 @@ function buildRolesPanel(guildId) {
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## <:user:1557205116849758238> CARGOS\\n" +
-        "> Central de configuração de cargos da ASTRAL STORE.\\n" +
-        "> Organize os cargos do servidor de forma rápida e simples.\\n\\n" +
-        "### <:clipboard:1557204790843412542> Categorias\\n" +
+        "## <:user:1557205116849758238> CARGOS\n" +
+        "> Central de configuração de cargos da ASTRAL STORE.\n" +
+        "> Organize os cargos do servidor de forma rápida e simples.\n\n" +
+        "### <:clipboard:1557204790843412542> Categorias\n" +
         "> Selecione abaixo o tipo de cargo que deseja configurar."
       )
     )
@@ -1985,12 +1985,7 @@ function buildRolesPanel(guildId) {
           .setCustomId("panel:main")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("panel:roles_save")
-          .setLabel("Salvar")
-          .setEmoji({ name: "save", id: "1557205052974960780" })
-          .setStyle(ButtonStyle.Success)
+          .setStyle(ButtonStyle.Secondary)
       )
     );
 
@@ -3612,18 +3607,30 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton() && interaction.customId === "panel:admin_roles_save") {
+    await interaction.deferUpdate();
+
     const key = String(interaction.guildId);
     const draft = pendingAdminRoles.get(key);
 
-    if (draft) {
-      updateGuildConfig(interaction.guildId, config => {
-        config.adminRoles = { ...draft };
-      });
-      pendingAdminRoles.delete(key);
+    if (!draft || !Object.keys(draft).length) {
+      await interaction.followUp({
+        content: "<:offline:1557204568432185454> Selecione pelo menos um cargo antes de salvar.",
+        ephemeral: true
+      }).catch(() => {});
+      await interaction.editReply(buildAdministrativeRolesPanel(interaction.guildId));
+      return;
     }
 
-    await interaction.deferUpdate();
+    updateGuildConfig(interaction.guildId, config => {
+      config.adminRoles = { ...(config.adminRoles || {}), ...draft };
+    });
+    pendingAdminRoles.delete(key);
+
     await interaction.editReply(buildAdministrativeRolesPanel(interaction.guildId));
+    await interaction.followUp({
+      content: "<:online:1557204563675848814> Cargos administrativos salvos com sucesso.",
+      ephemeral: true
+    }).catch(() => {});
     return;
   }
 
