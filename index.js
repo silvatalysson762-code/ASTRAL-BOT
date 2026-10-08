@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
+  Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
@@ -2870,7 +2870,11 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Adiciona o dono diretamente à thread privada, sem mensagem temporária antes do painel.
+    // Publica o painel primeiro para que ele fique no topo do ticket.
+    await sendTicketControlPanel(thread, interaction.user.id);
+
+    // Adiciona o dono depois do painel. A mensagem automática de entrada é apagada
+    // pelo listener ThreadMemberJoin, agora com MessageType importado corretamente.
     await thread.members.add(interaction.user.id);
 
     const ticketText = selectedFunction?.description
@@ -2878,9 +2882,6 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
 
     await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
-
-    // Envia o painel imediatamente após a mensagem inicial, antes de qualquer busca demorada de membros.
-    await sendTicketControlPanel(thread, interaction.user.id);
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
 
     // Threads privadas não herdam acesso dos cargos: cada membro precisa ser adicionado individualmente.
@@ -2922,8 +2923,9 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     ? selectedFunction.description
     : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
 
-  await sendTicketOpeningMessage(channel, config, selectedFunction, ticketText);
+  // O painel de controle fica antes da mensagem de abertura também nos canais privados.
   await sendTicketControlPanel(channel, interaction.user.id);
+  await sendTicketOpeningMessage(channel, config, selectedFunction, ticketText);
 
   if (selectedFunction?.banner) await channel.send({ content: selectedFunction.banner });
 
