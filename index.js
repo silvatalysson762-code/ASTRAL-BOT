@@ -1766,7 +1766,7 @@ function buildTicketManageFunctionsPanel(guildId) {
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:manage_functions_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:reorder_functions").setLabel("Reordenar").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId("ticket:reorder_functions").setLabel("Reordenar").setEmoji({ name: "settings_button", id: "1557204872648982579" }).setStyle(ButtonStyle.Primary)
     )
   );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
