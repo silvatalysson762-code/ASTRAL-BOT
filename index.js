@@ -77,6 +77,17 @@ async function askGroqAI(prompt, userId) {
   return text;
 }
 
+async function downloadOriginalImage(url) {
+  const response = await fetch(String(url), {
+    headers: { "User-Agent": "Astral-Stock-Bot/1.0" },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!response.ok) throw new Error("Não consegui baixar o banner original (HTTP " + response.status + ").");
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.startsWith("image/")) throw new Error("A URL do banner precisa apontar diretamente para uma imagem.");
+  return Buffer.from(await response.arrayBuffer());
+}
+
 function splitDiscordText(text, maxLength = 1900) {
   const chunks = [];
   let remaining = String(text || "");
@@ -3713,7 +3724,7 @@ client.on("interactionCreate", async interaction => {
       }
       if (Object.prototype.hasOwnProperty.call(pending, "banner")) {
         config.botSettings.banner = pending.banner;
-        if (pending.banner) await client.user.setBanner(pending.banner);
+        if (pending.banner) await client.user.setBanner(await downloadOriginalImage(pending.banner));
       }
       if (Object.prototype.hasOwnProperty.call(pending, "accentColor")) {
         config.botSettings.accentColor = String(pending.accentColor || "00FFFF").replace(/^#/, "").toUpperCase();
