@@ -1912,7 +1912,7 @@ function buildAdministrativeRolesPanel(guildId) {
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> CARGOS ADMINISTRATIVOS\n" +
         "> Configure os cargos utilizados pela ASTRAL STORE.\n" +
-        "> Selecione abaixo qual cargo deseja configurar.\n\n" +
+        "> Selecione abaixo qual cargo deseja configurar.\n" +
         "### <:config_title_alt:1557204540460240926> Administrador: " + roleName("administrator") + "\n" +
         "### <:shield_alt:1557205099665956875> Moderador: " + roleName("moderator") + "\n" +
         "### <:control_center:1557204878001176586> Staff: " + roleName("staff") + "\n" +
@@ -3631,6 +3631,12 @@ client.on("interactionCreate", async interaction => {
       content: "<:online:1557204563675848814> Cargos administrativos salvos com sucesso.",
       ephemeral: true
     }).catch(() => {});
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:roles") {
+    await interaction.deferUpdate();
+    await interaction.editReply(buildRolesPanel(interaction.guildId));
     return;
   }
 
