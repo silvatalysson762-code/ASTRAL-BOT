@@ -3683,8 +3683,13 @@ client.on("interactionCreate", async interaction => {
 
     try {
       await interaction.reply({
-        ...buildMainPanel(interaction.guildId, interaction.user.id),
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+        content: "<a:refresh_alt:1557205141051019274> Abrindo painel...",
+        ephemeral: true
+      });
+
+      await interaction.editReply({
+        content: null,
+        ...buildMainPanel(interaction.guildId, interaction.user.id)
       });
     } catch (error) {
       console.error("[PANEL] Erro ao abrir /painel:", error);
