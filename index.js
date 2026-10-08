@@ -92,7 +92,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketFunctions: [] };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketFunctions: [], ticketSchedule: { enabled: false, allowOutsideHours: false, days: { sunday: { active: false, start: "09:00", end: "18:00" }, monday: { active: false, start: "09:00", end: "18:00" }, tuesday: { active: false, start: "09:00", end: "18:00" }, wednesday: { active: false, start: "09:00", end: "18:00" }, thursday: { active: false, start: "09:00", end: "18:00" }, friday: { active: false, start: "09:00", end: "18:00" }, saturday: { active: false, start: "09:00", end: "18:00" } } } };
 }
 function readConfig() {
   try {
@@ -1877,11 +1877,150 @@ function buildTicketOpeningModePanel(guildId, userId) {
 }
 
 
+const TICKET_SCHEDULE_DAYS = [
+  { key: "sunday", label: "Domingo" },
+  { key: "monday", label: "Segunda-feira" },
+  { key: "tuesday", label: "Terça-feira" },
+  { key: "wednesday", label: "Quarta-feira" },
+  { key: "thursday", label: "Quinta-feira" },
+  { key: "friday", label: "Sexta-feira" },
+  { key: "saturday", label: "Sábado" }
+];
+
+function normalizeTicketSchedule(config) {
+  const base = defaultGuildConfig().ticketSchedule;
+  const current = config.ticketSchedule || {};
+  const days = {};
+  for (const day of TICKET_SCHEDULE_DAYS) {
+    const saved = current.days?.[day.key] || {};
+    days[day.key] = {
+      active: Boolean(saved.active),
+      start: /^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(saved.start || "")) ? String(saved.start) : base.days[day.key].start,
+      end: /^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(saved.end || "")) ? String(saved.end) : base.days[day.key].end
+    };
+  }
+  return { enabled: Boolean(current.enabled), allowOutsideHours: Boolean(current.allowOutsideHours), days };
+}
+
+function ticketScheduleSummary(config) {
+  const schedule = normalizeTicketSchedule(config);
+  const activeCount = TICKET_SCHEDULE_DAYS.filter(day => schedule.days[day.key].active).length;
+  return { schedule, activeCount };
+}
+
+function buildTicketSchedulePanel(guildId) {
+  const config = getGuildConfig(guildId);
+  const result = ticketScheduleSummary(config);
+  const schedule = result.schedule;
+  const activeCount = result.activeCount;
+  const statusEmoji = schedule.enabled ? "<:online:1557204563675848814>" : "<:offline:1557204568432185454>";
+  const statusText = schedule.enabled ? "Ativado" : "Desativado";
+  const outsideEmoji = schedule.allowOutsideHours ? "<:online:1557204563675848814>" : "<:lock:1557204892178211234>";
+  const outsideText = schedule.allowOutsideHours ? "Permitido" : "Bloqueado";
+  const outsideSub = schedule.allowOutsideHours ? "Tickets podem ser abertos a qualquer momento" : "Apenas no horário configurado";
+  const dayLines = TICKET_SCHEDULE_DAYS.map(day => {
+    const value = schedule.days[day.key];
+    if (!value.active) return "<:offline:1557204568432185454> **" + day.label + ":** `" + "Inativo" + "`";
+    return "<:online:1557204563675848814> **" + day.label + ":** `" + value.start + " - " + value.end + "`";
+  });
+  const container = new ContainerBuilder()
+    .setAccentColor(schedule.enabled ? 0x00FFFF : 0x3F3F46)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:calendar:1557204788880613437> CONFIGURAR HORÁRIOS DE ATENDIMENTO\n" +
+        "Configure os horários em que sua equipe estará disponível para atendimento via tickets.\n\n" +
+        "**Controle completo de disponibilidade!**\n\n" +
+        "### Status do Sistema\n" +
+        statusEmoji + " `" + statusText + "`\n" +
+        "> " + (schedule.enabled ? "Atendimento segue os horários configurados" : "Atendimento disponível 24 horas") + "\n\n" +
+        "### <:calendar:1557204788880613437> Horários Ativos\n" +
+        "`" + activeCount + "/7 dias`\n\n" +
+        "### <:ticket_plus:1557205110847701052> Abertura Fora do Horário\n" +
+        outsideEmoji + " `" + outsideText + "`\n" +
+        "> " + outsideSub + "\n\n" +
+        "### <:calendar:1557204788880613437> Horários Configurados\n" +
+        dayLines.join("\n") +
+        (schedule.enabled && activeCount === 0 ? "\n\n> Configure pelo menos um dia para ativar o sistema!" : "")
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:schedule_day")
+          .setPlaceholder("Selecione um dia da semana para configurar")
+          .addOptions(TICKET_SCHEDULE_DAYS.map(day => {
+            const value = schedule.days[day.key];
+            return { label: day.label, description: value.active ? value.start + " - " + value.end : "Inativo • clique para configurar", value: day.key, emoji: { name: "calendar", id: "1557204788880613437" } };
+          }))
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:schedule_toggle")
+          .setLabel(schedule.enabled ? "Desativar Sistema (Ativar 24h)" : "Ativar Sistema de Horários")
+          .setEmoji({ name: schedule.enabled ? "offline" : "online", id: schedule.enabled ? "1557204568432185454" : "1557204563675848814" })
+          .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket:schedule_outside").setLabel("Permitir Fora do Horário").setEmoji({ name: "lock", id: "1557204892178211234" }).setStyle(schedule.allowOutsideHours ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("ticket:schedule_all_on").setLabel("Ativar todos os dias").setEmoji({ name: "check_alt", id: "1557204542960181299" }).setStyle(ButtonStyle.Success)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket:schedule_all_off").setLabel("Desativar todos os dias").setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("ticket:schedule_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildTicketScheduleDayModal(guildId, dayKey) {
+  const config = getGuildConfig(guildId);
+  const schedule = normalizeTicketSchedule(config);
+  const day = TICKET_SCHEDULE_DAYS.find(item => item.key === dayKey);
+  const current = schedule.days[dayKey] || { active: false, start: "09:00", end: "18:00" };
+  if (!day) throw new Error("Dia da semana inválido.");
+  const modal = new ModalBuilder().setCustomId("ticket:schedule_day_modal:" + dayKey).setTitle("Configurar " + day.label);
+  const status = new TextInputBuilder().setCustomId("schedule_status").setLabel("Status (ativo/inativo)").setStyle(TextInputStyle.Short).setRequired(true).setValue(current.active ? "ativo" : "inativo").setMaxLength(8);
+  const start = new TextInputBuilder().setCustomId("schedule_start").setLabel("Horário de início (HH:MM)").setStyle(TextInputStyle.Short).setRequired(true).setValue(current.start).setMaxLength(5);
+  const end = new TextInputBuilder().setCustomId("schedule_end").setLabel("Horário de fim (HH:MM)").setStyle(TextInputStyle.Short).setRequired(true).setValue(current.end).setMaxLength(5);
+  modal.addComponents(new ActionRowBuilder().addComponents(status), new ActionRowBuilder().addComponents(start), new ActionRowBuilder().addComponents(end));
+  return modal;
+}
+
+function isTicketScheduleCurrentlyOpen(config) {
+  const result = ticketScheduleSummary(config);
+  const schedule = result.schedule;
+  const activeCount = result.activeCount;
+  if (!schedule.enabled || schedule.allowOutsideHours) return { allowed: true };
+  if (activeCount === 0) return { allowed: false, reason: "O sistema de horários está ativado, mas nenhum dia foi configurado." };
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: BRASIL_TZ, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const weekdayMap = { Sun: "sunday", Mon: "monday", Tue: "tuesday", Wed: "wednesday", Thu: "thursday", Fri: "friday", Sat: "saturday" };
+  const weekday = weekdayMap[parts.find(p => p.type === "weekday")?.value];
+  const hour = Number(parts.find(p => p.type === "hour")?.value);
+  const minute = Number(parts.find(p => p.type === "minute")?.value);
+  const day = schedule.days[weekday];
+  if (!day?.active) return { allowed: false, reason: "O atendimento está fechado hoje. Tente novamente dentro do horário configurado." };
+  const start = day.start.split(":").map(Number);
+  const end = day.end.split(":").map(Number);
+  const startMinutes = start[0] * 60 + start[1];
+  const endMinutes = end[0] * 60 + end[1];
+  if (endMinutes <= startMinutes) return { allowed: false, reason: "O horário configurado para hoje é inválido. O fim deve ser depois do início." };
+  const currentMinutes = hour * 60 + minute;
+  if (currentMinutes < startMinutes || currentMinutes >= endMinutes) return { allowed: false, reason: "O atendimento está fechado neste momento. Tente novamente dentro do horário configurado." };
+  return { allowed: true };
+}
 async function createAstralTicket(interaction, selectedFunction = null) {
   const guild = interaction.guild;
   if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
 
   const config = getGuildConfig(guild.id);
+  const scheduleCheck = isTicketScheduleCurrentlyOpen(config);
+  if (!scheduleCheck.allowed) throw new Error(scheduleCheck.reason);
   const mode = config.ticketOpeningMode === "thread" ? "thread" : "channel";
   const username = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20) || "usuario";
   const ticketName = "ticket-" + username;
@@ -2661,6 +2800,11 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
+    if (selected === "schedule") {
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+      return;
+    }
+
     const configLabels = {
       schedule: "Configurar Horários",
       statistics: "Estatísticas",
@@ -2672,6 +2816,104 @@ client.on("interactionCreate", async interaction => {
       content: "<:ticket_plus:1557205110847701052> **" + (configLabels[selected] || "Configuração") + "** selecionada. Esta área ficará responsável por essa configuração do sistema de tickets.",
       ephemeral: true
     });
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:schedule_day") {
+    try {
+      const dayKey = interaction.values[0];
+      if (!TICKET_SCHEDULE_DAYS.some(day => day.key === dayKey)) throw new Error("Dia da semana inválido.");
+      await interaction.showModal(buildTicketScheduleDayModal(interaction.guildId, dayKey));
+    } catch (error) {
+      console.error("[TICKET SCHEDULE] Erro ao abrir configuração do dia:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir a configuração deste dia.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:schedule_day_modal:")) {
+    try {
+      const dayKey = interaction.customId.split(":").pop();
+      const day = TICKET_SCHEDULE_DAYS.find(item => item.key === dayKey);
+      if (!day) throw new Error("Dia da semana inválido.");
+      const status = interaction.fields.getTextInputValue("schedule_status").trim().toLowerCase();
+      const start = interaction.fields.getTextInputValue("schedule_start").trim();
+      const end = interaction.fields.getTextInputValue("schedule_end").trim();
+      if (!["ativo", "inativo"].includes(status)) throw new Error("O status precisa ser **ativo** ou **inativo**.");
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) throw new Error("Os horários precisam estar no formato **HH:MM**, por exemplo **09:00**.");
+      const startParts = start.split(":").map(Number);
+      const endParts = end.split(":").map(Number);
+      if ((endParts[0] * 60 + endParts[1]) <= (startParts[0] * 60 + startParts[1])) throw new Error("O horário de fim precisa ser depois do horário de início.");
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketSchedule = normalizeTicketSchedule(config);
+        config.ticketSchedule.days[dayKey] = { active: status === "ativo", start, end };
+      });
+      await interaction.reply({ content: "<:online:1557204563675848814> **Salvo**", ephemeral: true });
+    } catch (error) {
+      console.error("[TICKET SCHEDULE] Erro ao salvar dia:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui salvar este horário."), ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:schedule_toggle") {
+    try {
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketSchedule = normalizeTicketSchedule(config);
+        config.ticketSchedule.enabled = !config.ticketSchedule.enabled;
+      });
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET SCHEDULE] Erro ao alternar sistema:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui alterar o status do sistema.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:schedule_outside") {
+    try {
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketSchedule = normalizeTicketSchedule(config);
+        config.ticketSchedule.allowOutsideHours = !config.ticketSchedule.allowOutsideHours;
+      });
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET SCHEDULE] Erro ao alternar abertura fora do horário:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui alterar essa opção.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:schedule_all_on") {
+    try {
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketSchedule = normalizeTicketSchedule(config);
+        for (const day of TICKET_SCHEDULE_DAYS) config.ticketSchedule.days[day.key].active = true;
+      });
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET SCHEDULE] Erro ao ativar todos os dias:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui ativar todos os dias.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:schedule_all_off") {
+    try {
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketSchedule = normalizeTicketSchedule(config);
+        for (const day of TICKET_SCHEDULE_DAYS) config.ticketSchedule.days[day.key].active = false;
+      });
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET SCHEDULE] Erro ao desativar todos os dias:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui desativar todos os dias.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:schedule_back") {
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
     return;
   }
 
