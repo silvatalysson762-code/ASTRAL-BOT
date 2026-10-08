@@ -1596,6 +1596,7 @@ function buildTicketAppearancePanel(guildId, userId) {
         new ButtonBuilder()
           .setCustomId("ticket:appearance_edit")
           .setLabel("EDITAR CAMPOS")
+          .setEmoji({ name: "compass", id: "1557204910578335844" })
           .setStyle(ButtonStyle.Primary)
       )
     )
