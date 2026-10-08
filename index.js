@@ -2307,7 +2307,7 @@ function buildTicketManageFunctionsPanel(guildId) {
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> GERENCIAR FUNÇÕES\n" +
         "> Selecione uma função abaixo para gerenciar as funções criadas.\n" +
-        "### <:ticket_plus:1557205110847701052> Funções de atendimento\n" +
+        "### <:clipboard:1557204790843412542> Funções de atendimento\n" +
         (functions.length ? "> Escolha uma função no seletor abaixo." : "> Nenhuma função criada ainda. Volte e use **Adicionar Função** para criar uma.")
       )
     );
