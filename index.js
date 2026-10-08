@@ -4025,7 +4025,7 @@ client.on("interactionCreate", async interaction => {
       return;
     }
   } else if (interaction.commandName === "avatar") {
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
     try {
       const username = interaction.options.getString("username", true);
       const avatar = await getRobloxAvatar(username);
@@ -4070,10 +4070,11 @@ client.on("interactionCreate", async interaction => {
           new TextDisplayBuilder().setContent("-# Roblox • Perfil público")
         );
 
-      await interaction.editReply({
+      await interaction.channel.send({
         components: [container],
         flags: MessageFlags.IsComponentsV2
       });
+      await interaction.deleteReply().catch(() => {});
     } catch (error) {
       console.error("Erro no /avatar:", error);
       await interaction.editReply(uiEmoji("error", "❌") + (error.message || "Não consegui carregar esse avatar do Roblox."));
