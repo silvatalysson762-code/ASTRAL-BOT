@@ -279,6 +279,108 @@ function saveConfig(config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
+
+const DEFAULT_TICKET_FUNCTIONS = [
+  {
+    id: "ticket_default_suporte_geral",
+    name: "Suporte Geral",
+    preDescription: "Dúvidas, informações ou ajuda.",
+    description: null,
+    banner: null,
+    emojiName: "headphones"
+  },
+  {
+    id: "ticket_default_denuncias",
+    name: "Denúncias",
+    preDescription: "Denuncie Alguém Por Comportamento Inadequado",
+    description: null,
+    banner: null,
+    emojiName: "warning"
+  },
+  {
+    id: "ticket_default_parcerias",
+    name: "Parcerias",
+    preDescription: "Propostas de parceria com a Astral Store.",
+    description: null,
+    banner: null,
+    emojiName: "briefcase"
+  },
+  {
+    id: "ticket_default_resgatar_produto",
+    name: "Resgatar produto",
+    preDescription: "Resgate aqui seu produto",
+    description: null,
+    banner: null,
+    emojiName: "wallet"
+  },
+  {
+    id: "ticket_default_resgatar_premio",
+    name: "Resgatar prêmio",
+    preDescription: "Resgate aqui seu prêmio",
+    description: null,
+    banner: null,
+    emojiName: "gift"
+  },
+  {
+    id: "ticket_default_outro_assunto",
+    name: "Outro Assunto",
+    preDescription: "Para assuntos que não se encaixam nas opções acima.",
+    description: null,
+    banner: null,
+    emojiName: "refresh"
+  }
+];
+
+function findApplicationEmojiByName(name) {
+  const wanted = normalizeApplicationEmojiName(name);
+  return client.application?.emojis?.cache?.find(
+    emoji => normalizeApplicationEmojiName(emoji.name) === wanted
+  ) || null;
+}
+
+async function seedDefaultTicketFunctions() {
+  if (!client.application?.emojis) return;
+
+  const config = readConfig();
+  const allowed = new Set(Array.isArray(config.allowedGuildIds) ? config.allowedGuildIds : []);
+  let changed = false;
+
+  for (const guild of client.guilds.cache.values()) {
+    if (!allowed.has(guild.id) && guild.id !== PROTECTED_GUILD_ID) continue;
+
+    const guildConfig = getGuildConfig(guild.id);
+    if (Number(guildConfig.ticketFunctionsDefaultsVersion || 0) >= 1) continue;
+
+    const functions = Array.isArray(guildConfig.ticketFunctions) ? [...guildConfig.ticketFunctions] : [];
+    const existingNames = new Set(functions.map(fn => fruitKey(fn.name)));
+
+    for (const template of DEFAULT_TICKET_FUNCTIONS) {
+      if (existingNames.has(fruitKey(template.name))) continue;
+
+      const emoji = findApplicationEmojiByName(template.emojiName);
+      functions.push({
+        id: template.id,
+        name: template.name,
+        preDescription: template.preDescription,
+        description: template.description,
+        banner: template.banner,
+        emoji: emoji
+          ? { id: emoji.id, name: emoji.name || template.emojiName, animated: Boolean(emoji.animated) }
+          : null
+      });
+    }
+
+    updateGuildConfig(guild.id, cfg => {
+      cfg.ticketFunctions = functions.slice(0, 25);
+      cfg.ticketFunctionsDefaultsVersion = 1;
+    });
+    changed = true;
+    console.log("[TICKET] Funções padrão adicionadas ao servidor " + guild.name + ".");
+  }
+
+  return changed;
+}
+
 function getBotSettings() {
   const config = readConfig();
   if (!config.botSettings || typeof config.botSettings !== "object") {
@@ -3040,7 +3142,12 @@ client.once("ready", async () => {
   // que a nova instância realmente voltou online.
   await completePendingRestartConfirmation();
   initializeGuildWhitelist();
-  void syncApplicationEmojis().catch(error => console.warn("[EMOJIS] Sincronização em segundo plano falhou:", error.message));
+  try {
+    await syncApplicationEmojis();
+  } catch (error) {
+    console.warn("[EMOJIS] Sincronização das emojis falhou:", error.message);
+  }
+  await seedDefaultTicketFunctions();
   console.log(`Bot conectado como ${client.user.tag}`);
   try {
     await registerCommands();
