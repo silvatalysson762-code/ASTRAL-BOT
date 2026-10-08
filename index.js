@@ -2822,7 +2822,27 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    await thread.members.add(interaction.user.id);
+    // Try inviting the customer through a temporary mention instead of the
+    // Add Thread Member endpoint, which creates a visible system message.
+    // Discord can add a mentioned user to a private thread automatically.
+    let customerInvited = false;
+    try {
+      const inviteMessage = await thread.send({
+        content: "<@" + interaction.user.id + ">",
+        allowedMentions: { users: [interaction.user.id] }
+      });
+      customerInvited = true;
+      try {
+        await inviteMessage.delete();
+      } catch (deleteError) {
+        console.warn("[TICKET] Temporary invite mention could not be deleted:", deleteError?.message || deleteError);
+      }
+    } catch (inviteError) {
+      console.warn("[TICKET] Mention invite failed; using normal thread membership:", inviteError?.message || inviteError);
+    }
+    if (!customerInvited) {
+      await thread.members.add(interaction.user.id);
+    }
 
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
