@@ -27,7 +27,7 @@ const nextStockAt = { normal: null, mirage: null };
 const fruitRoleBusyUsers = new Set();
 const aiCooldowns = new Map();
 const aiActiveChats = new Map();
-const AI_CHAT_TIMEOUT_MS = 30 * 60 * 1000;
+const AI_CHAT_TIMEOUT_MS = 30 * 1000;
 
 async function askGroqAI(prompt, userId) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -2481,10 +2481,6 @@ client.on("messageCreate", async message => {
   }
 
   if (!prompt) {
-    await message.reply({
-      content: "🤖 Pode mandar sua pergunta agora. Enquanto a conversa estiver ativa, você não precisa me marcar novamente.",
-      allowedMentions: { repliedUser: false }
-    });
     return;
   }
 
