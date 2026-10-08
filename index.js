@@ -91,7 +91,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", banner: null, color: "00FFFF" } };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", banner: null, color: "00FFFF" }, ticketFunctions: [] };
 }
 function readConfig() {
   try {
@@ -1658,6 +1658,40 @@ function buildTicketAppearanceModal(guildId, userId) {
     );
 }
 
+function normalizeTicketFunctionEmoji(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^(?:<a?:([A-Za-z0-9_]+):)?(\d{17,20})(?:>)?$/);
+  if (!match) throw new Error("O emoji precisa ser um ID válido de emoji do servidor ou da aplicação.");
+  return { id: match[2], name: match[1] || "ticket_emoji", animated: raw.startsWith("<a:") };
+}
+
+async function resolveTicketFunctionEmoji(guild, emojiId) {
+  const id = String(emojiId || "").trim();
+  if (!/^\d{17,20}$/.test(id)) return null;
+  const guildEmoji = guild?.emojis?.cache?.get(id);
+  if (guildEmoji) return { id: guildEmoji.id, name: guildEmoji.name || "ticket_emoji", animated: Boolean(guildEmoji.animated) };
+  try {
+    const application = await client.application.fetch();
+    const appEmoji = await application.emojis.fetch(id);
+    if (appEmoji) return { id: appEmoji.id, name: appEmoji.name || "ticket_emoji", animated: Boolean(appEmoji.animated) };
+  } catch {}
+  return null;
+}
+
+function buildTicketFunctionModal() {
+  return new ModalBuilder()
+    .setCustomId("ticket:add_function_modal")
+    .setTitle("Adicionar Função")
+    .addComponents(
+      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_name").setLabel("NOME DA FUNÇÃO *").setPlaceholder("Insira aqui um nome, como: Suporte").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
+      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_pre_description").setLabel("PRÉ DESCRIÇÃO *").setPlaceholder('Insira aqui uma pré descrição, ex: "Preciso de ajuda..."').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(200)),
+      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_description").setLabel("DESCRIÇÃO (OPCIONAL)").setPlaceholder("Insira aqui a descrição da função. Aparece dentro do ticket após aberto.").setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000)),
+      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_banner").setLabel("BANNER (OPCIONAL)").setPlaceholder("Insira aqui uma URL de uma imagem ou GIF").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500)),
+      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_function_emoji").setLabel("EMOJI DA FUNÇÃO").setPlaceholder("Insira um ID de um emoji do servidor ou da aplicação").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20))
+    );
+}
+
 function buildTicketConfigPanel(guildId) {
   const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
 
@@ -1785,7 +1819,8 @@ function buildSupportPreviewPanel(guild) {
 }
 
 function buildSupportPanel(guild) {
-  const appearance = getGuildConfig(guild?.id).ticketAppearance || {};
+  const guildConfig = getGuildConfig(guild?.id);
+  const appearance = guildConfig.ticketAppearance || {};
   const bannerUrl = appearance.banner || guild?.bannerURL({ extension: "png", size: 1024 }) || null;
   const thumbnailUrl = guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
 
@@ -1826,12 +1861,21 @@ function buildSupportPanel(guild) {
       new StringSelectMenuBuilder()
         .setCustomId("ticket:select")
         .setPlaceholder("🎫 Selecione uma opção de atendimento")
-        .addOptions({
-          label: "Abrir atendimento",
-          description: "Abra um ticket com a equipe",
-          value: "open",
-          emoji: "🎫"
-        })
+        .addOptions(
+          ...(Array.isArray(guildConfig.ticketFunctions) && guildConfig.ticketFunctions.length
+            ? guildConfig.ticketFunctions.slice(0, 25).map(fn => ({
+                label: String(fn.name || "Atendimento").slice(0, 100),
+                description: String(fn.preDescription || "Abra um ticket com a equipe").slice(0, 100),
+                value: String(fn.id || "open").slice(0, 100),
+                ...(fn.emoji?.id ? { emoji: { id: String(fn.emoji.id), name: String(fn.emoji.name || "ticket_emoji"), animated: Boolean(fn.emoji.animated) } } : {})
+              }))
+            : [{
+                label: "Abrir atendimento",
+                description: "Abra um ticket com a equipe",
+                value: "open",
+                emoji: "🎫"
+              }])
+        )
     )
   );
 
@@ -2262,11 +2306,18 @@ client.on("messageCreate", async message => {
 });
 
 client.on("interactionCreate", async interaction => {
-  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:select" && interaction.values[0] === "open") {
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:select") {
     await interaction.deferReply({ ephemeral: true });
     try {
       const guild = interaction.guild;
       if (!guild) throw new Error("Esse atendimento só pode ser aberto dentro de um servidor.");
+
+      const selectedValue = interaction.values[0];
+      const ticketFunctions = getGuildConfig(guild.id).ticketFunctions || [];
+      const selectedFunction = ticketFunctions.find(fn => fn.id === selectedValue);
+      if (selectedValue !== "open" && !selectedFunction) {
+        throw new Error("Essa função de atendimento não está mais disponível. Atualize o painel de tickets.");
+      }
       const existing = guild.channels.cache.find(ch => ch.type === 0 && ch.topic === "astral-ticket:" + interaction.user.id);
       if (existing) {
         await interaction.editReply({ content: "🎫 Você já tem um atendimento aberto: <#" + existing.id + ">" });
@@ -2282,9 +2333,17 @@ client.on("interactionCreate", async interaction => {
           { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
         ]
       });
+      const ticketText = selectedFunction?.description
+        ? selectedFunction.description
+        : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
+
       await channel.send({
-        content: "## 🎫 Atendimento\n> Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\n> Explique sua dúvida e aguarde nossa equipe.\n\n-# Um membro da equipe responderá o mais rápido possível."
+        content: "## 🎫 " + (selectedFunction?.name || "Atendimento") + "\\n> " + ticketText
       });
+
+      if (selectedFunction?.banner) {
+        await channel.send({ content: selectedFunction.banner });
+      }
       await interaction.editReply({ content: "🎫 Atendimento aberto: <#" + channel.id + ">" });
     } catch (error) {
       console.error("[TICKET] Erro ao abrir atendimento:", error);
@@ -2320,6 +2379,18 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
+    if (selected === "add_function") {
+      try {
+        await interaction.showModal(buildTicketFunctionModal());
+      } catch (error) {
+        console.error("[TICKET] Erro ao abrir adicionar função:", error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: "❌ Não consegui abrir o formulário de adicionar função.", ephemeral: true }).catch(() => {});
+        }
+      }
+      return;
+    }
+
     const configLabels = {
       add_function: "Adicionar Função",
       manage_functions: "Gerenciar Funções",
@@ -2334,6 +2405,65 @@ client.on("interactionCreate", async interaction => {
       content: "<:ticket_plus:1557205110847701052> **" + (configLabels[selected] || "Configuração") + "** selecionada. Esta área ficará responsável por essa configuração do sistema de tickets.",
       ephemeral: true
     });
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === "ticket:add_function_modal") {
+    try {
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction.reply({ content: "❌ Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
+        return;
+      }
+
+      const name = interaction.fields.getTextInputValue("ticket_function_name").trim();
+      const preDescription = interaction.fields.getTextInputValue("ticket_function_pre_description").trim();
+      const description = interaction.fields.getTextInputValue("ticket_function_description").trim();
+      const banner = interaction.fields.getTextInputValue("ticket_function_banner").trim();
+      const emojiInput = interaction.fields.getTextInputValue("ticket_function_emoji").trim();
+
+      if (!name || !preDescription) {
+        await interaction.reply({ content: "❌ Nome da função e pré descrição são obrigatórios.", ephemeral: true });
+        return;
+      }
+      if (banner && !/^https?:\/\//i.test(banner)) {
+        await interaction.reply({ content: "❌ O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
+        return;
+      }
+
+      let emoji = null;
+      if (emojiInput) {
+        const parsed = normalizeTicketFunctionEmoji(emojiInput);
+        emoji = await resolveTicketFunctionEmoji(guild, parsed.id);
+        if (!emoji) {
+          await interaction.reply({ content: "❌ Não encontrei esse emoji no servidor nem nos emojis da aplicação.", ephemeral: true });
+          return;
+        }
+      }
+
+      updateGuildConfig(guild.id, config => {
+        config.ticketFunctions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
+        if (config.ticketFunctions.length >= 25) throw new Error("Você já atingiu o limite de 25 funções de atendimento.");
+        config.ticketFunctions.push({
+          id: "ticket_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8),
+          name,
+          preDescription,
+          description: description || null,
+          banner: banner || null,
+          emoji
+        });
+      });
+
+      await interaction.reply({
+        ...buildTicketConfigPanel(guild.id),
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+      });
+    } catch (error) {
+      console.error("[TICKET] Erro ao salvar função:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ " + (error.message || "Não consegui salvar a função."), ephemeral: true }).catch(() => {});
+      }
+    }
     return;
   }
 
