@@ -1586,6 +1586,7 @@ function buildTicketAppearancePanel(guildId, userId) {
         "### <:ticket_plus:1557205110847701052> Aparência atual\n" +
         "> **Título:** " + title + "\n" +
         "> **Descrição:** " + description + "\n" +
+        "> **Thumbnail:** " + thumbnail + "\n" +
         "> **Banner:** " + banner + "\n" +
         "> **Cor:** #" + color
       )
@@ -2812,7 +2813,7 @@ client.on("interactionCreate", async interaction => {
         const config = getGuildConfig(guild.id);
         if (!config.supportMessageChannelId || !config.supportMessageId) {
           await interaction.reply({
-            content: "<:ticket_plus:1557205110847701052> Nenhuma mensagem de suporte foi registrada. Use **POSTAR MENSAGEM** primeiro.",
+            content: "<:online:1557204563675848814> **Nenhuma mensagem registrada**. Use **POSTAR** primeiro.",
             ephemeral: true
           });
           return;
