@@ -3730,17 +3730,17 @@ client.on("interactionCreate", async interaction => {
         : String(avatar.favoriteGames) + "+";
 
       const info = [
-        "🆔 **ID:** " + avatar.id,
-        "📅 **Conta criada:** " + createdText,
-        "👥 **Amigos:** " + avatar.friends.toLocaleString("pt-BR"),
-        "👣 **Seguidores:** " + avatar.followers.toLocaleString("pt-BR"),
-        "➡️ **Seguindo:** " + avatar.following.toLocaleString("pt-BR"),
-        "⭐ **Jogos favoritos:** " + favoriteText
+        "<:id_card:1557204892177928272> **ID:** " + avatar.id,
+        "<:calendar:1557204788880613437> **Conta criada:** " + createdText,
+        "<:user_check:1557205120335224933> **Amigos:** " + avatar.friends.toLocaleString("pt-BR"),
+        "<:users:1557205137154637864> **Seguidores:** " + avatar.followers.toLocaleString("pt-BR"),
+        "<:user_add:1557205138689495101> **Seguindo:** " + avatar.following.toLocaleString("pt-BR"),
+        "<:star:1557205044305072160> **Jogo favorito:** " + favoriteText
       ].join("\n");
 
       // Container V2 com cabeçalho mais completo, mantendo a imagem do avatar.
       const avatarHeader = [
-        "## 👤 PERFIL DO ROBLOX",
+        "## <:roblox:1557204761797853234> PERFIL DO ROBLOX",
         "### " + avatar.displayName,
         "-# @" + avatar.username + "  •  Roblox Player"
       ].join("\n");
