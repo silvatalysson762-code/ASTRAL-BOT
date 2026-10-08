@@ -1834,7 +1834,12 @@ function buildTicketOpeningModePanel(guildId) {
           .setCustomId("ticket:opening_mode_back")
           .setLabel("VOLTAR")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("ticket:opening_mode_save")
+          .setLabel("SALVAR")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)
       )
     );
 
