@@ -116,7 +116,9 @@ function getBotSettings() {
       status1: "",
       status2: "",
       avatar: "",
-      banner: ""
+      banner: "",
+      description: "",
+      accentColor: "00FFFF"
     };
     saveConfig(config);
   } else {
@@ -124,6 +126,9 @@ function getBotSettings() {
     config.botSettings.status2 = String(config.botSettings.status2 || "");
     config.botSettings.avatar = String(config.botSettings.avatar || "");
     config.botSettings.banner = String(config.botSettings.banner || "");
+    config.botSettings.description = String(config.botSettings.description || "").slice(0, 190);
+    config.botSettings.accentColor = String(config.botSettings.accentColor || "00FFFF").replace(/^#/, "").toUpperCase();
+    if (!/^[0-9A-F]{6}$/.test(config.botSettings.accentColor)) config.botSettings.accentColor = "00FFFF";
   }
   return config.botSettings;
 }
@@ -1570,8 +1575,9 @@ function buildFruitRolePanel(guildId) {
 
 function buildBotControlPanel() {
   const botUser = client.user;
+  const botSettings = getBotSettings();
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(parseInt(botSettings.accentColor, 16) || 0x00FFFF)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:discord:1557204573817405440> CONTROLE DO BOT\n" +
@@ -1590,22 +1596,34 @@ function buildBotControlPanel() {
           .setPlaceholder("🖌️ Personalizar")
           .addOptions(
             {
-              label: "Alterar Nickname",
+              label: "Alterar Nome",
               description: "Mude o nome do bot",
               value: "nickname",
-              emoji: { name: "key_alt", id: "1557204516275879987" }
+              emoji: { name: "text_alt", id: "1557205064391589979" }
+            },
+            {
+              label: "Alterar Descrição",
+              description: "Mude a descrição do perfil do bot",
+              value: "description",
+              emoji: { name: "text_alt", id: "1557205064391589979" }
             },
             {
               label: "Alterar Avatar",
               description: "Mude a foto de perfil do bot",
               value: "avatar",
-              emoji: { name: "key_alt", id: "1557204516275879987" }
+              emoji: { name: "image_upload", id: "1557204842366115991" }
             },
             {
               label: "Alterar Banner",
               description: "Mude o banner do perfil do bot",
               value: "banner",
-              emoji: { name: "key_alt", id: "1557204516275879987" }
+              emoji: { name: "image_upload", id: "1557204842366115991" }
+            },
+            {
+              label: "Cor da barra lateral",
+              description: "Escolha a cor da barra lateral do painel",
+              value: "accentColor",
+              emoji: { name: "palette", id: "1557204908250370078" }
             },
             {
               label: "Alterar Status 1",
@@ -1660,11 +1678,19 @@ function buildBotCustomizeModal(type, userId) {
   const map = {
     nickname: {
       id: "nickname",
-      title: "Alterar Nickname",
+      title: "Alterar Nome",
       label: "Nome do bot",
       value: client.user?.username || "",
       placeholder: "Astral Stock",
       max: 32
+    },
+    description: {
+      id: "description",
+      title: "Alterar Descrição",
+      label: "Descrição do bot",
+      value: settings.description,
+      placeholder: "Astral Stock • Blox Fruits",
+      max: 190
     },
     avatar: {
       id: "avatar",
@@ -1681,6 +1707,14 @@ function buildBotCustomizeModal(type, userId) {
       value: settings.banner,
       placeholder: "https://...",
       max: 500
+    },
+    accentColor: {
+      id: "accentColor",
+      title: "Cor da barra lateral",
+      label: "Cor HEX",
+      value: settings.accentColor,
+      placeholder: "00FFFF",
+      max: 7
     },
     status1: {
       id: "status1",
@@ -3665,21 +3699,23 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton() && interaction.customId === "panel:bot_save") {
-    if (!(await isBotOwner(interaction.user.id))) {
-      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode salvar as configurações.", ephemeral: true });
-      return;
-    }
-
-    const userKey = String(interaction.user.id);
-    const pending = pendingBotCustomizations.get(userKey);
-    if (!pending || Object.keys(pending).length === 0) {
-      await interaction.reply({ content: "<:warning:1557204565877592085> Não há alterações pendentes para salvar. Faça uma alteração primeiro.", ephemeral: true });
-      return;
-    }
+    await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
     try {
+      if (!(await isBotOwner(interaction.user.id))) {
+        await interaction.editReply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode salvar as configurações." });
+        return;
+      }
+
+      const userKey = String(interaction.user.id);
+      const pending = pendingBotCustomizations.get(userKey);
+      if (!pending || Object.keys(pending).length === 0) {
+        await interaction.editReply({ content: "<:warning:1557204565877592085> Não há alterações pendentes para salvar. Faça uma alteração primeiro." });
+        return;
+      }
+
       const config = readConfig();
-      config.botSettings = config.botSettings || { status1: "", status2: "", avatar: "", banner: "" };
+      config.botSettings = config.botSettings || { status1: "", status2: "", avatar: "", banner: "", description: "", accentColor: "00FFFF" };
 
       if (Object.prototype.hasOwnProperty.call(pending, "nickname")) {
         if (!pending.nickname) throw new Error("Informe um nome para o bot.");
@@ -3693,6 +3729,12 @@ client.on("interactionCreate", async interaction => {
         config.botSettings.banner = pending.banner;
         if (pending.banner) await client.user.setBanner(pending.banner);
       }
+      if (Object.prototype.hasOwnProperty.call(pending, "description")) {
+        config.botSettings.description = String(pending.description || "").slice(0, 190);
+      }
+      if (Object.prototype.hasOwnProperty.call(pending, "accentColor")) {
+        config.botSettings.accentColor = String(pending.accentColor || "00FFFF").replace(/^#/, "").toUpperCase();
+      }
       if (Object.prototype.hasOwnProperty.call(pending, "status1")) {
         config.botSettings.status1 = pending.status1;
       }
@@ -3705,10 +3747,10 @@ client.on("interactionCreate", async interaction => {
       rotatingStatusIndex = 0;
       applyRotatingBotStatus();
 
-      await interaction.reply({ content: "<:online:1557204563675848814> **Alterações salvas com sucesso!**", ephemeral: true });
+      await interaction.editReply({ content: "<:online:1557204563675848814> **Alterações salvas com sucesso!**" });
     } catch (error) {
       console.error("[PANEL] Erro ao salvar personalização:", error);
-      await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui salvar as alterações.").slice(0, 500), ephemeral: true }).catch(() => {});
+      await interaction.editReply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui salvar as alterações.").slice(0, 500) }).catch(() => {});
     }
     return;
   }
@@ -3755,12 +3797,17 @@ client.on("interactionCreate", async interaction => {
     let value = interaction.fields.getTextInputValue("value").trim();
 
     try {
-      if (type === "nickname" || type === "status1" || type === "status2") {
+      if (type === "nickname" || type === "description" || type === "status1" || type === "status2") {
         value = value.replace(/\s+/g, " ").trim();
       }
 
       if (type === "nickname") {
         if (!value) throw new Error("Informe um nome para o bot.");
+      } else if (type === "description") {
+        if (value.length > 190) throw new Error("A descrição pode ter no máximo 190 caracteres.");
+      } else if (type === "accentColor") {
+        value = value.replace(/^#/, "").trim().toUpperCase();
+        if (!/^[0-9A-F]{6}$/.test(value)) throw new Error("A cor precisa estar no formato HEX, por exemplo **00FFFF**.");
       } else if (type === "avatar" || type === "banner") {
         value = value.replace(/\s+/g, "");
         if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL precisa começar com http:// ou https://.");
