@@ -3850,21 +3850,33 @@ client.on("interactionCreate", async interaction => {
     await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
     try {
-      const usedDiscloudApi = await restartOnDiscloud();
+      // Responde primeiro para o usuário não ficar preso no "carregando".
+      const usedDiscloudApi = Boolean(String(process.env.DISCLOUD_TOKEN || "").trim());
+      await interaction.editReply({
+        content: "<a:refresh_alt:1557205141051019274> **O Astral Stock está sendo reiniciado...**\nAguarde alguns segundos."
+      });
+
+      // A chamada para a Discloud acontece em segundo plano. Assim o Discord
+      // recebe a confirmação imediatamente, mesmo se a API demorar.
       if (usedDiscloudApi) {
-        await interaction.editReply({
-          content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**\nA Discloud recebeu o comando."
-        });
+        void restartOnDiscloud()
+          .then(() => console.log("[PANEL] Reinício enviado para a Discloud."))
+          .catch(async error => {
+            console.error("[PANEL] Erro ao reiniciar pela Discloud:", error);
+            try {
+              await interaction.editReply({
+                content: "<:offline:1557204568432185454> **Não consegui reiniciar o bot.**\\n" +
+                  String(error?.message || "A Discloud recusou o reinício.").slice(0, 500)
+              });
+            } catch {}
+          });
       } else {
-        await interaction.editReply({
-          content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**"
-        });
         setTimeout(() => process.exit(0), 800);
       }
     } catch (error) {
-      console.error("[PANEL] Erro ao reiniciar pela Discloud:", error);
+      console.error("[PANEL] Erro ao responder ao reinício:", error);
       await interaction.editReply({
-        content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui reiniciar o bot.").slice(0, 500)
+        content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui iniciar o reinício.").slice(0, 500)
       }).catch(() => {});
     }
     return;
