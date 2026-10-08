@@ -471,6 +471,48 @@ function saveState(state) {
   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
   fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 }
+
+function setPendingRestartConfirmation(type, interactionToken) {
+  const state = readState();
+  state.pendingRestartConfirmation = {
+    type: type === "rebuild" ? "rebuild" : "restart",
+    token: String(interactionToken || ""),
+    createdAt: Date.now()
+  };
+  saveState(state);
+}
+
+async function completePendingRestartConfirmation() {
+  const state = readState();
+  const pending = state.pendingRestartConfirmation;
+  if (!pending?.token) return;
+
+  // Interaction tokens expiram após 15 minutos. Se já passou disso,
+  // simplesmente limpamos a confirmação pendente.
+  if (Date.now() - Number(pending.createdAt || 0) > 14 * 60 * 1000) {
+    delete state.pendingRestartConfirmation;
+    saveState(state);
+    return;
+  }
+
+  const isRebuild = pending.type === "rebuild";
+  const content = isRebuild
+    ? "<:online:1557204563675848814> **Rebuild concluído com sucesso!**\\nCódigo atualizado, comandos e emojis sincronizados e o Astral Stock está online novamente."
+    : "<:online:1557204563675848814> **Astral Stock reiniciado com sucesso!**\\nO bot voltou online normalmente.";
+
+  try {
+    const route = Routes.webhookMessage(client.user.id, String(pending.token), "@original");
+    await client.rest.patch(route, {
+      body: { content }
+    });
+    console.log("[PANEL] Confirmação de " + (isRebuild ? "rebuild" : "reinício") + " enviada após o bot voltar online.");
+  } catch (error) {
+    console.warn("[PANEL] Não consegui atualizar a confirmação após reiniciar:", error?.message || error);
+  }
+
+  delete state.pendingRestartConfirmation;
+  saveState(state);
+}
 function normalizeStock(payload) {
   let data = payload;
   for (let i = 0; i < 3 && typeof data === "string"; i++) {
@@ -2989,6 +3031,9 @@ async function registerCommands() {
 
 client.once("ready", async () => {
   migrateLegacyConfig();
+  // Se a instância anterior estava reiniciando/rebuildando, confirma agora
+  // que a nova instância realmente voltou online.
+  await completePendingRestartConfirmation();
   initializeGuildWhitelist();
   void syncApplicationEmojis().catch(error => console.warn("[EMOJIS] Sincronização em segundo plano falhou:", error.message));
   console.log(`Bot conectado como ${client.user.tag}`);
