@@ -3456,7 +3456,10 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (selected === "interface_mode") {
-      await interaction.update(buildTicketInterfaceModePanel(interaction.guildId, interaction.user.id));
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketInterfaceMode = (config.ticketInterfaceMode || "v2") === "embed" ? "v2" : "embed";
+      });
+      await interaction.update(buildTicketConfigPanel(interaction.guildId));
       return;
     }
 
