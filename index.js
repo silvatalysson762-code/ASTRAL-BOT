@@ -1543,7 +1543,7 @@ function buildBotControlPanel() {
         new ButtonBuilder()
           .setCustomId("panel:bot_rebuild")
           .setLabel("Rebuild")
-          .setEmoji({ name: "file", id: "1557204826280951858" })
+          .setEmoji({ name: "database", id: "1557204816625934336" })
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("panel:bot_customize")
