@@ -1964,7 +1964,7 @@ function buildTicketSchedulePanel(guildId) {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:schedule_outside").setLabel("Permitir Fora do Horário").setEmoji({ name: "warning", id: "1557204565877592085" }).setStyle(schedule.allowOutsideHours ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("ticket:schedule_outside").setLabel(schedule.allowOutsideHours ? "Bloquear Fora do Horário" : "Permitir Fora do Horário").setEmoji(schedule.allowOutsideHours ? { name: "lock", id: "1557204840818409482" } : { name: "unlock", id: "1557204844245295194" }).setStyle(schedule.allowOutsideHours ? ButtonStyle.Danger : ButtonStyle.Success),
         new ButtonBuilder().setCustomId("ticket:schedule_all_on").setLabel("Ativar todos os dias").setEmoji({ name: "check_alt", id: "1557204542960181299" }).setStyle(ButtonStyle.Success)
       )
     )
