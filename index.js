@@ -3710,12 +3710,12 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     const ownerId = interaction.customId.split(":")[2];
-    await interaction.update(buildTicketControlPanel(ownerId, interaction.user.id));
-    await interaction.followUp({
+    // Assumir não altera o painel nem os botões: mantém os tamanhos e o layout originais.
+    await interaction.reply({
       content: "<:ticket_check:1557205113100046347> Atendimento assumido por <@" + interaction.user.id + ">.",
       ephemeral: true,
       allowedMentions: { users: [] }
-    }).catch(() => {});
+    });
     return;
   }
 
@@ -3730,25 +3730,22 @@ client.on("interactionCreate", async interaction => {
       }
       const target = interaction.channel;
       if (!target) throw new Error("Não encontrei o canal deste ticket.");
-      const closedMessage = {
-        content: "<:offline:1557204568432185454> Atendimento fechado por <@" + interaction.user.id + ">.",
-        components: [new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("ticket:closed").setLabel("Fechado")
-            .setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger).setDisabled(true)
-        )],
-        allowedMentions: { users: [] }
-      };
       if (target.isThread?.()) {
-        await interaction.update(closedMessage);
-        await target.setLocked(true, "Ticket fechado por " + interaction.user.tag).catch(() => {});
-        await target.setArchived(true, "Ticket fechado por " + interaction.user.tag).catch(() => {});
+        // Fechar é definitivo: exclui a thread, em vez de apenas arquivar/bloquear.
+        await interaction.reply({
+          content: "<:offline:1557204568432185454> Atendimento fechado por <@" + interaction.user.id + ">. O tópico será excluído.",
+          ephemeral: true,
+          allowedMentions: { users: [] }
+        });
+        await target.delete("Ticket fechado por " + interaction.user.tag);
       } else {
-        await target.permissionOverwrites.edit(ownerId, { SendMessages: false }).catch(() => {});
-        if (!String(target.name || "").startsWith("fechado-")) {
-          await target.setName(("fechado-" + target.name).slice(0, 100), "Ticket fechado por " + interaction.user.tag).catch(() => {});
-        }
-        await target.setTopic("astral-ticket-closed:" + ownerId).catch(() => {});
-        await interaction.update(closedMessage);
+        // Em canais normais, o canal é o próprio ticket; excluí-lo encerra o atendimento de verdade.
+        await interaction.reply({
+          content: "<:offline:1557204568432185454> Atendimento fechado. O canal do ticket será excluído.",
+          ephemeral: true,
+          allowedMentions: { users: [] }
+        });
+        await target.delete("Ticket fechado por " + interaction.user.tag);
       }
     } catch (error) {
       console.error("[TICKET] Erro ao fechar atendimento:", error);
