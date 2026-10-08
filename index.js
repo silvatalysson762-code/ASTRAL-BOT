@@ -1605,7 +1605,11 @@ function startStockScheduler() {
         .finally(() => activeStockCycles.delete(key));
     }
 
-    schedulerTimer = setTimeout(tick, 5000);
+    // O agendador só precisa acordar perto do próximo reset, não a cada 5 segundos.
+    // Isso reduz despertares desnecessários sem alterar os horários de stock.
+    const upcoming = Object.values(nextStockAt).filter(value => Number.isFinite(value) && value > now);
+    const nextDueAt = upcoming.length ? Math.min(...upcoming) : now + 60000;
+    schedulerTimer = setTimeout(tick, Math.max(1000, nextDueAt - now));
   };
 
   if (schedulerTimer) clearTimeout(schedulerTimer);
@@ -5159,18 +5163,27 @@ client.on("interactionCreate", async interaction => {
     }
 
     try {
-      // O painel principal é individual: somente quem executou /painel consegue vê-lo.
+      // Reconhece a interação imediatamente para mostrar "Abrindo painel..."
+      // e depois substitui o aviso pelo painel privado em Components V2.
       await interaction.reply({
-        ...buildMainPanel(interaction.guildId, interaction.user.id),
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+        content: "<:online:1557204563676618814> Abrindo painel...",
+        ephemeral: true
+      });
+
+      const panel = buildMainPanel(interaction.guildId, interaction.user.id);
+      await interaction.editReply({
+        ...panel,
+        content: null,
+        flags: MessageFlags.IsComponentsV2
       });
     } catch (error) {
       console.error("[PANEL] Erro ao abrir /painel:", error);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "<:offline:1557204568432185454> Não consegui abrir o painel." + (error?.message ? "\n-# Erro: " + String(error.message).slice(0, 180) : ""),
-          ephemeral: true
-        }).catch(() => {});
+      const errorMessage = "<:offline:1557204568432185454> Não consegui abrir o painel." +
+        (error?.message ? "\n-# Erro: " + String(error.message).slice(0, 180) : "");
+      if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ content: errorMessage, embeds: [], components: [] }).catch(() => {});
+      } else {
+        await interaction.reply({ content: errorMessage, ephemeral: true }).catch(() => {});
       }
     }
     return;
