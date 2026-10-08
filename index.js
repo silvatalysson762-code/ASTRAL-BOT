@@ -2751,6 +2751,54 @@ function isTicketScheduleCurrentlyOpen(config) {
   if (currentMinutes < startMinutes || currentMinutes >= endMinutes) return { allowed: false, reason: "O atendimento está fechado neste momento. Tente novamente dentro do horário configurado." };
   return { allowed: true };
 }
+function configuredTicketStaffRoleIds(config) {
+  const roles = config?.adminRoles || {};
+  return ["administrator", "moderator", "staff"]
+    .map(key => String(roles[key] || ""))
+    .filter((id, index, all) => /^\d{17,20}$/.test(id) && all.indexOf(id) === index);
+}
+
+async function interactionHasTicketStaffRole(interaction) {
+  if (!interaction.guild || !interaction.user) return false;
+  const roleIds = configuredTicketStaffRoleIds(getGuildConfig(interaction.guild.id));
+  if (!roleIds.length) return false;
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  return Boolean(member && roleIds.some(id => member.roles.cache.has(id)));
+}
+
+function buildTicketControlPanel(ownerId, assumedBy = null) {
+  const container = new ContainerBuilder()
+    .setAccentColor(0x808080)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+      "## <:ticket_plus:1557205110847701052> PAINEL TICKET\n" +
+      "> Gerencie os membros e a responsabilidade deste atendimento."
+    ))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel("Adicionar")
+        .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel("Remover")
+        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
+    ))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      assumedBy
+        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel("Assumido")
+            .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Success).setDisabled(true)
+        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel("Assumir")
+            .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel("Atribuir")
+        .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
+    ));
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+async function sendTicketControlPanel(target, ownerId) {
+  await target.send(buildTicketControlPanel(ownerId));
+  await target.send({ components: [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setLabel("Fechar")
+      .setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger)
+  )] });
+}
+
 async function sendTicketOpeningMessage(target, config, selectedFunction, ticketText) {
   const title = String(selectedFunction?.name || "Atendimento");
   const description = String(ticketText || "").replace(/\\n/g, "\n");
@@ -2863,6 +2911,20 @@ async function createAstralTicket(interaction, selectedFunction = null) {
 
     await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
 
+    const staffRoleIds = configuredTicketStaffRoleIds(config);
+    const staffMemberIds = new Set();
+    for (const roleId of staffRoleIds) {
+      const role = guild.roles.cache.get(roleId);
+      if (role) for (const member of role.members.values()) staffMemberIds.add(member.id);
+    }
+    for (const memberId of staffMemberIds) {
+      if (memberId === interaction.user.id || memberId === client.user.id) continue;
+      await thread.members.add(memberId).catch(error => {
+        console.warn("[TICKET] Não consegui adicionar membro da equipe à thread:", memberId, error?.message || error);
+      });
+    }
+    await sendTicketControlPanel(thread, interaction.user.id);
+
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
 
     return { mode, target: thread, alreadyOpen: false };
@@ -2878,6 +2940,10 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     permissionOverwrites: [
       { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
       { id: interaction.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] },
+      ...configuredTicketStaffRoleIds(config).map(roleId => ({
+        id: roleId,
+        allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
+      })),
       { id: client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"] }
     ]
   });
@@ -2887,6 +2953,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
 
   await sendTicketOpeningMessage(channel, config, selectedFunction, ticketText);
+  await sendTicketControlPanel(channel, interaction.user.id);
 
   if (selectedFunction?.banner) await channel.send({ content: selectedFunction.banner });
 
@@ -3557,6 +3624,126 @@ client.on("messageCreate", async message => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (interaction.isButton() && /^ticket:member:(add|remove):\d{17,20}$/.test(interaction.customId)) {
+    try {
+      if (!(await interactionHasTicketStaffRole(interaction))) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Apenas os cargos Administrador, Moderador e Staff configurados no painel podem usar essa função.", ephemeral: true });
+        return;
+      }
+      const parts = interaction.customId.split(":");
+      const action = parts[2];
+      const ownerId = parts[3];
+      const modal = new ModalBuilder()
+        .setCustomId("ticket:member_modal:" + action + ":" + ownerId)
+        .setTitle(action === "add" ? "Adicionar membro" : "Remover membro")
+        .addComponents(new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId("member_id").setLabel("ID ou menção do membro")
+            .setPlaceholder("Ex.: 123456789012345678 ou @membro")
+            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(30)
+        ));
+      await interaction.showModal(modal);
+    } catch (error) {
+      console.error("[TICKET] Erro ao abrir modal de membros:", error);
+      if (!interaction.replied) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir essa opção.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:member_modal:")) {
+    try {
+      if (!(await interactionHasTicketStaffRole(interaction))) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Apenas os cargos configurados de Administrador, Moderador e Staff podem gerenciar membros.", ephemeral: true });
+        return;
+      }
+      const parts = interaction.customId.split(":");
+      const action = parts[2];
+      const ownerId = parts[3];
+      const rawMemberId = interaction.fields.getTextInputValue("member_id").trim();
+      const match = rawMemberId.match(/^(?:<@!?(\d{17,20})>|(\d{17,20}))$/);
+      const memberId = match?.[1] || match?.[2];
+      if (!memberId) throw new Error("Informe uma menção válida ou o ID numérico do membro.");
+      if (action === "remove" && memberId === ownerId) throw new Error("Não é possível remover o dono deste ticket.");
+      if (memberId === client.user.id) throw new Error("Não é possível remover o próprio bot do ticket.");
+      const member = await interaction.guild.members.fetch(memberId).catch(() => null);
+      if (!member) throw new Error("Não encontrei esse membro neste servidor.");
+      const target = interaction.channel;
+      if (!target) throw new Error("Não encontrei o canal deste ticket.");
+
+      if (target.isThread?.()) {
+        if (action === "add") await target.members.add(memberId);
+        else await target.members.remove(memberId);
+      } else if (action === "add") {
+        await target.permissionOverwrites.edit(memberId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+      } else {
+        await target.permissionOverwrites.delete(memberId);
+      }
+      await interaction.reply({
+        content: action === "add"
+          ? "<:online:1557204563675848814> <@" + memberId + "> foi adicionado ao atendimento."
+          : "<:online:1557204563675848814> <@" + memberId + "> foi removido do atendimento.",
+        ephemeral: true,
+        allowedMentions: { users: [] }
+      });
+    } catch (error) {
+      console.error("[TICKET] Erro ao gerenciar membro:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui atualizar os membros do ticket."), ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && /^ticket:assume:\d{17,20}$/.test(interaction.customId)) {
+    if (!(await interactionHasTicketStaffRole(interaction))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas os cargos Administrador, Moderador e Staff configurados no painel podem assumir o atendimento.", ephemeral: true });
+      return;
+    }
+    const ownerId = interaction.customId.split(":")[2];
+    await interaction.update(buildTicketControlPanel(ownerId, interaction.user.id));
+    await interaction.followUp({
+      content: "<:ticket_check:1557205113100046347> Atendimento assumido por <@" + interaction.user.id + ">.",
+      ephemeral: true,
+      allowedMentions: { users: [] }
+    }).catch(() => {});
+    return;
+  }
+
+  if (interaction.isButton() && /^ticket:close:\d{17,20}$/.test(interaction.customId)) {
+    try {
+      const ownerId = interaction.customId.split(":")[2];
+      const isOwner = interaction.user.id === ownerId;
+      const isStaff = await interactionHasTicketStaffRole(interaction);
+      if (!isOwner && !isStaff) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Só o dono do ticket ou os cargos Administrador, Moderador e Staff configurados podem fechar este atendimento.", ephemeral: true });
+        return;
+      }
+      const target = interaction.channel;
+      if (!target) throw new Error("Não encontrei o canal deste ticket.");
+      const closedMessage = {
+        content: "<:offline:1557204568432185454> Atendimento fechado por <@" + interaction.user.id + ">.",
+        components: [new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("ticket:closed").setLabel("Fechado")
+            .setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger).setDisabled(true)
+        )],
+        allowedMentions: { users: [] }
+      };
+      if (target.isThread?.()) {
+        await interaction.update(closedMessage);
+        await target.setLocked(true, "Ticket fechado por " + interaction.user.tag).catch(() => {});
+        await target.setArchived(true, "Ticket fechado por " + interaction.user.tag).catch(() => {});
+      } else {
+        await target.permissionOverwrites.edit(ownerId, { SendMessages: false }).catch(() => {});
+        if (!String(target.name || "").startsWith("fechado-")) {
+          await target.setName(("fechado-" + target.name).slice(0, 100), "Ticket fechado por " + interaction.user.tag).catch(() => {});
+        }
+        await target.setTopic("astral-ticket-closed:" + ownerId).catch(() => {});
+        await interaction.update(closedMessage);
+      }
+    } catch (error) {
+      console.error("[TICKET] Erro ao fechar atendimento:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui fechar o atendimento."), ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:select") {
     await interaction.reply({ content: "<a:refresh_alt:1557205141051019274> Carregando", ephemeral: true });
     try {
