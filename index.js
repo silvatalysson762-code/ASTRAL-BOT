@@ -1575,10 +1575,10 @@ function buildBotControlPanel() {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:discord:1557204573817405440> CONTROLE DO BOT\n" +
-        "> Gerencie o Astral Stock e personalize a identidade do bot.\n\n" +
+        "> Gerencie o Astral Stock e personalize a identidade do bot.\n" +
         "### <:online:1557204563675848814> Status\n" +
         "> **Bot:** " + (botUser ? botUser.tag : "Astral BOT") + "\n" +
-        "> **ID:** `" + (botUser?.id || "N/A") + "`\n\n" +
+        "> **ID:** `" + (botUser?.id || "N/A") + "`\n" +
         "### <:settings_button:1557204872648982579> Gerenciamento\n" +
         "> Reinicie, reconstrua os comandos ou personalize o bot."
       )
