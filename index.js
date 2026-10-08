@@ -1794,7 +1794,7 @@ function buildBotControlPanel() {
   const botUser = client.user;
   const botSettings = getBotSettings();
   const container = new ContainerBuilder()
-    .setAccentColor(parseInt(botSettings.accentColor, 16) || 0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:discord:1557204573817405440> CONTROLE DO BOT\n" +
@@ -2024,7 +2024,7 @@ function buildTicketAppearancePanel(guildId, userId) {
   const color = draft.color || "00FFFF";
 
   const container = new ContainerBuilder()
-    .setAccentColor(parseInt(color.replace(/^#/, ""), 16) || 0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> CONFIGURAR APARÊNCIA\n" +
@@ -2661,7 +2661,7 @@ function buildSupportPanel(guild) {
   const thumbnailUrl = appearance.thumbnail || guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
 
   const container = new ContainerBuilder()
-    .setAccentColor(parseInt(String(appearance.color || "00FFFF").replace(/^#/, ""), 16) || 0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
