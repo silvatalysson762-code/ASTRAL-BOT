@@ -1544,12 +1544,7 @@ function buildBotControlPanel() {
           .setCustomId("panel:bot_rebuild")
           .setLabel("Rebuild")
           .setEmoji({ name: "database", id: "1557204816625934336" })
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId("panel:bot_customize")
-          .setLabel("Personalizar")
-          .setEmoji({ name: "settings_button", id: "1557204872648982579" })
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Primary)
       )
     )
     .addActionRowComponents(
@@ -1558,6 +1553,11 @@ function buildBotControlPanel() {
           .setCustomId("panel:main")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("panel:bot_customize")
+          .setLabel("Personalizar")
+          .setEmoji({ name: "key_alt", id: "1557204516275879987" })
           .setStyle(ButtonStyle.Secondary)
       )
     );
