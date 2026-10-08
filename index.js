@@ -1817,13 +1817,13 @@ function buildTicketOpeningModePanel(guildId) {
               label: "Canal Privado",
               description: channelSelected ? "Modo atual • cria um canal privado" : "Criar cada atendimento em um canal privado",
               value: "channel",
-              emoji: { name: "ticket_plus", id: "1557205110847701052" }
+              emoji: { name: "folder", id: "1557204828168397010" }
             },
             {
               label: "Thread Privada",
               description: threadSelected ? "Modo atual • cria uma thread privada" : "Criar cada atendimento em uma thread privada",
               value: "thread",
-              emoji: { name: "ticket", id: "1557205110847701052" }
+              emoji: { name: "folder_open", id: "1557204838931107951" }
             }
           )
       )
