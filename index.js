@@ -3705,7 +3705,7 @@ client.on("interactionCreate", async interaction => {
         if (!value) throw new Error("Informe um nome para o bot.");
         await client.user.setUsername(value);
       } else if (type === "avatar") {
-        if (value && !/^https?:\\/\\//i.test(value)) throw new Error("A URL do avatar precisa começar com http:// ou https://.");
+        if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL do avatar precisa começar com http:// ou https://.");
         config.botSettings.avatar = value;
         if (value) await client.user.setAvatar(value);
       } else if (type === "banner") {
