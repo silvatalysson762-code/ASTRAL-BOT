@@ -108,6 +108,55 @@ function saveConfig(config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
+function getBotSettings() {
+  const config = readConfig();
+  if (!config.botSettings || typeof config.botSettings !== "object") {
+    config.botSettings = {
+      status1: "",
+      status2: "",
+      avatar: "",
+      banner: ""
+    };
+    saveConfig(config);
+  } else {
+    config.botSettings.status1 = String(config.botSettings.status1 || "");
+    config.botSettings.status2 = String(config.botSettings.status2 || "");
+    config.botSettings.avatar = String(config.botSettings.avatar || "");
+    config.botSettings.banner = String(config.botSettings.banner || "");
+  }
+  return config.botSettings;
+}
+
+let rotatingStatusIndex = 0;
+let rotatingStatusTimer = null;
+
+function applyRotatingBotStatus() {
+  if (!client.user) return;
+  const settings = getBotSettings();
+  const statuses = [settings.status1, settings.status2].filter(Boolean);
+  if (!statuses.length) {
+    client.user.setPresence({ status: "online", activities: [] });
+    return;
+  }
+
+  if (rotatingStatusIndex >= statuses.length) rotatingStatusIndex = 0;
+  const status = statuses[rotatingStatusIndex];
+  rotatingStatusIndex = (rotatingStatusIndex + 1) % statuses.length;
+
+  client.user.setPresence({
+    status: "online",
+    activities: [{ name: status, type: 0 }]
+  });
+}
+
+function startBotStatusRotation() {
+  if (rotatingStatusTimer) clearInterval(rotatingStatusTimer);
+  applyRotatingBotStatus();
+  rotatingStatusTimer = setInterval(applyRotatingBotStatus, 15000);
+}
+
+
+
 const PROTECTED_GUILD_ID = "1528047581845000353";
 
 function getAllowedGuildIds() {
@@ -1553,40 +1602,112 @@ function buildBotControlPanel() {
           .setCustomId("panel:main")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("panel:bot_customize")
-          .setLabel("Personalizar")
-          .setEmoji({ name: "key_alt", id: "1557204516275879987" })
           .setStyle(ButtonStyle.Secondary)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("panel:bot_customize_select")
+          .setPlaceholder("🔑 Personalizar")
+          .addOptions(
+            {
+              label: "Alterar Nickname",
+              description: "Mude o nome do bot",
+              value: "nickname",
+              emoji: { name: "key_alt", id: "1557204516275879987" }
+            },
+            {
+              label: "Alterar Avatar",
+              description: "Mude a foto de perfil do bot",
+              value: "avatar",
+              emoji: { name: "key_alt", id: "1557204516275879987" }
+            },
+            {
+              label: "Alterar Banner",
+              description: "Mude o banner do perfil do bot",
+              value: "banner",
+              emoji: { name: "key_alt", id: "1557204516275879987" }
+            },
+            {
+              label: "Alterar Status 1",
+              description: "Configure o primeiro status rotativo",
+              value: "status1",
+              emoji: { name: "key_alt", id: "1557204516275879987" }
+            },
+            {
+              label: "Alterar Status 2",
+              description: "Configure o segundo status rotativo",
+              value: "status2",
+              emoji: { name: "key_alt", id: "1557204516275879987" }
+            }
+          )
       )
     );
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildBotCustomizeModal() {
+function buildBotCustomizeModal(type) {
+  const settings = getBotSettings();
+  const map = {
+    nickname: {
+      id: "nickname",
+      title: "Alterar Nickname",
+      label: "Nome do bot",
+      value: client.user?.username || "",
+      placeholder: "Astral Stock",
+      max: 32
+    },
+    avatar: {
+      id: "avatar",
+      title: "Alterar Avatar",
+      label: "URL do avatar",
+      value: settings.avatar,
+      placeholder: "https://...",
+      max: 500
+    },
+    banner: {
+      id: "banner",
+      title: "Alterar Banner",
+      label: "URL do banner",
+      value: settings.banner,
+      placeholder: "https://...",
+      max: 500
+    },
+    status1: {
+      id: "status1",
+      title: "Alterar Status 1",
+      label: "Primeiro status",
+      value: settings.status1,
+      placeholder: "Astral Store • Online",
+      max: 128
+    },
+    status2: {
+      id: "status2",
+      title: "Alterar Status 2",
+      label: "Segundo status",
+      value: settings.status2,
+      placeholder: "Blox Fruits Stock",
+      max: 128
+    }
+  };
+  const item = map[type];
+  if (!item) return null;
+
   return new ModalBuilder()
-    .setCustomId("panel:bot_customize_modal")
-    .setTitle("Personalizar Bot")
+    .setCustomId("panel:bot_customize_modal:" + item.id)
+    .setTitle(item.title)
     .addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
-          .setCustomId("bot_name")
-          .setLabel("Nome do bot")
+          .setCustomId("value")
+          .setLabel(item.label)
           .setStyle(TextInputStyle.Short)
           .setRequired(false)
-          .setMaxLength(32)
-          .setPlaceholder("Astral Stock")
-      ),
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId("bot_status")
-          .setLabel("Status do bot")
-          .setStyle(TextInputStyle.Short)
-          .setRequired(false)
-          .setMaxLength(128)
-          .setPlaceholder("Astral Store • Online")
+          .setMaxLength(item.max)
+          .setValue(item.value.slice(0, item.max))
+          .setPlaceholder(item.placeholder)
       )
     );
 }
@@ -2685,6 +2806,7 @@ client.once("ready", async () => {
   await checkStock(false, ["normal", "mirage"], false);
   startStockScheduler();
   await enforceGuildWhitelist();
+  startBotStatusRotation();
 });
 
 client.on("guildCreate", async guild => {
@@ -3552,36 +3674,58 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isButton() && interaction.customId === "panel:bot_customize") {
+  if (interaction.isStringSelectMenu() && interaction.customId === "panel:bot_customize_select") {
     if (!(await isBotOwner(interaction.user.id))) {
       await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode personalizar o bot.", ephemeral: true });
       return;
     }
-    await interaction.showModal(buildBotCustomizeModal());
+    const type = interaction.values[0];
+    const modal = buildBotCustomizeModal(type);
+    if (!modal) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Opção de personalização inválida.", ephemeral: true });
+      return;
+    }
+    await interaction.showModal(modal);
     return;
   }
 
-  if (interaction.isModalSubmit() && interaction.customId === "panel:bot_customize_modal") {
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("panel:bot_customize_modal:")) {
     if (!(await isBotOwner(interaction.user.id))) {
       await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode personalizar o bot.", ephemeral: true });
       return;
     }
+
+    const type = interaction.customId.split(":").pop();
+    const value = interaction.fields.getTextInputValue("value").trim();
+    const config = readConfig();
+    config.botSettings = config.botSettings || { status1: "", status2: "", avatar: "", banner: "" };
+
     try {
-      const name = interaction.fields.getTextInputValue("bot_name").trim();
-      const status = interaction.fields.getTextInputValue("bot_status").trim();
-      if (name) await client.user.setUsername(name);
-      if (status) {
-        client.user.setPresence({
-          status: "online",
-          activities: [{ name: status, type: 0 }]
-        });
+      if (type === "nickname") {
+        if (!value) throw new Error("Informe um nome para o bot.");
+        await client.user.setUsername(value);
+      } else if (type === "avatar") {
+        if (value && !/^https?:\\/\\//i.test(value)) throw new Error("A URL do avatar precisa começar com http:// ou https://.");
+        config.botSettings.avatar = value;
+        if (value) await client.user.setAvatar(value);
+      } else if (type === "banner") {
+        if (value && !/^https?:\\/\\//i.test(value)) throw new Error("A URL do banner precisa começar com http:// ou https://.");
+        config.botSettings.banner = value;
+        if (value) await client.user.setBanner(value);
+      } else if (type === "status1" || type === "status2") {
+        config.botSettings[type] = value;
+        saveConfig(config);
+        rotatingStatusIndex = 0;
+        applyRotatingBotStatus();
       } else {
-        client.user.setPresence({ status: "online", activities: [] });
+        throw new Error("Opção de personalização inválida.");
       }
+
+      if (type !== "status1" && type !== "status2") saveConfig(config);
       await interaction.reply({ content: "<:online:1557204563675848814> **Salvo**", ephemeral: true });
     } catch (error) {
-      console.error("[PANEL] Erro ao personalizar bot:", error);
-      await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui personalizar o bot.").slice(0, 500), ephemeral: true }).catch(() => {});
+      console.error("[PANEL] Erro na personalização do bot:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui alterar o bot.").slice(0, 500), ephemeral: true }).catch(() => {});
     }
     return;
   }
