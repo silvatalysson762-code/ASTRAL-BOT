@@ -1584,23 +1584,9 @@ function buildBotControlPanel() {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("panel:bot_restart")
-          .setLabel("Reiniciar")
-          .setEmoji({ name: "refresh_alt", id: "1557205141051019274", animated: true })
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId("panel:bot_rebuild")
-          .setLabel("Rebuild")
-          .setEmoji({ name: "database", id: "1557204816625934336" })
-          .setStyle(ButtonStyle.Primary)
-      )
-    )
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("panel:bot_customize_select")
-          .setPlaceholder("🔑 Personalizar")
+          .setPlaceholder("🖌️ Personalizar")
           .addOptions(
             {
               label: "Alterar Nickname",
@@ -1633,6 +1619,20 @@ function buildBotControlPanel() {
               emoji: { name: "key_alt", id: "1557204516275879987" }
             }
           )
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:bot_restart")
+          .setLabel("Reiniciar")
+          .setEmoji({ name: "refresh_alt", id: "1557205141051019274", animated: true })
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("panel:bot_rebuild")
+          .setLabel("Rebuild")
+          .setEmoji({ name: "database", id: "1557204816625934336" })
+          .setStyle(ButtonStyle.Primary)
       )
     )
     .addActionRowComponents(
