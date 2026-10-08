@@ -3456,10 +3456,19 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (selected === "interface_mode") {
+      const currentMode = getGuildConfig(interaction.guildId).ticketInterfaceMode || "v2";
+      const nextMode = currentMode === "embed" ? "v2" : "embed";
       updateGuildConfig(interaction.guildId, config => {
-        config.ticketInterfaceMode = (config.ticketInterfaceMode || "v2") === "embed" ? "v2" : "embed";
+        config.ticketInterfaceMode = nextMode;
       });
+
       await interaction.update(buildTicketConfigPanel(interaction.guildId));
+
+      const modeName = nextMode === "embed" ? "Embed Clássico" : "Container V2";
+      await interaction.followUp({
+        content: applicationEmojiTag("smoke", "<:smoke:1556626973558710342>") + " Modo de interface alterado para **" + modeName + "**.",
+        ephemeral: true
+      }).catch(() => {});
       return;
     }
 
