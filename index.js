@@ -23,6 +23,7 @@ let apiCooldownUntil = 0;
 const apiKeyCooldownUntil = new Map();
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
+const pendingBotCustomizations = new Map();
 
 const fruitRoleBusyUsers = new Set();
 const aiCooldowns = new Map();
@@ -1641,15 +1642,21 @@ function buildBotControlPanel() {
           .setCustomId("panel:main")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("panel:bot_save")
+          .setLabel("Salvar")
+          .setEmoji("💾")
+          .setStyle(ButtonStyle.Success)
       )
     );
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildBotCustomizeModal(type) {
+function buildBotCustomizeModal(type, userId) {
   const settings = getBotSettings();
+  const pending = pendingBotCustomizations.get(String(userId)) || {};
   const map = {
     nickname: {
       id: "nickname",
@@ -1706,7 +1713,7 @@ function buildBotCustomizeModal(type) {
           .setStyle(TextInputStyle.Short)
           .setRequired(false)
           .setMaxLength(item.max)
-          .setValue(item.value.slice(0, item.max))
+          .setValue((Object.prototype.hasOwnProperty.call(pending, item.id) ? pending[item.id] : item.value).slice(0, item.max))
           .setPlaceholder(item.placeholder)
       )
     );
@@ -3657,6 +3664,55 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  if (interaction.isButton() && interaction.customId === "panel:bot_save") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode salvar as configurações.", ephemeral: true });
+      return;
+    }
+
+    const userKey = String(interaction.user.id);
+    const pending = pendingBotCustomizations.get(userKey);
+    if (!pending || Object.keys(pending).length === 0) {
+      await interaction.reply({ content: "<:warning:1557204565877592085> Não há alterações pendentes para salvar.", ephemeral: true });
+      return;
+    }
+
+    try {
+      const config = readConfig();
+      config.botSettings = config.botSettings || { status1: "", status2: "", avatar: "", banner: "" };
+
+      if (Object.prototype.hasOwnProperty.call(pending, "nickname")) {
+        if (!pending.nickname) throw new Error("Informe um nome para o bot.");
+        await client.user.setUsername(pending.nickname);
+      }
+      if (Object.prototype.hasOwnProperty.call(pending, "avatar")) {
+        config.botSettings.avatar = pending.avatar;
+        if (pending.avatar) await client.user.setAvatar(pending.avatar);
+      }
+      if (Object.prototype.hasOwnProperty.call(pending, "banner")) {
+        config.botSettings.banner = pending.banner;
+        if (pending.banner) await client.user.setBanner(pending.banner);
+      }
+      if (Object.prototype.hasOwnProperty.call(pending, "status1")) {
+        config.botSettings.status1 = pending.status1;
+      }
+      if (Object.prototype.hasOwnProperty.call(pending, "status2")) {
+        config.botSettings.status2 = pending.status2;
+      }
+
+      saveConfig(config);
+      pendingBotCustomizations.delete(userKey);
+      rotatingStatusIndex = 0;
+      applyRotatingBotStatus();
+
+      await interaction.reply({ content: "<:online:1557204563675848814> **Alterações salvas com sucesso!**", ephemeral: true });
+    } catch (error) {
+      console.error("[PANEL] Erro ao salvar personalização:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui salvar as alterações.").slice(0, 500), ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
   if (interaction.isButton() && interaction.customId === "panel:bot_rebuild") {
     if (!(await isBotOwner(interaction.user.id))) {
       await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode fazer o rebuild.", ephemeral: true });
@@ -3680,7 +3736,7 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     const type = interaction.values[0];
-    const modal = buildBotCustomizeModal(type);
+    const modal = buildBotCustomizeModal(type, interaction.user.id);
     if (!modal) {
       await interaction.reply({ content: "<:offline:1557204568432185454> Opção de personalização inválida.", ephemeral: true });
       return;
@@ -3697,32 +3753,22 @@ client.on("interactionCreate", async interaction => {
 
     const type = interaction.customId.split(":").pop();
     const value = interaction.fields.getTextInputValue("value").trim();
-    const config = readConfig();
-    config.botSettings = config.botSettings || { status1: "", status2: "", avatar: "", banner: "" };
 
     try {
       if (type === "nickname") {
         if (!value) throw new Error("Informe um nome para o bot.");
-        await client.user.setUsername(value);
-      } else if (type === "avatar") {
-        if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL do avatar precisa começar com http:// ou https://.");
-        config.botSettings.avatar = value;
-        if (value) await client.user.setAvatar(value);
-      } else if (type === "banner") {
-        if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL do banner precisa começar com http:// ou https://.");
-        config.botSettings.banner = value;
-        if (value) await client.user.setBanner(value);
-      } else if (type === "status1" || type === "status2") {
-        config.botSettings[type] = value;
-        saveConfig(config);
-        rotatingStatusIndex = 0;
-        applyRotatingBotStatus();
-      } else {
+      } else if (type === "avatar" || type === "banner") {
+        if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL precisa começar com http:// ou https://.");
+      } else if (type !== "status1" && type !== "status2") {
         throw new Error("Opção de personalização inválida.");
       }
 
-      if (type !== "status1" && type !== "status2") saveConfig(config);
-      await interaction.reply({ content: "<:online:1557204563675848814> **Salvo**", ephemeral: true });
+      const userKey = String(interaction.user.id);
+      const pending = pendingBotCustomizations.get(userKey) || {};
+      pending[type] = value;
+      pendingBotCustomizations.set(userKey, pending);
+
+      await interaction.reply({ content: "<:online:1557204563675848814> **Alteração preparada.** Clique em **Salvar** para aplicar.", ephemeral: true });
     } catch (error) {
       console.error("[PANEL] Erro na personalização do bot:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui alterar o bot.").slice(0, 500), ephemeral: true }).catch(() => {});
