@@ -303,6 +303,11 @@ function getBotSettings() {
   return config.botSettings;
 }
 
+function getBotPanelAccentColor() {
+  const settings = getBotSettings();
+  return parseInt(String(settings.accentColor || "00FFFF").replace(/^#/, ""), 16) || 0x00FFFF;
+}
+
 let rotatingStatusIndex = 0;
 let rotatingStatusTimer = null;
 
@@ -1321,7 +1326,7 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
     "-# Dados de stock • Confira no jogo antes de negociar"
   ].filter(Boolean).join("\n");
   return new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 async function postStock(stock, announce, title, groupKey = null) {
@@ -1597,7 +1602,7 @@ async function testStockContainers() {
     return emoji + " **" + name + "** | " + priceText;
   });
   const body = ["# <:60119:1556621255984029706> Blox Fruits", "", ...lines].join("\n");
-  return [new ContainerBuilder().setAccentColor(0x00FFFF).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
+  return [new ContainerBuilder().setAccentColor(getBotPanelAccentColor()).addTextDisplayComponents(new TextDisplayBuilder().setContent(body))];
 }
 
 const fruitOption = (option) => option.setName("fruit").setDescription("Nome da fruta").setRequired(true);
@@ -1718,7 +1723,7 @@ function buildFruitRolePanelForMember(guildId, member, statusText = null) {
   // Painel individual compacto: somente a mensagem de status (quando houver),
   // os seletores e o botão de remover todos os cargos.
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF);
+    .setAccentColor(getBotPanelAccentColor());
 
   if (statusText) {
     container.addTextDisplayComponents(
@@ -1768,7 +1773,7 @@ function buildFruitRolePanel(guildId) {
     "📢 As notificações serão enviadas no canal <#1555984553016033380>.";
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(title),
       new TextDisplayBuilder().setContent(description)
@@ -1959,7 +1964,7 @@ function buildMainPanel(guildId, userId) {
   const manage = applicationEmojiTag("settings_button", "⚙️");
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## " + home + " ASTRAL STORE\n" +
@@ -2180,7 +2185,7 @@ function buildTicketManageFunctionsPanel(guildId) {
   const config = getGuildConfig(guildId);
   const functions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> GERENCIAR FUNÇÕES\n" +
@@ -2221,7 +2226,7 @@ function buildTicketFunctionReorderPanel(guildId, userId) {
   const selectedId = ticketReorderSelections.get(String(guildId) + ":" + String(userId)) || null;
   const selectedIndex = functions.findIndex(fn => fn.id === selectedId);
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> REORDENAR FUNÇÕES\n" +
@@ -2268,7 +2273,7 @@ function buildTicketOpeningModePanel(guildId, userId) {
   const threadSelected = mode === "thread";
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> MODO DE ABERTURA\n" +
@@ -2365,7 +2370,7 @@ function buildTicketSchedulePanel(guildId) {
     return "<:online:1557204563675848814> **" + day.label + ":** `" + value.start + " - " + value.end + "`";
   });
   const container = new ContainerBuilder()
-    .setAccentColor(schedule.enabled ? 0x00FFFF : 0x3F3F46)
+    .setAccentColor(schedule.enabled ? getBotPanelAccentColor() : 0x3F3F46)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:calendar:1557204788880613437> CONFIGURAR HORÁRIOS DE ATENDIMENTO\n" +
@@ -2527,7 +2532,7 @@ function buildTicketConfigPanel(guildId) {
   const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> CONFIGURAÇÕES DO TICKET\n" +
@@ -2718,7 +2723,7 @@ function buildConfigPanel(guildId) {
   const stockChannel = config.channelId ? "<#" + config.channelId + ">" : "Não configurado";
   const alertChannel = config.stockAlertChannelId ? "<#" + config.stockAlertChannelId + ">" : "Não configurado";
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# <:60764:1557204540460240926> CONFIGURAÇÕES\n\n"+
@@ -2778,7 +2783,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
     ));
   }
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# <:60581:1557204878001176586> CARGOS DAS FRUTAS\n\n" +
@@ -2797,7 +2802,7 @@ function buildServerAdminPanel() {
     return "• " + uiEmoji("server", "🏠") + " " + (guild ? "**" + guild.name + "**" : "Servidor não encontrado") + " • `" + id + "`";
   });
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "# <:60581:1557204878001176586> SERVIDORES AUTORIZADOS\n\n" +
@@ -4321,7 +4326,7 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     const container = new ContainerBuilder()
-      .setAccentColor(0x00FFFF)
+      .setAccentColor(getBotPanelAccentColor())
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(
         "## <:config_title_alt:1557204540460240926> GERENCIAR FUNÇÃO\n" +
         "### <:ticket_plus:1557205110847701052> " + String(fn.name || "Atendimento") + "\n" +
@@ -4699,7 +4704,7 @@ client.on("interactionCreate", async interaction => {
       ].join("\n");
 
       const container = new ContainerBuilder()
-        .setAccentColor(0x00FFFF)
+        .setAccentColor(getBotPanelAccentColor())
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(avatarHeader)
         )
@@ -4776,7 +4781,7 @@ client.on("interactionCreate", async interaction => {
     if (current) pages.push(current);
 
     const makeTestContainer = content => new ContainerBuilder()
-      .setAccentColor(0x00FFFF)
+      .setAccentColor(getBotPanelAccentColor())
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(content)
       );
