@@ -4281,33 +4281,63 @@ client.on("interactionCreate", async interaction => {
 
       if (interaction.customId === "ticket:sync_message") {
         const config = getGuildConfig(guild.id);
-        if (!config.supportMessageChannelId || !config.supportMessageId) {
-          await interaction.reply({
-            content: "<:online:1557204563675848814> **Nenhuma mensagem registrada**. Use **POSTAR** primeiro.",
-            ephemeral: true
-          });
-          return;
+        let channel = config.supportMessageChannelId
+          ? await guild.channels.fetch(config.supportMessageChannelId).catch(() => null)
+          : null;
+        let message = null;
+
+        // Primeiro tenta usar os IDs salvos. Se a configuração ficou desatualizada,
+        // procura o painel já publicado antes de pedir para o usuário postar outro.
+        if (channel && channel.isTextBased() && config.supportMessageId) {
+          message = await channel.messages.fetch(config.supportMessageId).catch(() => null);
         }
 
-        const channel = await guild.channels.fetch(config.supportMessageChannelId).catch(() => null);
-        if (!channel || !channel.isTextBased()) {
-          await interaction.reply({
-            content: "<:offline:1557204568432185454> Não encontrei o canal onde a mensagem de suporte foi publicada.",
-            ephemeral: true
-          });
-          return;
+        const isSupportPanel = candidate => {
+          if (!candidate || candidate.author?.id !== client.user?.id) return false;
+          const containsOpenButton = components => {
+            for (const component of (components || [])) {
+              if (component.customId === "ticket:open") return true;
+              if (component.components && containsOpenButton(component.components)) return true;
+            }
+            return false;
+          };
+          return containsOpenButton(candidate.components || []);
+        };
+
+        if (!isSupportPanel(message)) {
+          message = null;
+          const channelsToSearch = [...guild.channels.cache.values()].filter(ch =>
+            ch.isTextBased() && typeof ch.messages?.fetch === "function"
+          );
+          // Limita a busca a mensagens recentes por canal para evitar uma varredura pesada.
+          for (const candidateChannel of channelsToSearch) {
+            try {
+              const recentMessages = await candidateChannel.messages.fetch({ limit: 100 });
+              const found = recentMessages.find(isSupportPanel);
+              if (found) {
+                channel = candidateChannel;
+                message = found;
+                break;
+              }
+            } catch (searchError) {
+              // Canais sem permissão de histórico são ignorados.
+            }
+          }
         }
 
-        const message = await channel.messages.fetch(config.supportMessageId).catch(() => null);
-        if (!message) {
+        if (!channel || !message) {
           await interaction.reply({
-            content: "<:offline:1557204568432185454> Não encontrei a mensagem de suporte registrada. Publique uma nova mensagem.",
+            content: "<:offline:1557204568432185454> Não consegui localizar o painel de suporte já publicado. Confira se o bot tem acesso ao canal e permissão para ler o histórico de mensagens.",
             ephemeral: true
           });
           return;
         }
 
         await message.edit(buildSupportPanel(guild));
+        updateGuildConfig(guild.id, saved => {
+          saved.supportMessageChannelId = channel.id;
+          saved.supportMessageId = message.id;
+        });
         await interaction.reply({
           content: "<:online:1557204563675848814> **Mensagem sincronizada**",
           ephemeral: true
