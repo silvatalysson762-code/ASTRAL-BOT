@@ -1518,6 +1518,79 @@ function buildFruitRolePanel(guildId) {
 }
 
 
+function buildBotControlPanel() {
+  const botUser = client.user;
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:discord:1557204573817405440> CONTROLE DO BOT\n" +
+        "> Gerencie o Astral Stock e personalize a identidade do bot.\n\n" +
+        "### <:online:1557204563675848814> Status\n" +
+        "> **Bot:** " + (botUser ? botUser.tag : "Astral BOT") + "\n" +
+        "> **ID:** `" + (botUser?.id || "N/A") + "`\n\n" +
+        "### <:settings_button:1557204872648982579> Gerenciamento\n" +
+        "> Reinicie, reconstrua os comandos ou personalize o bot."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:bot_restart")
+          .setLabel("Reiniciar")
+          .setEmoji({ name: "refresh_alt", id: "1557205141051019274", animated: true })
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("panel:bot_rebuild")
+          .setLabel("Rebuild")
+          .setEmoji({ name: "file", id: "1557204826280951858" })
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("panel:bot_customize")
+          .setLabel("Personalizar")
+          .setEmoji({ name: "settings_button", id: "1557204872648982579" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:main")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildBotCustomizeModal() {
+  return new ModalBuilder()
+    .setCustomId("panel:bot_customize_modal")
+    .setTitle("Personalizar Bot")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("bot_name")
+          .setLabel("Nome do bot")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(32)
+          .setPlaceholder("Astral Stock")
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("bot_status")
+          .setLabel("Status do bot")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(128)
+          .setPlaceholder("Astral Store • Online")
+      )
+    );
+}
+
 function buildMainPanel(guildId, userId) {
   const home = applicationEmojiTag("home", "🏠");
   const overview = applicationEmojiTag("sparkles", "✨");
@@ -1544,12 +1617,20 @@ function buildMainPanel(guildId, userId) {
         new StringSelectMenuBuilder()
           .setCustomId("panel:manage")
           .setPlaceholder("🎫 Selecione uma área para gerenciar")
-          .addOptions({
-            label: "Ticket",
-            description: "Edite, personalize e configure seus tickets",
-            value: "ticket",
-            emoji: { name: "ticket_plus", id: "1557205110847701052" }
-          })
+          .addOptions(
+            {
+              label: "Ticket",
+              description: "Edite, personalize e configure seus tickets",
+              value: "ticket",
+              emoji: { name: "ticket_plus", id: "1557205110847701052" }
+            },
+            {
+              label: "Bot",
+              description: "Reinicie, faça rebuild e personalize o bot",
+              value: "bot",
+              emoji: { name: "discord", id: "1557204573817405440" }
+            }
+          )
       )
     )
 ;
@@ -2769,6 +2850,15 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  if (interaction.isStringSelectMenu() && interaction.customId === "panel:manage" && interaction.values[0] === "bot") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode acessar o controle do bot.", ephemeral: true });
+      return;
+    }
+    await interaction.update(buildBotControlPanel());
+    return;
+  }
+
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
     const selected = interaction.values[0];
     if (selected === "appearance") {
@@ -3428,6 +3518,70 @@ client.on("interactionCreate", async interaction => {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
       }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:bot_restart") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode reiniciar o bot.", ephemeral: true });
+      return;
+    }
+    await interaction.reply({
+      content: "<a:refresh_alt:1557205141051019274> **Reiniciando o Astral Stock...**",
+      ephemeral: true
+    });
+    setTimeout(() => process.exit(0), 800);
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:bot_rebuild") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode fazer o rebuild.", ephemeral: true });
+      return;
+    }
+    try {
+      await interaction.reply({ content: "<a:refresh_alt:1557205141051019274> **Rebuild em andamento...**", ephemeral: true });
+      await registerCommands();
+      await syncApplicationEmojis();
+      await interaction.editReply({ content: "<:online:1557204563675848814> **Rebuild concluído**\nComandos e emojis sincronizados." });
+    } catch (error) {
+      console.error("[PANEL] Erro no rebuild:", error);
+      await interaction.editReply({ content: "<:offline:1557204568432185454> **Falha no rebuild**\n" + String(error?.message || "Não foi possível concluir o rebuild.").slice(0, 500) }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:bot_customize") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode personalizar o bot.", ephemeral: true });
+      return;
+    }
+    await interaction.showModal(buildBotCustomizeModal());
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === "panel:bot_customize_modal") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode personalizar o bot.", ephemeral: true });
+      return;
+    }
+    try {
+      const name = interaction.fields.getTextInputValue("bot_name").trim();
+      const status = interaction.fields.getTextInputValue("bot_status").trim();
+      if (name) await client.user.setUsername(name);
+      if (status) {
+        client.user.setPresence({
+          status: "online",
+          activities: [{ name: status, type: 0 }]
+        });
+      } else {
+        client.user.setPresence({ status: "online", activities: [] });
+      }
+      await interaction.reply({ content: "<:online:1557204563675848814> **Salvo**", ephemeral: true });
+    } catch (error) {
+      console.error("[PANEL] Erro ao personalizar bot:", error);
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui personalizar o bot.").slice(0, 500), ephemeral: true }).catch(() => {});
     }
     return;
   }
