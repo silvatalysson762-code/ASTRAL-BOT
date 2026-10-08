@@ -77,29 +77,31 @@ async function askGroqAI(prompt, userId) {
   return text;
 }
 
+async function getDiscloudAppId(token) {
+  let appId = String(process.env.DISCLOUD_APP_ID || "").trim();
+  if (appId) return appId;
+
+  const userResponse = await fetch("https://api.discloud.app/v2/user", {
+    headers: { "api-token": token, Accept: "*/*" },
+    signal: AbortSignal.timeout(15000)
+  });
+  const userData = await userResponse.json().catch(() => ({}));
+  if (!userResponse.ok) {
+    throw new Error("Não consegui validar a API da Discloud.");
+  }
+
+  const apps = Array.isArray(userData?.user?.apps) ? userData.user.apps : [];
+  if (apps.length !== 1) {
+    throw new Error("Configure DISCLOUD_APP_ID com o ID da aplicação na Discloud.");
+  }
+  return String(apps[0]);
+}
+
 async function restartOnDiscloud() {
   const token = String(process.env.DISCLOUD_TOKEN || "").trim();
   if (!token) return false;
 
-  let appId = String(process.env.DISCLOUD_APP_ID || "").trim();
-
-  if (!appId) {
-    const userResponse = await fetch("https://api.discloud.app/v2/user", {
-      headers: { "api-token": token, Accept: "*/*" },
-      signal: AbortSignal.timeout(15000)
-    });
-    const userData = await userResponse.json().catch(() => ({}));
-    if (!userResponse.ok) {
-      throw new Error("Não consegui validar a API da Discloud.");
-    }
-
-    const apps = Array.isArray(userData?.user?.apps) ? userData.user.apps : [];
-    if (apps.length !== 1) {
-      throw new Error("Configure DISCLOUD_APP_ID com o ID da aplicação na Discloud.");
-    }
-    appId = String(apps[0]);
-  }
-
+  const appId = await getDiscloudAppId(token);
   const response = await fetch("https://api.discloud.app/v2/app/" + encodeURIComponent(appId) + "/restart", {
     method: "PUT",
     headers: { "api-token": token, Accept: "*/*" },
@@ -109,6 +111,150 @@ async function restartOnDiscloud() {
 
   if (!response.ok || data?.status === "error") {
     throw new Error(data?.message || "A Discloud não conseguiu reiniciar a aplicação.");
+  }
+
+  return true;
+}
+
+function crc32(buffer) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < buffer.length; i++) {
+    crc ^= buffer[i];
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function createStoredZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const name = Buffer.from(file.name, "utf8");
+    const data = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data);
+    const crc = crc32(data);
+
+    const local = Buffer.alloc(30 + name.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(0, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(0, 28);
+    name.copy(local, 30);
+
+    localParts.push(local, data);
+
+    const central = Buffer.alloc(46 + name.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(0, 14);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt16LE(0, 34);
+    central.writeUInt16LE(0, 36);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(offset, 42);
+    name.copy(central, 46);
+    centralParts.push(central);
+
+    offset += local.length + data.length;
+  }
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const localData = Buffer.concat(localParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralDirectory.length, 12);
+  end.writeUInt32LE(localData.length, 16);
+  end.writeUInt16LE(0, 20);
+
+  return Buffer.concat([localData, centralDirectory, end]);
+}
+
+async function buildGitHubSourceZip() {
+  const repo = "silvatalysson762-code/blox-fruits-stock-bot";
+  const branch = "main";
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "Astral-Stock-Bot/1.0"
+  };
+
+  const treeResponse = await fetch(
+    "https://api.github.com/repos/" + repo + "/git/trees/" + branch + "?recursive=1",
+    { headers, signal: AbortSignal.timeout(30000) }
+  );
+  const treeData = await treeResponse.json().catch(() => ({}));
+  if (!treeResponse.ok) throw new Error("Não consegui ler o código atual do GitHub.");
+
+  const blobs = (treeData.tree || []).filter(item =>
+    item.type === "blob" &&
+    !item.path.startsWith(".git/") &&
+    item.path !== ".env"
+  );
+
+  const files = [];
+  for (const item of blobs) {
+    const response = await fetch(
+      "https://api.github.com/repos/" + repo + "/git/blobs/" + item.sha,
+      { headers, signal: AbortSignal.timeout(30000) }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.encoding !== "base64") {
+      throw new Error("Não consegui baixar o arquivo " + item.path + " do GitHub.");
+    }
+    files.push({
+      name: item.path,
+      data: Buffer.from(data.content.replace(/\n/g, ""), "base64")
+    });
+  }
+
+  return createStoredZip(files);
+}
+
+async function commitOnDiscloud() {
+  const token = String(process.env.DISCLOUD_TOKEN || "").trim();
+  if (!token) return false;
+
+  const appId = await getDiscloudAppId(token);
+  const zip = await buildGitHubSourceZip();
+
+  const form = new FormData();
+  form.append("file", new Blob([zip], { type: "application/zip" }), "astral-stock.zip");
+
+  const response = await fetch(
+    "https://api.discloud.app/v2/app/" + encodeURIComponent(appId) + "/commit",
+    {
+      method: "PUT",
+      headers: { "api-token": token, Accept: "*/*" },
+      body: form,
+      signal: AbortSignal.timeout(120000)
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.status === "error") {
+    throw new Error(data?.message || "A Discloud não conseguiu atualizar o código.");
   }
 
   return true;
@@ -3812,17 +3958,28 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     try {
-      await interaction.reply({ content: "<a:refresh_alt:1557205141051019274> **Rebuild em andamento...**", ephemeral: true });
+      await interaction.deferReply({ ephemeral: true });
+
+      if (!String(process.env.DISCLOUD_TOKEN || "").trim()) {
+        throw new Error("DISCLOUD_TOKEN não está configurado.");
+      }
+
+      await interaction.editReply({ content: "<a:refresh_alt:1557205141051019274> **Rebuild em andamento...**\nPreparando o código do GitHub." });
+      await commitOnDiscloud();
+
+      await interaction.editReply({ content: "<a:refresh_alt:1557205141051019274> **Rebuild em andamento...**\nSincronizando comandos e emojis." });
       await registerCommands();
       await syncApplicationEmojis();
-      await interaction.editReply({ content: "<:online:1557204563675848814> **Rebuild concluído**\nComandos e emojis sincronizados." });
 
-      if (String(process.env.DISCLOUD_TOKEN || "").trim()) {
-        await restartOnDiscloud();
-      }
+      await interaction.editReply({ content: "<a:refresh_alt:1557205141051019274> **Rebuild em andamento...**\nReiniciando a aplicação." });
+      await restartOnDiscloud();
+
+      await interaction.editReply({ content: "<:online:1557204563675848814> **Rebuild concluído!**\nCódigo atualizado, comandos/emojis sincronizados e aplicação reiniciada." });
     } catch (error) {
       console.error("[PANEL] Erro no rebuild:", error);
-      await interaction.editReply({ content: "<:offline:1557204568432185454> **Falha no rebuild**\n" + String(error?.message || "Não foi possível concluir o rebuild.").slice(0, 500) }).catch(() => {});
+      await interaction.editReply({
+        content: "<:offline:1557204568432185454> **Falha no rebuild**\n" + String(error?.message || "Não foi possível concluir o rebuild.").slice(0, 500)
+      }).catch(() => {});
     }
     return;
   }
