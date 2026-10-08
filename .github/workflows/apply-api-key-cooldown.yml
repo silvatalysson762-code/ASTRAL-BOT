@@ -1,0 +1,75 @@
+name: Apply API key cooldown
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("index.js")
+          s = p.read_text()
+          if "apiKeyCooldownUntil" in s:
+              print("Cooldown already applied")
+              raise SystemExit(0)
+          s = s.replace(
+              'let apiCooldownUntil = 0;\n',
+              'let apiCooldownUntil = 0;\nconst apiKeyCooldownUntil = new Map();\n',
+              1
+          )
+          old = '''      const apiKey = apiKeys[i];
+      try {
+        console.log("[STOCK API] Consultando API com key " + (i + 1) + ".");
+'''
+          new = '''      const apiKey = apiKeys[i];
+      const cooldownUntil = apiKeyCooldownUntil.get(i) || 0;
+      if (cooldownUntil > Date.now()) {
+        const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+        console.log("[STOCK API] Key " + (i + 1) + " está em cooldown por " + remaining + "s; pulando para a próxima.");
+        continue;
+      }
+      try {
+        console.log("[STOCK API] Consultando API com key " + (i + 1) + ".");
+'''
+          if old not in s:
+              raise SystemExit("Bloco de consulta não encontrado")
+          s = s.replace(old, new, 1)
+          old = '''        if (!response.ok) {
+          let detail = responseText.slice(0, 250);
+'''
+          new = '''        if (!response.ok) {
+          if (response.status === 429) {
+            const retryAfterRaw = response.headers.get("retry-after");
+            const retryAfterSeconds = Number(retryAfterRaw);
+            const cooldownMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+              ? retryAfterSeconds * 1000
+              : 60000;
+            apiKeyCooldownUntil.set(i, Date.now() + cooldownMs);
+            console.warn("[STOCK API] Key " + (i + 1) + " recebeu 429; cooldown de " + Math.ceil(cooldownMs / 1000) + "s.");
+          }
+          let detail = responseText.slice(0, 250);
+'''
+          if old not in s:
+              raise SystemExit("Bloco de erro HTTP não encontrado")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+          if git diff --quiet -- index.js; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.js
+          git commit -m "fix: cooldown API key after 429"
+          git push
+          rm -f .github/workflows/apply-api-key-cooldown.yml
+          git add .github/workflows/apply-api-key-cooldown.yml
+          git commit -m "chore: remove temporary patch workflow"
+          git push
