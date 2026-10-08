@@ -2096,6 +2096,12 @@ function buildMainPanel(guildId, userId) {
               description: "Reinicie, faça rebuild e personalize o bot",
               value: "bot",
               emoji: { name: "discord", id: "1557204573817405440" }
+            },
+            {
+              label: "Cargos",
+              description: "Configure os cargos das frutas",
+              value: "roles",
+              emoji: { name: "user", id: "1557205116849758238" }
             }
           )
       )
@@ -3418,6 +3424,11 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     await interaction.update(buildBotControlPanel());
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "panel:manage" && interaction.values[0] === "roles") {
+    await interaction.update(buildFruitAdminPanel(interaction.guildId));
     return;
   }
 
