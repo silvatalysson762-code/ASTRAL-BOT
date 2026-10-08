@@ -27,7 +27,7 @@ const nextStockAt = { normal: null, mirage: null };
 const fruitRoleBusyUsers = new Set();
 const aiCooldowns = new Map();
 const aiActiveChats = new Map();
-const AI_CHAT_TIMEOUT_MS = 30 * 1000;
+const AI_CHAT_TIMEOUT_MS = 5 * 1000;
 
 async function askGroqAI(prompt, userId) {
   const apiKey = process.env.GROQ_API_KEY;
