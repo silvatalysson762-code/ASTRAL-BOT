@@ -2849,7 +2849,12 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     }
 
     if (!customerIsMember) {
+      // Last-resort fallback: ensure the customer can access their private ticket.
+      // Discord may show its automatic member-added system message in this case.
       await thread.members.add(interaction.user.id);
+      console.log("[TICKET] Customer added through thread membership endpoint:", interaction.user.id);
+    } else {
+      console.log("[TICKET] Customer joined through temporary mention; no manual member add:", interaction.user.id);
     }
 
     const ticketText = selectedFunction?.description
