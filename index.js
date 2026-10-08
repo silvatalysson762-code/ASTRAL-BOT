@@ -91,7 +91,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", banner: null, color: "00FFFF" }, ticketFunctions: [] };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", banner: null, color: "00FFFF" }, ticketOpeningMode: "channel", ticketFunctions: [] };
 }
 function readConfig() {
   try {
@@ -1790,6 +1790,57 @@ function buildTicketFunctionReorderPanel(guildId, userId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
+function buildTicketOpeningModePanel(guildId) {
+  const config = getGuildConfig(guildId);
+  const mode = config.ticketOpeningMode || "channel";
+  const channelSelected = mode === "channel";
+  const threadSelected = mode === "thread";
+
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:config_title_alt:1557204540460240926> MODO DE ABERTURA\\n" +
+        "> Escolha como os atendimentos serão criados quando alguém abrir um ticket.\\n\\n" +
+        "<:ticket_plus:1557205110847701052> **Modo atual**\\n" +
+        "> " + (channelSelected ? "Canal Privado" : "Thread Privada") + "\\n" +
+        "-# A escolha é salva automaticamente neste servidor."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:opening_mode")
+          .setPlaceholder("Selecione o modo de abertura")
+          .addOptions(
+            {
+              label: "Canal Privado",
+              description: channelSelected ? "Modo atual • cria um canal privado" : "Criar cada atendimento em um canal privado",
+              value: "channel",
+              emoji: { name: "ticket_plus", id: "1557205110847701052" }
+            },
+            {
+              label: "Thread Privada",
+              description: threadSelected ? "Modo atual • cria uma thread privada" : "Criar cada atendimento em uma thread privada",
+              value: "thread",
+              emoji: { name: "ticket", id: "1557205110847701052" }
+            }
+          )
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:opening_mode_back")
+          .setLabel("VOLTAR")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildTicketConfigPanel(guildId) {
   const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
 
@@ -1830,7 +1881,7 @@ function buildTicketConfigPanel(guildId) {
             },
             {
               label: "Modo de Abertura",
-              description: "Atual: Thread Privada",
+              description: "Atual: " + ((getGuildConfig(guildId).ticketOpeningMode || "channel") === "thread" ? "Thread Privada" : "Canal Privado"),
               value: "opening_mode",
               emoji: { name: "mobile", id: "1557204779174989955" }
             },
@@ -2491,10 +2542,12 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
+    if (selected === "opening_mode") {
+      await interaction.update(buildTicketOpeningModePanel(interaction.guildId));
+      return;
+    }
+
     const configLabels = {
-      add_function: "Adicionar Função",
-      manage_functions: "Gerenciar Funções",
-      opening_mode: "Modo de Abertura",
       schedule: "Configurar Horários",
       statistics: "Estatísticas",
       blacklist: "Blacklist",
@@ -2505,6 +2558,27 @@ client.on("interactionCreate", async interaction => {
       content: "<:ticket_plus:1557205110847701052> **" + (configLabels[selected] || "Configuração") + "** selecionada. Esta área ficará responsável por essa configuração do sistema de tickets.",
       ephemeral: true
     });
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:opening_mode_back") {
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket:opening_mode") {
+    try {
+      const mode = interaction.values[0] === "thread" ? "thread" : "channel";
+      updateGuildConfig(interaction.guildId, config => {
+        config.ticketOpeningMode = mode;
+      });
+      await interaction.update(buildTicketOpeningModePanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET] Erro ao salvar modo de abertura:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "<:60698:1557204568432185454> Não consegui salvar o modo de abertura.", ephemeral: true }).catch(() => {});
+      }
+    }
     return;
   }
 
