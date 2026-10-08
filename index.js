@@ -1824,7 +1824,7 @@ function buildTicketConfigPanel(guildId) {
             },
             {
               label: "Gerenciar Funções",
-              description: "Editar ou remover funções existentes (6x)",
+              description: "Editar ou remover funções existentes (" + ((getGuildConfig(guildId).ticketFunctions || []).length) + "x)",
               value: "manage_functions",
               emoji: { name: "clipboard", id: "1557204790843412542" }
             },
