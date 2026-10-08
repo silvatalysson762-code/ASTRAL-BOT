@@ -1892,12 +1892,15 @@ function buildFruitRolePanel(guildId) {
 }
 
 
+const pendingAdminRoles = new Map();
+
 function buildAdministrativeRolesPanel(guildId) {
   const config = getGuildConfig(guildId);
-  const adminRoles = config.adminRoles || {};
+  const saved = config.adminRoles || {};
+  const draft = pendingAdminRoles.get(String(guildId)) || saved;
 
   const roleName = key => {
-    const roleId = adminRoles[key];
+    const roleId = draft[key];
     if (!roleId) return "Não configurado";
     const role = client.guilds.cache.get(guildId)?.roles.cache.get(roleId);
     return role ? "<@&" + roleId + ">" : "Não configurado";
@@ -1923,46 +1926,18 @@ function buildAdministrativeRolesPanel(guildId) {
           .setCustomId("panel:admin_role_type")
           .setPlaceholder("Selecione um cargo para configurar")
           .addOptions(
-            {
-              label: "Administrador",
-              description: "Defina o cargo de administrador",
-              value: "administrator",
-              emoji: { name: "config_title_alt", id: "1557204540460240926" }
-            },
-            {
-              label: "Moderador",
-              description: "Defina o cargo de moderador",
-              value: "moderator",
-              emoji: { name: "shield_alt", id: "1557205099665956875" }
-            },
-            {
-              label: "Staff",
-              description: "Defina o cargo da equipe Staff",
-              value: "staff",
-              emoji: { name: "control_center", id: "1557204878001176586" }
-            },
-            {
-              label: "Cliente",
-              description: "Defina o cargo de cliente",
-              value: "client",
-              emoji: { name: "money_symbol_alt", id: "1557204522009370634" }
-            },
-            {
-              label: "Membro",
-              description: "Defina o cargo padrão de membro",
-              value: "member",
-              emoji: { name: "user", id: "1557205116849758238" }
-            }
+            { label: "Administrador", description: "Defina o cargo de administrador", value: "administrator", emoji: { name: "config_title_alt", id: "1557204540460240926" } },
+            { label: "Moderador", description: "Defina o cargo de moderador", value: "moderator", emoji: { name: "shield_alt", id: "1557205099665956875" } },
+            { label: "Staff", description: "Defina o cargo da equipe Staff", value: "staff", emoji: { name: "control_center", id: "1557204878001176586" } },
+            { label: "Cliente", description: "Defina o cargo de cliente", value: "client", emoji: { name: "money_symbol_alt", id: "1557204522009370634" } },
+            { label: "Membro", description: "Defina o cargo padrão de membro", value: "member", emoji: { name: "user", id: "1557205116849758238" } }
           )
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("panel:roles")
-          .setLabel("Voltar")
-          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("panel:roles").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("panel:admin_roles_save").setLabel("Salvar").setEmoji({ name: "save", id: "1557205052974960780" }).setStyle(ButtonStyle.Success)
       )
     );
 
@@ -3586,13 +3561,20 @@ client.on("interactionCreate", async interaction => {
       member: "Membro"
     };
 
-    await interaction.update({
+    await interaction.deferUpdate();
+    await interaction.editReply({
       components: [
         new ContainerBuilder()
           .setAccentColor(getBotPanelAccentColor())
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              "## <:config_title_alt:1557204540460240926> CONFIGURAR " + labels[selected].toUpperCase() + "\\n" +
+              "## " + ({
+                administrator: "<:config_title_alt:1557204540460240926>",
+                moderator: "<:shield_alt:1557205099665956875>",
+                staff: "<:control_center:1557204878001176586>",
+                client: "<:money_symbol_alt:1557204522009370634>",
+                member: "<:user:1557205116849758238>"
+              })[selected] + " CONFIGURAR " + labels[selected].toUpperCase() + "\n" +
               "> Selecione o cargo do servidor que será usado como **" + labels[selected] + "**."
             )
           )
@@ -3607,11 +3589,7 @@ client.on("interactionCreate", async interaction => {
           )
           .addActionRowComponents(
             new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId("panel:admin_roles_back")
-                .setLabel("Voltar")
-                .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-                .setStyle(ButtonStyle.Secondary)
+              new ButtonBuilder().setCustomId("panel:admin_roles_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
             )
           )
       ],
@@ -3623,23 +3601,41 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isRoleSelectMenu() && interaction.customId.startsWith("panel:admin_role:")) {
     const roleType = interaction.customId.split(":")[2];
     const roleId = interaction.values[0];
+    const key = String(interaction.guildId);
+    const current = { ...(pendingAdminRoles.get(key) || getGuildConfig(interaction.guildId).adminRoles || {}) };
+    current[roleType] = roleId;
+    pendingAdminRoles.set(key, current);
 
-    updateGuildConfig(interaction.guildId, config => {
-      config.adminRoles = config.adminRoles || {};
-      config.adminRoles[roleType] = roleId;
-    });
+    await interaction.deferUpdate();
+    await interaction.editReply(buildAdministrativeRolesPanel(interaction.guildId));
+    return;
+  }
 
-    await interaction.update(buildAdministrativeRolesPanel(interaction.guildId));
+  if (interaction.isButton() && interaction.customId === "panel:admin_roles_save") {
+    const key = String(interaction.guildId);
+    const draft = pendingAdminRoles.get(key);
+
+    if (draft) {
+      updateGuildConfig(interaction.guildId, config => {
+        config.adminRoles = { ...draft };
+      });
+      pendingAdminRoles.delete(key);
+    }
+
+    await interaction.deferUpdate();
+    await interaction.editReply(buildAdministrativeRolesPanel(interaction.guildId));
     return;
   }
 
   if (interaction.isButton() && interaction.customId === "panel:admin_roles_back") {
-    await interaction.update(buildAdministrativeRolesPanel(interaction.guildId));
+    await interaction.deferUpdate();
+    await interaction.editReply(buildAdministrativeRolesPanel(interaction.guildId));
     return;
   }
 
   if (interaction.isButton() && interaction.customId === "panel:main_roles") {
-    await interaction.update(buildRolesPanel(interaction.guildId));
+    await interaction.deferUpdate();
+    await interaction.editReply(buildRolesPanel(interaction.guildId));
     return;
   }
 
