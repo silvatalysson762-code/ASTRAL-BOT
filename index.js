@@ -1797,7 +1797,7 @@ function removeAllFruitRolesButton(isPublic = false) {
     .setStyle(ButtonStyle.Secondary);
 }
 
-function buildFruitRolePanelForMember(guildId, member, statusText = null) {
+function buildFruitRolePanelForMember(guildId, member, statusText = null, page = 0) {
   const guildConfig = getGuildConfig(guildId);
   const configured = [...ALL_FRUITS].reverse()
     .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
@@ -1805,25 +1805,41 @@ function buildFruitRolePanelForMember(guildId, member, statusText = null) {
 
   if (!configured.length) return null;
 
-  const rows = [];
-  for (let i = 0; i < configured.length; i += 25) {
-    const chunk = configured.slice(i, i + 25);
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("fruit_select:" + Math.floor(i / 25))
-      .setPlaceholder("🍎 Escolha uma fruta")
-      .setMinValues(1)
-      .setMaxValues(1)
-      .addOptions(chunk.map(item => ({
-        label: item.fruit,
-        value: fruitKey(item.fruit),
-        emoji: fruitEmojiObject(item.fruit),
-        description: member.roles.cache.has(item.roleId)
-          ? "🟢 Você possui este cargo"
-          : "🔴 Você não possui este cargo"
-      })));
-    rows.push(new ActionRowBuilder().addComponents(menu));
-  }
+  const pageSize = 25;
+  const pageCount = Math.max(1, Math.ceil(configured.length / pageSize));
+  const currentPage = Math.min(Math.max(0, Number(page) || 0), pageCount - 1);
+  const chunk = configured.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId("fruit_select:" + currentPage)
+    .setPlaceholder("🍎 Escolha uma fruta (" + (currentPage + 1) + "/" + pageCount + ")")
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(chunk.map(item => ({
+      label: item.fruit,
+      value: fruitKey(item.fruit),
+      emoji: fruitEmojiObject(item.fruit),
+      description: member.roles.cache.has(item.roleId)
+        ? "🟢 Você possui este cargo"
+        : "🔴 Você não possui este cargo"
+    })));
 
+  const rows = [new ActionRowBuilder().addComponents(menu)];
+  if (pageCount > 1) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("fruit_page:private:" + (currentPage - 1))
+        .setLabel("Anterior")
+        .setEmoji({ name: "arrow_up", id: "1557204775383212042" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage === 0),
+      new ButtonBuilder()
+        .setCustomId("fruit_page:private:" + (currentPage + 1))
+        .setLabel("Próxima")
+        .setEmoji({ name: "arrow_down", id: "1557204770178211870" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage >= pageCount - 1)
+    ));
+  }
   rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton(false)));
 
   // Painel individual compacto: somente a mensagem de status (quando houver),
@@ -1844,7 +1860,7 @@ function buildFruitRolePanelForMember(guildId, member, statusText = null) {
   };
 }
 
-function buildFruitRolePanel(guildId) {
+function buildFruitRolePanel(guildId, page = 0) {
   const guildConfig = getGuildConfig(guildId);
   const configured = [...ALL_FRUITS].reverse()
     .map(fruit => ({ fruit, roleId: configuredFruitRoleId(guildConfig, fruit) }))
@@ -1852,23 +1868,39 @@ function buildFruitRolePanel(guildId) {
 
   if (!configured.length) return { configured: [], messages: [] };
 
-  const rows = [];
-  for (let i = 0; i < configured.length; i += 25) {
-    const chunk = configured.slice(i, i + 25);
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("fruit_select_public:" + Math.floor(i / 25))
-      .setPlaceholder("🍎 Escolha uma fruta")
-      .setMinValues(1)
-      .setMaxValues(1)
-      .addOptions(chunk.map(item => ({
-        label: item.fruit,
-        value: fruitKey(item.fruit),
-        emoji: fruitEmojiObject(item.fruit),
-        description: "Clique para receber/remover"
-      })));
-    rows.push(new ActionRowBuilder().addComponents(menu));
-  }
+  const pageSize = 25;
+  const pageCount = Math.max(1, Math.ceil(configured.length / pageSize));
+  const currentPage = Math.min(Math.max(0, Number(page) || 0), pageCount - 1);
+  const chunk = configured.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId("fruit_select_public:" + currentPage)
+    .setPlaceholder("🍎 Escolha uma fruta (" + (currentPage + 1) + "/" + pageCount + ")")
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(chunk.map(item => ({
+      label: item.fruit,
+      value: fruitKey(item.fruit),
+      emoji: fruitEmojiObject(item.fruit),
+      description: "Clique para receber/remover"
+    })));
 
+  const rows = [new ActionRowBuilder().addComponents(menu)];
+  if (pageCount > 1) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("fruit_page:public:" + (currentPage - 1))
+        .setLabel("Anterior")
+        .setEmoji({ name: "arrow_up", id: "1557204775383212042" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage === 0),
+      new ButtonBuilder()
+        .setCustomId("fruit_page:public:" + (currentPage + 1))
+        .setLabel("Próxima")
+        .setEmoji({ name: "arrow_down", id: "1557204770178211870" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage >= pageCount - 1)
+    ));
+  }
   rows.push(new ActionRowBuilder().addComponents(removeAllFruitRolesButton(true)));
 
   const title =
@@ -4060,6 +4092,28 @@ client.on("interactionCreate", async interaction => {
   }
 
 
+  if (interaction.isButton() && interaction.customId.startsWith("fruit_page:")) {
+    try {
+      const [, panelType, pageRaw] = interaction.customId.split(":");
+      const page = Math.max(0, Number(pageRaw) || 0);
+      await interaction.deferUpdate();
+
+      if (panelType === "public") {
+        await interaction.editReply(buildFruitRolePanel(interaction.guildId, page));
+      } else {
+        const member = await interaction.guild.members.fetch({
+          user: interaction.user.id,
+          force: true
+        }).catch(() => interaction.member);
+        const panel = buildFruitRolePanelForMember(interaction.guildId, member, null, page);
+        if (panel) await interaction.editReply(panel);
+      }
+    } catch (error) {
+      console.error("[FRUIT ROLE] Falha ao trocar página:", error?.message || error);
+    }
+    return;
+  }
+
   if (interaction.isButton() && interaction.customId.startsWith("fruit_roles:")) {
     try {
       // O painel público nunca deve ser alterado com o estado de outro usuário.
@@ -4182,12 +4236,13 @@ client.on("interactionCreate", async interaction => {
         // antes do followUp privado ser criado.
         await interaction.deferUpdate();
 
-        const publicPanel = buildFruitRolePanel(interaction.guildId);
+        const selectedPage = Math.max(0, Number(interaction.customId.split(":").pop()) || 0);
+        const publicPanel = buildFruitRolePanel(interaction.guildId, selectedPage);
         const member = await interaction.guild.members.fetch({
           user: interaction.user.id,
           force: true
         }).catch(() => interaction.member);
-        const privatePanel = buildFruitRolePanelForMember(interaction.guildId, member);
+        const privatePanel = buildFruitRolePanelForMember(interaction.guildId, member, null, selectedPage);
 
         if (!publicPanel || !privatePanel) {
           await interaction.followUp({
@@ -4220,7 +4275,8 @@ client.on("interactionCreate", async interaction => {
             user: interaction.user.id,
             force: true
           }).catch(() => interaction.member);
-          const currentPanel = buildFruitRolePanelForMember(interaction.guildId, currentMember);
+          const currentPage = Math.max(0, Number(interaction.customId.split(":").pop()) || 0);
+          const currentPanel = buildFruitRolePanelForMember(interaction.guildId, currentMember, null, currentPage);
           if (currentPanel) await interaction.editReply(currentPanel).catch(() => {});
         }
         return;
@@ -4303,10 +4359,12 @@ client.on("interactionCreate", async interaction => {
           ? "🔴 **<@&" + role.id + "> removido.**"
           : "🟢 **<@&" + role.id + "> recebido.**";
 
+        const currentPage = Math.max(0, Number(interaction.customId.split(":").pop()) || 0);
         const updatedPanel = buildFruitRolePanelForMember(
           interaction.guildId,
           verifiedMember,
-          status
+          status,
+          currentPage
         );
 
         if (updatedPanel) {
