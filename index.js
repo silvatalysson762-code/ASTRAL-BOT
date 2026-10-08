@@ -1682,55 +1682,55 @@ function buildTicketConfigPanel(guildId) {
               label: "Configurar Aparência",
               description: "Título, descrição, cor e banner da mensagem",
               value: "appearance",
-              emoji: ticketEmoji
+              emoji: { name: "palette", id: "1557204908250370078" }
             },
             {
               label: "Adicionar Função",
               description: "Criar uma nova função de atendimento",
               value: "add_function",
-              emoji: ticketEmoji
+              emoji: { name: "clipboard_add", id: "1557204794152591370" }
             },
             {
               label: "Gerenciar Funções",
               description: "Editar ou remover funções existentes (6x)",
               value: "manage_functions",
-              emoji: ticketEmoji
+              emoji: { name: "clipboard", id: "1557204790843412542" }
             },
             {
               label: "Modo de Abertura",
               description: "Atual: Thread Privada",
               value: "opening_mode",
-              emoji: ticketEmoji
+              emoji: { name: "mobile", id: "1557204779174989955" }
             },
             {
               label: "Configurar Horários",
               description: "Horários de atendimento (0/7 dias)",
               value: "schedule",
-              emoji: ticketEmoji
+              emoji: { name: "alarm", id: "1557204797537521694" }
             },
             {
               label: "Estatísticas",
               description: "Estatísticas de tickets, staffs e desempenho",
               value: "statistics",
-              emoji: ticketEmoji
+              emoji: { name: "sparkles", id: "1557205056665944104" }
             },
             {
               label: "Blacklist",
               description: "Impedir usuários de abrir tickets (temporário ou permanente)",
               value: "blacklist",
-              emoji: ticketEmoji
+              emoji: { name: "prohibited", id: "1557204569975562370" }
             },
             {
               label: "Modo de Interface",
               description: "Modo atual: Container V2",
               value: "interface_mode",
-              emoji: ticketEmoji
+              emoji: { name: "briefcase", id: "1557205067910742057" }
             },
             {
               label: "Feedback",
               description: "Avaliação de atendimento ao fechar o ticket (Ativado)",
               value: "feedback",
-              emoji: ticketEmoji
+              emoji: { name: "like", id: "1557204899064848524" }
             }
           )
       )
