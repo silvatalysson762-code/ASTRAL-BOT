@@ -2367,8 +2367,8 @@ function buildTicketFunctionReorderPanel(guildId, userId) {
     );
     container.addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:reorder_up").setLabel("Subir").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex <= 0),
-        new ButtonBuilder().setCustomId("ticket:reorder_down").setLabel("Descer").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex < 0 || selectedIndex >= functions.length - 1)
+        new ButtonBuilder().setCustomId("ticket:reorder_up").setLabel("Subir").setEmoji({ name: "arrow_up", id: "1557204775383212042" }).setStyle(ButtonStyle.Primary).setDisabled(selectedIndex <= 0),
+        new ButtonBuilder().setCustomId("ticket:reorder_down").setLabel("Descer").setEmoji({ name: "arrow_down", id: "1557204770178211870" }).setStyle(ButtonStyle.Primary).setDisabled(selectedIndex < 0 || selectedIndex >= functions.length - 1)
       )
     );
   }
