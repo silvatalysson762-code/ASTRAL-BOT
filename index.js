@@ -1621,7 +1621,13 @@ function buildTicketAppearanceModal(guildId, userId) {
   const config = getGuildConfig(guildId);
   const saved = config.ticketAppearance || {};
   const key = String(guildId) + ":" + String(userId);
-  const draft = ticketAppearanceDrafts.get(key) || saved;
+  const rawDraft = ticketAppearanceDrafts.get(key) || saved;
+  const draft = {
+    ...rawDraft,
+    thumbnail: /^https?:\/\//i.test(String(rawDraft.thumbnail || "")) ? String(rawDraft.thumbnail) : "",
+    banner: /^https?:\/\//i.test(String(rawDraft.banner || "")) ? String(rawDraft.banner) : "",
+    color: normalizeTicketColor(String(rawDraft.color || "00FFFF"))
+  };
 
   return new ModalBuilder()
     .setCustomId("ticket:appearance_modal")
@@ -1652,7 +1658,7 @@ function buildTicketAppearanceModal(guildId, userId) {
           .setStyle(TextInputStyle.Short)
           .setRequired(false)
           .setMaxLength(500)
-          .setPlaceholder("Vazio = ícone do servidor")
+          .setPlaceholder("https://... (vazio = ícone do servidor)")
           .setValue(String(draft.thumbnail || ""))
       ),
       new ActionRowBuilder().addComponents(
@@ -1662,7 +1668,7 @@ function buildTicketAppearanceModal(guildId, userId) {
           .setStyle(TextInputStyle.Short)
           .setRequired(false)
           .setMaxLength(500)
-          .setPlaceholder("Vazio = banner do servidor")
+          .setPlaceholder("https://... (vazio = banner do servidor)")
           .setValue(String(draft.banner || ""))
       ),
       new ActionRowBuilder().addComponents(
