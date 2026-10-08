@@ -1414,7 +1414,7 @@ function fruitRoleButton(fruit, roleId, targetWidth, hasRole = false) {
 function removeAllFruitRolesButton(isPublic = false) {
   return new ButtonBuilder()
     .setCustomId(isPublic ? "fruit_roles:remove_all:public" : "fruit_roles:remove_all")
-    .setLabel("REMOVER TODOS OS CARGOS")
+    .setLabel("Remover todos os cargos")
     .setEmoji({ name: "XXX", id: "1557086367844933702" })
     .setStyle(ButtonStyle.Secondary);
 }
@@ -1595,7 +1595,7 @@ function buildTicketAppearancePanel(guildId, userId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:appearance_edit")
-          .setLabel("EDITAR CAMPOS")
+          .setLabel("Editar campos")
           .setEmoji({ name: "compass", id: "1557204910578335844" })
           .setStyle(ButtonStyle.Primary)
       )
@@ -1604,12 +1604,12 @@ function buildTicketAppearancePanel(guildId, userId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:appearance_back")
-          .setLabel("VOLTAR")
+          .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId("ticket:appearance_save")
-          .setLabel("SALVAR")
+          .setLabel("Salvar")
           .setEmoji({ name: "save", id: "1557205052974960780" })
           .setStyle(ButtonStyle.Success)
       )
@@ -1765,8 +1765,8 @@ function buildTicketManageFunctionsPanel(guildId) {
   }
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:manage_functions_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:reorder_functions").setLabel("REORDENAR").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId("ticket:manage_functions_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:reorder_functions").setLabel("Reordenar").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary)
     )
   );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -1804,14 +1804,14 @@ function buildTicketFunctionReorderPanel(guildId, userId) {
     );
     container.addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:reorder_up").setLabel("SUBIR").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex <= 0),
-        new ButtonBuilder().setCustomId("ticket:reorder_down").setLabel("DESCER").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex < 0 || selectedIndex >= functions.length - 1)
+        new ButtonBuilder().setCustomId("ticket:reorder_up").setLabel("Subir").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex <= 0),
+        new ButtonBuilder().setCustomId("ticket:reorder_down").setLabel("Descer").setStyle(ButtonStyle.Primary).setDisabled(selectedIndex < 0 || selectedIndex >= functions.length - 1)
       )
     );
   }
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:reorder_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("ticket:reorder_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     )
   );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -1862,12 +1862,12 @@ function buildTicketOpeningModePanel(guildId, userId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:opening_mode_back")
-          .setLabel("VOLTAR")
+          .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId("ticket:opening_mode_save")
-          .setLabel("SALVAR")
+          .setLabel("Salvar")
           .setEmoji({ name: "save", id: "1557205052974960780" })
           .setStyle(ButtonStyle.Success)
       )
@@ -2026,12 +2026,12 @@ function buildTicketConfigPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:sync_message")
-          .setLabel("SINCRONIZAR")
+          .setLabel("Sincronizar")
           .setEmoji({ name: "settings_alt", id: "1557204510651322388" })
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("ticket:post_message")
-          .setLabel("POSTAR")
+          .setLabel("Postar")
           .setEmoji({ name: "check_alt", id: "1557204542960181299" })
           .setStyle(ButtonStyle.Success)
       )
@@ -2040,12 +2040,12 @@ function buildTicketConfigPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("panel:main")
-          .setLabel("VOLTAR")
+          .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId("ticket:preview")
-          .setLabel("PRÉVIA")
+          .setLabel("Prévia")
           .setEmoji({ name: "eye", id: "1557204822569259091" })
           .setStyle(ButtonStyle.Secondary)
       )
@@ -2062,7 +2062,7 @@ function buildSupportPreviewPanel(guild) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("ticket:preview_back")
-        .setLabel("VOLTAR")
+        .setLabel("Voltar")
         .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
         .setStyle(ButtonStyle.Secondary)
     )
@@ -2152,9 +2152,9 @@ function buildConfigPanel(guildId) {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("panel:servers").setLabel("SERVIDORES AUTORIZADOS").setEmoji({ name: "60581", id: "1557204878001176586" }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("CARGOS DAS FRUTAS").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji({ name: "60578", id: "1557204872648982579" }).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("panel:servers").setLabel("Servidores autorizados").setEmoji({ name: "60581", id: "1557204878001176586" }).setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("Cargos das frutas").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "60578", id: "1557204872648982579" }).setStyle(ButtonStyle.Secondary)
       )
     );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -2191,12 +2191,12 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
       .setMinValues(1).setMaxValues(1);
     rows.push(new ActionRowBuilder().addComponents(roleMenu));
     rows.push(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit)).setLabel("REMOVER CARGO").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR AO PAINEL").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit)).setLabel("Remover cargo").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar ao painel").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
     ));
   } else {
     rows.push(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR AO PAINEL").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar ao painel").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
     ));
   }
   const container = new ContainerBuilder()
@@ -2229,9 +2229,9 @@ function buildServerAdminPanel() {
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("server:add").setLabel("ADICIONAR").setEmoji(uiEmoji("success", "✅")).setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("server:remove").setLabel("REMOVER").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("panel:main").setLabel("VOLTAR").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("server:add").setLabel("Adicionar").setEmoji(uiEmoji("success", "✅")).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("server:remove").setLabel("Remover").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
       )
     );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -3447,11 +3447,11 @@ client.on("interactionCreate", async interaction => {
         "> **Emoji:** " + (fn.emoji?.id ? "<:" + String(fn.emoji.name || "ticket_emoji") + ":" + String(fn.emoji.id) + ">" : "Não configurado")
       ))
       .addActionRowComponents(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:function_edit:" + fn.id).setLabel("EDITAR FUNÇÃO").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("ticket:function_delete:" + fn.id).setLabel("EXCLUIR FUNÇÃO").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId("ticket:function_edit:" + fn.id).setLabel("Editar função").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("ticket:function_delete:" + fn.id).setLabel("Excluir função").setStyle(ButtonStyle.Danger)
       ))
       .addActionRowComponents(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("VOLTAR").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
       ));
     await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
     return;
