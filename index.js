@@ -1916,7 +1916,7 @@ function buildRolesPanel(guildId) {
               label: "Administrativo",
               description: "Configure os cargos administrativos",
               value: "administrative",
-              emoji: { name: "user", id: "1557205116849758238" }
+              emoji: { name: "config_title_alt", id: "1557204540460240926" }
             },
             {
               label: "Stock Blox Fruits",
