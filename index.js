@@ -3673,7 +3673,7 @@ client.on("interactionCreate", async interaction => {
     const userKey = String(interaction.user.id);
     const pending = pendingBotCustomizations.get(userKey);
     if (!pending || Object.keys(pending).length === 0) {
-      await interaction.reply({ content: "<:warning:1557204565877592085> Não há alterações pendentes para salvar.", ephemeral: true });
+      await interaction.reply({ content: "<:warning:1557204565877592085> Não há alterações pendentes para salvar. Faça uma alteração primeiro.", ephemeral: true });
       return;
     }
 
@@ -3752,12 +3752,17 @@ client.on("interactionCreate", async interaction => {
     }
 
     const type = interaction.customId.split(":").pop();
-    const value = interaction.fields.getTextInputValue("value").trim();
+    let value = interaction.fields.getTextInputValue("value").trim();
 
     try {
+      if (type === "nickname" || type === "status1" || type === "status2") {
+        value = value.replace(/\s+/g, " ").trim();
+      }
+
       if (type === "nickname") {
         if (!value) throw new Error("Informe um nome para o bot.");
       } else if (type === "avatar" || type === "banner") {
+        value = value.replace(/\s+/g, "");
         if (value && !/^https?:\/\//i.test(value)) throw new Error("A URL precisa começar com http:// ou https://.");
       } else if (type !== "status1" && type !== "status2") {
         throw new Error("Opção de personalização inválida.");
