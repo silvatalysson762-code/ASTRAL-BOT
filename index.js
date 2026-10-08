@@ -2768,7 +2768,7 @@ async function interactionHasTicketStaffRole(interaction) {
 
 function buildTicketControlPanel(ownerId, assumedBy = null) {
   const container = new ContainerBuilder()
-    .setAccentColor(0x808080)
+    .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
       "## <:ticket_plus:1557205110847701052> PAINEL TICKET\n" +
       "> Gerencie os membros e a responsabilidade deste atendimento."
@@ -2777,9 +2777,7 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
       new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel("Adicionar")
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel("Remover")
-        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
-    ))
-    .addActionRowComponents(new ActionRowBuilder().addComponents(
+        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger),
       assumedBy
         ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel("Assumido")
             .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Secondary).setDisabled(true)
@@ -2870,40 +2868,8 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Best-effort attempt: mention the customer in the private thread, then
-    // verify membership instead of assuming that sending the mention invited them.
-    // If Discord did not add the customer, use the official membership endpoint
-    // so the ticket never gets created where its owner cannot read it.
-    try {
-      const inviteMessage = await thread.send({
-        content: "<@" + interaction.user.id + ">",
-        allowedMentions: { users: [interaction.user.id] }
-      });
-      try {
-        await inviteMessage.delete();
-      } catch (deleteError) {
-        console.warn("[TICKET] Temporary invite mention could not be deleted:", deleteError?.message || deleteError);
-      }
-    } catch (inviteError) {
-      console.warn("[TICKET] Temporary invite mention failed:", inviteError?.message || inviteError);
-    }
-
-    let customerIsMember = false;
-    try {
-      await thread.members.fetch(interaction.user.id);
-      customerIsMember = true;
-    } catch {
-      customerIsMember = false;
-    }
-
-    if (!customerIsMember) {
-      // Last-resort fallback: ensure the customer can access their private ticket.
-      // Discord may show its automatic member-added system message in this case.
-      await thread.members.add(interaction.user.id);
-      console.log("[TICKET] Customer added through thread membership endpoint:", interaction.user.id);
-    } else {
-      console.log("[TICKET] Customer joined through temporary mention; no manual member add:", interaction.user.id);
-    }
+    // Adiciona o dono diretamente à thread privada, sem mensagem temporária antes do painel.
+    await thread.members.add(interaction.user.id);
 
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
@@ -2915,29 +2881,19 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     await sendTicketControlPanel(thread, interaction.user.id);
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
 
-    // Adicionar a equipe à thread é uma tarefa secundária: não deve impedir o usuário
-    // de receber o link do ticket nem deixar o seletor preso em "Carregando".
-    void (async () => {
-      const staffRoleIds = configuredTicketStaffRoleIds(config);
-      const staffMemberIds = new Set();
-      await guild.members.fetch().catch(error => {
-        console.warn("[TICKET] Não consegui atualizar a lista completa de membros; usando o cache disponível:", error?.message || error);
+    // Threads privadas não herdam acesso dos cargos: cada membro precisa ser adicionado individualmente.
+    const staffMemberIds = new Set();
+    for (const roleId of configuredTicketStaffRoleIds(config)) {
+      const role = guild.roles.cache.get(roleId);
+      if (role) for (const member of role.members.values()) staffMemberIds.add(member.id);
+      else console.warn("[TICKET] Cargo de equipe configurado não encontrado:", roleId);
+    }
+    for (const memberId of staffMemberIds) {
+      if (memberId === interaction.user.id || memberId === client.user.id) continue;
+      await thread.members.add(memberId).catch(error => {
+        console.warn("[TICKET] Não consegui adicionar membro da equipe à thread:", memberId, error?.message || error);
       });
-      for (const roleId of staffRoleIds) {
-        const role = guild.roles.cache.get(roleId);
-        if (role) {
-          for (const member of role.members.values()) staffMemberIds.add(member.id);
-        } else {
-          console.warn("[TICKET] Cargo de equipe configurado não encontrado:", roleId);
-        }
-      }
-      for (const memberId of staffMemberIds) {
-        if (memberId === interaction.user.id || memberId === client.user.id) continue;
-        await thread.members.add(memberId).catch(error => {
-          console.warn("[TICKET] Não consegui adicionar membro da equipe à thread:", memberId, error?.message || error);
-        });
-      }
-    })().catch(error => console.warn("[TICKET] Falha ao adicionar equipe à thread:", error?.message || error));
+    }
 
     return { mode, target: thread, alreadyOpen: false };
   }
