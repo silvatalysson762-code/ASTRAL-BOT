@@ -2255,7 +2255,6 @@ function normalizeTicketFunctionEmoji(value) {
 
   throw new Error("Use o ID do emoji ou cole o emoji no formato <:nome:ID>.");
 }
-}
 
 async function resolveTicketFunctionEmoji(guild, emojiId) {
   const id = String(emojiId || "").trim();
