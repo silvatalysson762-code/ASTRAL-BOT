@@ -1892,6 +1892,58 @@ function buildFruitRolePanel(guildId) {
 }
 
 
+function buildRolesPanel(guildId) {
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:user:1557205116849758238> CARGOS\\n" +
+        "> Configure e organize os cargos do servidor.\\n\\n" +
+        "### <:user:1557205116849758238> Gerenciamento de cargos\\n" +
+        "> Selecione uma categoria abaixo para configurar os cargos."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("panel:roles_category")
+          .setPlaceholder("Selecione uma categoria")
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addOptions(
+            {
+              label: "Administrativo",
+              description: "Cargos e permissões administrativas",
+              value: "administrative",
+              emoji: { name: "user", id: "1557205116849758238" }
+            },
+            {
+              label: "Stock Blox Fruits",
+              description: "Cargos relacionados às notificações de stock",
+              value: "stock_blox_fruits",
+              emoji: fruitEmojiObject("Dragon")
+            }
+          )
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:main")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("panel:roles_save")
+          .setLabel("Salvar")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)
+      )
+    );
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildBotControlPanel() {
   const botUser = client.user;
   const botSettings = getBotSettings();
@@ -3428,8 +3480,26 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "panel:manage" && interaction.values[0] === "roles") {
-    await interaction.update(buildFruitAdminPanel(interaction.guildId));
+    await interaction.update(buildRolesPanel(interaction.guildId));
     return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "panel:roles_category") {
+    const selected = interaction.values[0];
+
+    if (selected === "stock_blox_fruits") {
+      await interaction.update(buildFruitAdminPanel(interaction.guildId));
+      return;
+    }
+
+    if (selected === "administrative") {
+      await interaction.update(buildRolesPanel(interaction.guildId));
+      await interaction.followUp({
+        content: "<:online:1557204563675848814> Categoria **Administrativo** selecionada.",
+        ephemeral: true
+      }).catch(() => {});
+      return;
+    }
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
