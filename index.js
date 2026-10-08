@@ -2760,10 +2760,13 @@ function configuredTicketStaffRoleIds(config) {
 
 async function interactionHasTicketStaffRole(interaction) {
   if (!interaction.guild || !interaction.user) return false;
-  const roleIds = configuredTicketStaffRoleIds(getGuildConfig(interaction.guild.id));
-  if (!roleIds.length) return false;
   const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-  return Boolean(member && roleIds.some(id => member.roles.cache.has(id)));
+  if (!member) return false;
+  // Administradores reais do Discord sempre podem gerenciar tickets; os demais
+  // precisam ter um dos cargos configurados no painel.
+  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+  const roleIds = configuredTicketStaffRoleIds(getGuildConfig(interaction.guild.id));
+  return roleIds.some(id => member.roles.cache.has(id));
 }
 
 function buildTicketControlPanel(ownerId, assumedBy = null) {
@@ -2870,12 +2873,23 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Publica o painel primeiro para que ele fique no topo do ticket.
-    await sendTicketControlPanel(thread, interaction.user.id);
-
-    // Adiciona o dono depois do painel. A mensagem automática de entrada é apagada
-    // pelo listener ThreadMemberJoin, agora com MessageType importado corretamente.
+    // Adiciona o dono à thread privada, depois remove a mensagem de sistema
+    // que o Discord cria automaticamente ao adicionar alguém.
     await thread.members.add(interaction.user.id);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    try {
+      const recent = await thread.messages.fetch({ limit: 10 });
+      for (const systemMessage of recent.values()) {
+        if (systemMessage.type === MessageType.ThreadMemberJoin && systemMessage.author?.id === client.user.id) {
+          await systemMessage.delete().catch(() => {});
+        }
+      }
+    } catch (error) {
+      console.warn("[TICKET] Não consegui limpar a mensagem automática de entrada:", error?.message || error);
+    }
+
+    // O painel deve ser a primeira mensagem visível do ticket.
+    await sendTicketControlPanel(thread, interaction.user.id);
 
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
@@ -3706,13 +3720,12 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     const ownerId = interaction.customId.split(":")[2];
-    // Mantém o mesmo espaço do botão; muda apenas texto, emoji e cor para indicar que foi assumido.
+    // Atualiza o painel e publica o aviso no canal para todos os participantes.
     await interaction.update(buildTicketControlPanel(ownerId, interaction.user.id));
-    await interaction.followUp({
-      content: "<:ticket_check:1557205113100046347> Atendimento assumido por <@" + interaction.user.id + ">.",
-      ephemeral: true,
+    await interaction.channel.send({
+      content: "<:ticket_check:1557205113100046347> Este atendimento foi assumido por <@" + interaction.user.id + ">.",
       allowedMentions: { users: [] }
-    }).catch(() => {});
+    }).catch(error => console.warn("[TICKET] Não consegui publicar o aviso de responsável:", error?.message || error));
     return;
   }
 
