@@ -20,6 +20,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 
 let checking = false;
 let apiCooldownUntil = 0;
+const apiKeyCooldownUntil = new Map();
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 
@@ -345,6 +346,12 @@ async function getStock() {
 
     for (let i = 0; i < apiKeys.length; i++) {
       const apiKey = apiKeys[i];
+      const cooldownUntil = apiKeyCooldownUntil.get(i) || 0;
+      if (cooldownUntil > Date.now()) {
+        const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+        console.log("[STOCK API] Key " + (i + 1) + " está em cooldown por " + remaining + "s; pulando para a próxima.");
+        continue;
+      }
       try {
         console.log("[STOCK API] Consultando API com key " + (i + 1) + ".");
         const response = await fetch(stockApiUrl, {
@@ -359,6 +366,15 @@ async function getStock() {
         const responseText = await response.text();
 
         if (!response.ok) {
+          if (response.status === 429) {
+            const retryAfterRaw = response.headers.get("retry-after");
+            const retryAfterSeconds = Number(retryAfterRaw);
+            const cooldownMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+              ? retryAfterSeconds * 1000
+              : 60000;
+            apiKeyCooldownUntil.set(i, Date.now() + cooldownMs);
+            console.warn("[STOCK API] Key " + (i + 1) + " recebeu 429; cooldown de " + Math.ceil(cooldownMs / 1000) + "s.");
+          }
           let detail = responseText.slice(0, 250);
           try {
             const parsed = JSON.parse(responseText);
