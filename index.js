@@ -3744,7 +3744,11 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply({ content: "<:online:1557204563675848814> **Alterações salvas com sucesso!**" });
     } catch (error) {
       console.error("[PANEL] Erro ao salvar personalização:", error);
-      await interaction.editReply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui salvar as alterações.").slice(0, 500) }).catch(() => {});
+      const errorMessage = String(error?.message || "Não consegui salvar as alterações.");
+      const simpleMessage = errorMessage.includes("BANNER_RATE_LIMIT")
+        ? "O banner foi alterado recentemente. Aguarde um pouco e tente novamente."
+        : errorMessage;
+      await interaction.editReply({ content: "<:offline:1557204568432185454> " + simpleMessage.slice(0, 500) }).catch(() => {});
     }
     return;
   }
