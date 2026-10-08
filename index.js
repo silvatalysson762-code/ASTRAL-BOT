@@ -2,7 +2,7 @@ require("dotenv").config();
 const fs = require("node:fs");
 const path = require("node:path");
 const {
-  Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
+  Client, GatewayIntentBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
@@ -3415,7 +3415,6 @@ process.on("unhandledRejection", error => {
 process.on("uncaughtException", error => {
   console.error("Erro não tratado:", error);
 });
-// Apaga automaticamente a mensagem de sistema quando o bot adiciona alguém a uma thread de ticket.
 client.on("messageCreate", async message => {
   try {
     if (!message.guild || !message.channel?.isThread?.()) return;
