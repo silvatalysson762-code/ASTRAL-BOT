@@ -1586,7 +1586,7 @@ function buildTicketAppearancePanel(guildId, userId) {
         new ButtonBuilder()
           .setCustomId("ticket:appearance_edit")
           .setLabel("EDITAR CAMPOS")
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Primary)
       )
     )
     .addActionRowComponents(
@@ -1785,17 +1785,18 @@ function buildSupportPreviewPanel(guild) {
 }
 
 function buildSupportPanel(guild) {
-  const bannerUrl = guild?.bannerURL({ extension: "png", size: 1024 }) || null;
+  const appearance = getGuildConfig(guild?.id).ticketAppearance || {};
+  const bannerUrl = appearance.banner || guild?.bannerURL({ extension: "png", size: 1024 }) || null;
   const thumbnailUrl = guild?.iconURL({ extension: "png", size: 256 }) || client.user?.displayAvatarURL({ extension: "png", size: 256 });
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x00FFFF)
+    .setAccentColor(parseInt(String(appearance.color || "00FFFF").replace(/^#/, ""), 16) || 0x00FFFF)
     .addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            "## <:config_title_alt:1557204540460240926> ASTRAL SUPORTE\n" +
-            "> Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato."
+            "## <:config_title_alt:1557204540460240926> " + (appearance.title || "ASTRAL SUPORTE") + "\n" +
+            "> " + (appearance.description || "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.")
           )
         )
         .setThumbnailAccessory(
@@ -2990,6 +2991,88 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("[PANEL] Erro no modal de servidores:", error);
       if (!interaction.replied) await interaction.reply({ content: uiEmoji("error", "❌") + " Não consegui atualizar os servidores autorizados.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:appearance_edit") {
+    try {
+      await interaction.showModal(buildTicketAppearanceModal(interaction.guildId, interaction.user.id));
+    } catch (error) {
+      console.error("[TICKET] Erro ao abrir aparência:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "❌ Não consegui abrir a configuração de aparência.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === "ticket:appearance_modal") {
+    try {
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction.reply({ content: "❌ Essa configuração só pode ser usada dentro de um servidor.", ephemeral: true });
+        return;
+      }
+
+      const title = interaction.fields.getTextInputValue("ticket_appearance_title").trim();
+      const description = interaction.fields.getTextInputValue("ticket_appearance_description").trim();
+      const banner = interaction.fields.getTextInputValue("ticket_appearance_banner").trim();
+      const color = normalizeTicketColor(interaction.fields.getTextInputValue("ticket_appearance_color").trim());
+
+      if (!title || !description) {
+        await interaction.reply({ content: "❌ Título e descrição são obrigatórios.", ephemeral: true });
+        return;
+      }
+
+      if (banner && !/^https?:\\/\\//i.test(banner)) {
+        await interaction.reply({ content: "❌ O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
+        return;
+      }
+
+      ticketAppearanceDrafts.set(String(guild.id) + ":" + String(interaction.user.id), {
+        title,
+        description,
+        banner: banner || null,
+        color
+      });
+
+      await interaction.reply({
+        ...buildTicketAppearancePanel(guild.id, interaction.user.id),
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+      });
+    } catch (error) {
+      console.error("[TICKET] Erro ao salvar rascunho da aparência:", error);
+      await interaction.reply({ content: "❌ " + error.message, ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:appearance_save") {
+    try {
+      const guild = interaction.guild;
+      const key = String(guild.id) + ":" + String(interaction.user.id);
+      const draft = ticketAppearanceDrafts.get(key);
+
+      if (!draft) {
+        await interaction.reply({ content: "❌ Clique em **EDITAR CAMPOS** primeiro.", ephemeral: true });
+        return;
+      }
+
+      updateGuildConfig(guild.id, config => {
+        config.ticketAppearance = {
+          title: draft.title,
+          description: draft.description,
+          banner: draft.banner || null,
+          color: normalizeTicketColor(draft.color)
+        };
+      });
+
+      ticketAppearanceDrafts.delete(key);
+      await interaction.update(buildTicketAppearancePanel(guild.id, interaction.user.id));
+    } catch (error) {
+      console.error("[TICKET] Erro ao salvar aparência:", error);
+      await interaction.reply({ content: "❌ Não consegui salvar a aparência.", ephemeral: true }).catch(() => {});
     }
     return;
   }
