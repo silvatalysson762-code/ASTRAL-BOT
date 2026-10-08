@@ -3025,7 +3025,7 @@ client.on("interactionCreate", async interaction => {
         return;
       }
 
-      if (banner && !/^https?:\\/\\//i.test(banner)) {
+      if (banner && !/^https?:\/\//i.test(banner)) {
         await interaction.reply({ content: "❌ O banner precisa ser uma URL começando com http:// ou https://.", ephemeral: true });
         return;
       }
