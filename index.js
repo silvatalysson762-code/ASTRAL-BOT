@@ -2007,12 +2007,12 @@ function buildTicketConfigPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:sync_message")
-          .setLabel("SINCRONIZAR MENSAGEM")
+          .setLabel("SINCRONIZAR")
           .setEmoji({ name: "settings_alt", id: "1557204510651322388" })
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("ticket:post_message")
-          .setLabel("POSTAR MENSAGEM")
+          .setLabel("POSTAR")
           .setEmoji({ name: "check_alt", id: "1557204542960181299" })
           .setStyle(ButtonStyle.Success)
       )
