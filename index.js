@@ -764,9 +764,10 @@ async function getStock() {
           throw new Error("A API retornou uma resposta que não é JSON válido.");
         }
 
-        const stock = applySavedFruitPrices(normalizeStock(payload));
-        const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
-        const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+        const normalizedStock = applySavedFruitPrices(normalizeStock(payload));
+        const normal = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+        const mirage = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+        const stock = [...normal, ...mirage];
 
         if (!normal.length || !mirage.length) {
           throw new Error("A API não retornou as listas Normal e Mirage.");
@@ -2883,32 +2884,28 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Testa o método por menção: o Discord pode incluir os usuários mencionados
-    // na thread privada automaticamente. A mensagem de menções é apagada logo após
-    // o envio para não deixar um recado extra no ticket.
-    const addThreadMembersByMention = async ids => {
+    // A menção adiciona os membros à thread privada. Mantemos a mensagem visível
+    // como aviso da equipe, no estilo de painéis de suporte.
+    const addThreadMembersByMention = async (ids, keepMessage = false) => {
       const uniqueIds = [...new Set(ids)].filter(id => id && id !== client.user.id);
       for (let i = 0; i < uniqueIds.length; i += 100) {
         const batch = uniqueIds.slice(i, i + 100);
         if (!batch.length) continue;
-        let mentionMessage = null;
         try {
-          mentionMessage = await thread.send({
+          const mentionMessage = await thread.send({
             content: batch.map(id => `<@${id}>`).join(" "),
             allowedMentions: { users: batch, parse: [] }
           });
-          // A menção é o mecanismo de entrada; removemos a mensagem imediatamente.
-          await mentionMessage.delete().catch(error => {
-            console.warn("[TICKET] A mensagem temporária de menções não pôde ser apagada:", error?.message || error);
-          });
+          if (!keepMessage) {
+            await mentionMessage.delete().catch(error => {
+              console.warn("[TICKET] A mensagem temporária de menções não pôde ser apagada:", error?.message || error);
+            });
+          }
         } catch (error) {
           console.warn("[TICKET] Falha ao adicionar membros por menção à thread privada:", error?.message || error);
         }
       }
     };
-
-    // Adiciona solicitante, dono e equipe encontrada usando menções temporárias.
-    await addThreadMembersByMention([...memberIds]);
 
     // Remove o aviso de criação, se o Discord permitir.
     try {
@@ -2918,8 +2915,26 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       console.warn("[TICKET] Não consegui apagar aviso de criação do tópico:", error?.message || error);
     }
 
-    // Publica o painel sem esperar uma busca completa no servidor.
+    // Ordem do ticket: painel primeiro, chamada da equipe depois e motivo/título por último.
     await sendTicketControlPanel(thread, interaction.user.id);
+
+    const staffRoleMentions = ["administrator", "moderator", "staff"]
+      .map(key => String(config?.adminRoles?.[key] || ""))
+      .filter((id, index, all) => /^\\d{17,20}$/.test(id) && all.indexOf(id) === index)
+      .map(id => `<@&${id}>`);
+    const staffUserIds = [...memberIds].filter(id => id !== interaction.user.id && id !== client.user.id);
+    const firstBatch = staffUserIds.slice(0, 100);
+    const mentionContent = [...staffRoleMentions, ...firstBatch.map(id => `<@${id}>`)].join(" ");
+    if (mentionContent) {
+      await thread.send({
+        content: mentionContent,
+        allowedMentions: { roles: staffRoleMentions.map(mention => mention.match(/\\d{17,20}/)?.[0]).filter(Boolean), users: firstBatch, parse: [] }
+      }).catch(error => console.warn("[TICKET] Não consegui enviar o aviso da equipe:", error?.message || error));
+    }
+    // Membros extras além do primeiro lote são adicionados por menções; ficam visíveis
+    // apenas se forem necessários para completar a lista de acesso.
+    if (staffUserIds.length > 100) await addThreadMembersByMention(staffUserIds.slice(100), false);
+
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
       : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
@@ -2938,7 +2953,8 @@ async function createAstralTicket(interaction, selectedFunction = null) {
               missingIds.add(member.id);
             }
           }
-          await addThreadMembersByMention([...missingIds]);
+          // Os membros fora do cache são adicionados em segundo plano sem atrasar a abertura.
+          await addThreadMembersByMention([...missingIds], false);
         } catch (error) {
           console.warn("[TICKET] Falha ao completar equipe em segundo plano:", error?.message || error);
         }
