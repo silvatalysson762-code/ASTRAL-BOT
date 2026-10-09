@@ -2865,18 +2865,42 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     const existing = parent.threads.cache.find(thread => thread.name === ticketName && !thread.archived && !thread.locked);
     if (existing) return { mode, target: existing, alreadyOpen: true };
 
-    // Thread pública: quem já tem acesso ao canal pai pode abrir o tópico,
-    // evitando adicionar cada membro individualmente e os avisos de entrada.
-    // Atenção: a privacidade depende das permissões do canal pai.
+    // Prepara a equipe antes de criar o tópico. A thread permanece privada.
+    const memberIds = new Set([interaction.user.id]);
+    if (guild.ownerId) memberIds.add(guild.ownerId);
+    const staffRoleIds = configuredTicketStaffRoleIds(config);
+
+    if (staffRoleIds.length) {
+      try {
+        const allMembers = await guild.members.fetch();
+        for (const member of allMembers.values()) {
+          if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) memberIds.add(member.id);
+        }
+      } catch (error) {
+        console.warn("[TICKET] Não consegui buscar todos os membros para a equipe:", error?.message || error);
+        for (const roleId of staffRoleIds) {
+          const role = guild.roles.cache.get(roleId);
+          if (role) for (const member of role.members.values()) memberIds.add(member.id);
+        }
+      }
+    }
+
     const thread = await parent.threads.create({
       name: ticketName,
-      type: 11,
+      type: 12,
       invitable: false,
       autoArchiveDuration: 1440,
       reason: "Astral Support Ticket"
     });
 
-    // O painel passa a ser a primeira mensagem normal enviada no ticket.
+    // Adiciona os membros em paralelo. O Discord pode gerar avisos de entrada;
+    // o limpador tenta removê-los, desde que o bot tenha Gerenciar Mensagens.
+    await Promise.all([...memberIds]
+      .filter(memberId => memberId !== client.user.id)
+      .map(memberId => thread.members.add(memberId).catch(error => {
+        console.warn("[TICKET] Falha ao adicionar membro da equipe:", memberId, error?.message || error);
+      })));
+
     await sendTicketControlPanel(thread, interaction.user.id);
 
     const ticketText = selectedFunction?.description
