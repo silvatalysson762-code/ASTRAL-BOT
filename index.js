@@ -2879,12 +2879,10 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     if (guild.ownerId) staffMemberIds.add(guild.ownerId);
 
     const staffRoleIds = configuredTicketStaffRoleIds(config);
-    let fetchedMembers = false;
     if (staffRoleIds.length) {
       try {
         // Requer Server Members Intent habilitado no Discord Developer Portal.
         const allMembers = await guild.members.fetch();
-        fetchedMembers = true;
         for (const member of allMembers.values()) {
           if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) {
             staffMemberIds.add(member.id);
