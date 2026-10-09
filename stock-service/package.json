@@ -1,0 +1,13 @@
+{
+  "name": "astral-stock-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Public cached JSON service for Astral Blox Fruits stock bot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
