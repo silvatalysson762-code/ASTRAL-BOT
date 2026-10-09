@@ -3825,7 +3825,7 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isButton() && /^ticket:close:\d{17,20}$/.test(interaction.customId)) {
+  if (interaction.isButton() && /^ticket:close:\d{17,20}(?::(?:top|bottom))?$/.test(interaction.customId)) {
     try {
       const ownerId = interaction.customId.split(":")[2];
       const isOwner = interaction.user.id === ownerId;
