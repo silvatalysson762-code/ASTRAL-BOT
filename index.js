@@ -2773,8 +2773,8 @@ async function interactionHasTicketStaffRole(interaction) {
 function buildTicketControlPanel(ownerId, assumedBy = null) {
   // Só adiciona um espaço invisível depois de "Assumir/Assumido".
   const labels = {
-    add: "Adicionar",
-    remove: "Remover",
+    add: "Add Member",
+    remove: "Remove Member",
     assume: (assumedBy ? "Assumido" : "Assumir") + String.fromCharCode(0x3164),
     assign: "Atribuir"
   };
@@ -2785,15 +2785,11 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
       "## <:ticket_plus:1557205110847701052> PAINEL TICKET\n" +
       "> Gerencie os membros e a responsabilidade deste atendimento."
     ))
-    // Três colunas por linha: o botão X vermelho fica à direita nas duas linhas.
-    // O Discord não permite que um botão ocupe verticalmente duas linhas.
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel(labels.add)
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel(labels.remove)
-        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("ticket:close:" + ownerId + ":top").setEmoji({ name: "offline", id: "1557204568432185454" })
-        .setStyle(ButtonStyle.Danger).setLabel("\u200B")
+        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
@@ -2802,14 +2798,16 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
         : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(labels.assume)
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(labels.assign)
-        .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true),
-      new ButtonBuilder().setCustomId("ticket:close:" + ownerId + ":bottom").setEmoji({ name: "offline", id: "1557204568432185454" })
-        .setStyle(ButtonStyle.Danger).setLabel("\u200B")
+        .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 async function sendTicketControlPanel(target, ownerId) {
   await target.send(buildTicketControlPanel(ownerId));
+  await target.send({ components: [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setLabel("Fechar")
+      .setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger)
+  )] });
 }
 
 async function sendTicketOpeningMessage(target, config, selectedFunction, ticketText) {
@@ -3825,7 +3823,7 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isButton() && /^ticket:close:\d{17,20}(?::(?:top|bottom))?$/.test(interaction.customId)) {
+  if (interaction.isButton() && /^ticket:close:\d{17,20}$/.test(interaction.customId)) {
     try {
       const ownerId = interaction.customId.split(":")[2];
       const isOwner = interaction.user.id === ownerId;
