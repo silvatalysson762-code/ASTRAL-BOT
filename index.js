@@ -653,13 +653,12 @@ function normalizeStock(payload) {
   if (Array.isArray(data)) return data.map(x => normalizeItem(x, x?.type || "Normal"));
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
-const STOCK_SOURCES = [...new Set([
-  process.env.WIKI_STOCK_URL,
-  // Fonte pública usada pelo projeto Blox Fruits API, integrada diretamente ao bot.
+// Somente fontes públicas fixas. Nenhuma URL de API paga ou variável de ambiente entra nesta lista.
+const STOCK_SOURCES = [
   "https://fruityblox.com/stock",
   "https://blox-fruits-wiki.com/wiki/stock/",
   "https://blox-fruits.fandom.com/wiki/Blox_Fruits_%22Stock%22"
-].filter(Boolean))];
+];
 
 function decodeHtmlEntities(value) {
   return String(value)
@@ -757,86 +756,18 @@ function parseFruityBloxStock(html) {
 }
 
 async function getStock() {
-  // Reutiliza uma resposta recente para impedir chamadas duplicadas quando os ciclos Normal/Mirage coincidem.
+  // Cache curto para evitar consultas duplicadas no mesmo ciclo.
   if (lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
-    console.log("[STOCK API] Usando resposta válida em cache; nenhuma chamada adicional foi feita.");
+    console.log("[STOCK] Usando resposta pública válida em cache.");
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
 
-  // Proteção contra consumo acidental: uma consulta usa somente UMA chave.
-  // Se falhar, não tenta outras chaves no mesmo ciclo, pois podem cobrar créditos
-  // para a mesma solicitação. Após falha, aguarda 30 minutos antes de nova tentativa.
-  if (process.env.STOCK_USE_PAID_API === "true" && apiCooldownUntil > Date.now()) {
-    const remaining = Math.ceil((apiCooldownUntil - Date.now()) / 1000);
-    throw new Error("Consulta de stock em pausa para evitar gastar créditos após falha. Nova tentativa em " + remaining + "s.");
-  }
-
-  const apiKeys = [
-    process.env.STOCK_API_KEY_1,
-    process.env.STOCK_API_KEY_2,
-    process.env.STOCK_API_KEY_3
-  ].filter(Boolean);
-  const stockApiUrl = process.env.STOCK_API_URL;
-
-  if (process.env.STOCK_USE_PAID_API === "true" && stockApiUrl && apiKeys.length) {
-    // Usa uma única chave por ciclo. Prioriza a primeira configurada.
-    const apiKey = apiKeys[0];
-    try {
-      console.log("[STOCK API] Fazendo uma única consulta com a key 1 (sem fallback automático).");
-      const response = await fetch(stockApiUrl, {
-        headers: {
-          "Accept": "application/json",
-          "X-API-Key": apiKey,
-          "User-Agent": "AstralStockDiscordBot/1.0"
-        },
-        signal: AbortSignal.timeout(12000)
-      });
-
-      const responseText = await response.text();
-      if (!response.ok) {
-        let detail = responseText.slice(0, 250);
-        try {
-          const parsed = JSON.parse(responseText);
-          detail = parsed.message || parsed.error || detail;
-        } catch {}
-        const error = new Error("HTTP " + response.status + (detail ? ": " + detail : ""));
-        error.status = response.status;
-        throw error;
-      }
-
-      let payload;
-      try {
-        payload = JSON.parse(responseText);
-      } catch {
-        throw new Error("A API retornou uma resposta que não é JSON válido.");
-      }
-
-      const normalizedStock = applySavedFruitPrices(normalizeStock(payload));
-      const normal = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirage = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normal.length || !mirage.length) {
-        throw new Error("A API não retornou as listas Normal e Mirage.");
-      }
-
-      console.log("[STOCK API] Captura válida (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
-      lastSuccessfulStock = [...normal, ...mirage].map(item => ({ ...item }));
-      lastSuccessfulStockAt = Date.now();
-      return lastSuccessfulStock.map(item => ({ ...item }));
-    } catch (error) {
-      // Falhas de cobrança, limite ou timeout nunca disparam chamadas às outras chaves.
-      // 402/429: pausa longa; demais falhas: pausa de 30 minutos.
-      const cooldownMs = error.status === 402 || error.status === 429 ? 4 * 60 * 60 * 1000 : 30 * 60 * 1000;
-      apiCooldownUntil = Date.now() + cooldownMs;
-      console.warn("[STOCK API] Consulta falhou. Nenhuma outra chave será chamada. Pausa de " + Math.ceil(cooldownMs / 60000) + " min:", error.message);
-      throw error;
-    }
-  }
-
-  // Compatibilidade sem API configurada: fontes públicas não usam créditos do Parse.bot.
+  // IMPORTANTE: este caminho consulta exclusivamente fontes públicas.
+  // Não lê STOCK_API_URL nem STOCK_API_KEY_* e nunca chama Parse.bot.
   const failures = [];
   for (const sourceUrl of STOCK_SOURCES) {
     try {
-      console.log("[STOCK] Consultando fonte pública:", sourceUrl);
+      console.log("[STOCK] Consultando SOMENTE fonte pública:", sourceUrl);
       const response = await fetch(sourceUrl, {
         headers: {
           "Accept": "text/html,application/xhtml+xml",
@@ -847,32 +778,40 @@ async function getStock() {
       if (!response.ok) throw new Error("HTTP " + response.status);
       const html = await response.text();
       let stock;
+
       if (sourceUrl.includes("fruityblox.com/stock")) {
         stock = parseFruityBloxStock(html);
       } else {
-        const text = htmlToStockText(html);
-        const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
-        const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-        if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
+        const pageText = htmlToStockText(html);
+        const normal = parseWikiStockSection(pageText, "Current Stock", "Last Stock", "Normal");
+        const mirage = parseWikiStockSection(pageText, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+        if (!normal.length || !mirage.length) {
+          throw new Error("A página não retornou as duas listas de stock no formato esperado.");
+        }
         stock = [...normal, ...mirage];
       }
 
       const validStock = applySavedFruitPrices(stock);
       const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
       const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normalStock.length || !mirageStock.length) throw new Error("A fonte não retornou estoque Normal e Mirage válidos.");
+      if (!normalStock.length || !mirageStock.length) {
+        throw new Error("A fonte não retornou stock Normal e Mirage válidos.");
+      }
 
-      // Guarda a última resposta válida em memória para /stock e consultas simultâneas.
       lastSuccessfulStock = validStock.map(item => ({ ...item }));
       lastSuccessfulStockAt = Date.now();
-      console.log("[STOCK] Fonte pública válida (Normal: " + normalStock.length + ", Mirage: " + mirageStock.length + ").");
+      console.log("[STOCK] Fonte pública válida:", sourceUrl, "| Normal:", normalStock.length, "| Mirage:", mirageStock.length);
       return validStock.map(item => ({ ...item }));
     } catch (error) {
-      failures.push(sourceUrl + ": " + error.message);
+      const detail = sourceUrl + ": " + (error.message || String(error));
+      failures.push(detail);
+      console.warn("[STOCK] Fonte pública falhou:", detail);
     }
   }
-  throw new Error("Nenhuma fonte de stock respondeu corretamente. " + failures.join(" | "));
+
+  throw new Error("Todas as fontes públicas falharam. Nenhuma API paga foi consultada. " + failures.join(" | "));
 }
+
 async function testPublicStockSource() {
   const failures = [];
 
