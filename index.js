@@ -3518,7 +3518,52 @@ process.on("uncaughtException", error => {
 });
 client.on("messageCreate", async message => {
   try {
-    // O Discord cria estas mensagens de sistema quando alguém entra numa thread.
+    if (!message.guild) return;
+
+    // O aviso "iniciou um tópico" aparece no CANAL PAI, não dentro da thread.
+    // O listener anterior só observava mensagens dentro da thread, por isso
+    // esse aviso de criação podia escapar.
+    if (message.type === MessageType.ThreadCreated) {
+      const config = getGuildConfig(message.guild.id);
+      const configuredPanelChannel = String(config.supportMessageChannelId || "");
+      const threadName = String(message.content || "").toLowerCase();
+      const isConfiguredTicketParent = configuredPanelChannel && message.channelId === configuredPanelChannel;
+      const isTicketCreationNotice =
+        isConfiguredTicketParent ||
+        threadName.includes("suporte") ||
+        threadName.includes("ticket") ||
+        threadName.includes("atendimento");
+
+      if (isTicketCreationNotice) {
+        await message.delete().catch(error => {
+          console.warn("[TICKET] Não consegui apagar o aviso de criação no canal pai. Confira Gerenciar Mensagens:", error?.message || error);
+        });
+      }
+      return;
+    }
+
+    // Os avisos de entrada são mensagens separadas dentro da própria thread.
+    if (!message.channel?.isThread?.()) return;
+    if (message.type !== MessageType.ThreadMemberJoin) return;
+
+    const threadName = String(message.channel.name || "").toLowerCase();
+    const parentId = String(message.channel.parentId || "");
+    const config = getGuildConfig(message.guild.id);
+    const configuredPanelChannel = String(config.supportMessageChannelId || "");
+    const isTicketThread =
+      threadName.includes("suporte") ||
+      threadName.includes("ticket") ||
+      threadName.includes("atendimento") ||
+      (configuredPanelChannel && parentId === configuredPanelChannel);
+
+    if (!isTicketThread) return;
+    await message.delete().catch(error => {
+      console.warn("[TICKET] Não consegui apagar aviso de entrada. Confira Gerenciar Mensagens no canal pai:", error?.message || error);
+    });
+  } catch (error) {
+    console.warn("[TICKET] Erro ao limpar mensagem automática:", error?.message || error);
+  }
+});
     // Tenta apagá-las imediatamente em threads de ticket, sem esperar 500 ms.
     if (!message.guild || !message.channel?.isThread?.()) return;
     if (message.type !== MessageType.ThreadMemberJoin) return;
