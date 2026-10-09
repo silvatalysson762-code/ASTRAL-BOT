@@ -756,18 +756,46 @@ function parseFruityBloxStock(html) {
 }
 
 async function getStock() {
-  // Cache curto para evitar consultas duplicadas no mesmo ciclo.
   if (lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
-    console.log("[STOCK] Usando resposta pública válida em cache.");
+    console.log("[STOCK] Usando resposta válida em cache.");
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
 
-  // IMPORTANTE: este caminho consulta exclusivamente fontes públicas.
-  // Não lê STOCK_API_URL nem STOCK_API_KEY_* e nunca chama Parse.bot.
+  // Primeiro tenta o serviço próprio hospedado pelo usuário, se configurado.
+  // O serviço retorna JSON e não usa a API paga Parse.bot.
+  const serviceUrl = String(process.env.STOCK_SERVICE_URL || "").trim().replace(/\/$/, "");
+  if (serviceUrl) {
+    try {
+      const headers = { "Accept": "application/json" };
+      if (process.env.STOCK_SERVICE_KEY) headers["x-api-key"] = process.env.STOCK_SERVICE_KEY;
+      console.log("[STOCK] Consultando serviço próprio:", serviceUrl + "/stock");
+      const response = await fetch(serviceUrl + "/stock", {
+        headers,
+        signal: AbortSignal.timeout(20000)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || ("HTTP " + response.status));
+      if (!Array.isArray(data.stock)) throw new Error("O serviço não retornou uma lista de stock válida.");
+
+      const validStock = applySavedFruitPrices(data.stock.map(item => normalizeItem(item, item.type || "Normal")));
+      const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normalStock.length || !mirageStock.length) throw new Error("O serviço retornou stock Normal/Mirage incompleto.");
+
+      lastSuccessfulStock = validStock.map(item => ({ ...item }));
+      lastSuccessfulStockAt = Date.now();
+      console.log("[STOCK] Serviço próprio respondeu:", data.source || "fonte pública", "| Normal:", normalStock.length, "| Mirage:", mirageStock.length);
+      return validStock.map(item => ({ ...item }));
+    } catch (error) {
+      console.warn("[STOCK] Serviço próprio falhou; tentando fontes públicas diretas:", error.message || error);
+    }
+  }
+
+  // Alternativa de contingência: fontes públicas fixas. Nunca consulta Parse.bot.
   const failures = [];
   for (const sourceUrl of STOCK_SOURCES) {
     try {
-      console.log("[STOCK] Consultando SOMENTE fonte pública:", sourceUrl);
+      console.log("[STOCK] Consultando fonte pública:", sourceUrl);
       const response = await fetch(sourceUrl, {
         headers: {
           "Accept": "text/html,application/xhtml+xml",
@@ -778,25 +806,20 @@ async function getStock() {
       if (!response.ok) throw new Error("HTTP " + response.status);
       const html = await response.text();
       let stock;
-
       if (sourceUrl.includes("fruityblox.com/stock")) {
         stock = parseFruityBloxStock(html);
       } else {
         const pageText = htmlToStockText(html);
         const normal = parseWikiStockSection(pageText, "Current Stock", "Last Stock", "Normal");
         const mirage = parseWikiStockSection(pageText, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-        if (!normal.length || !mirage.length) {
-          throw new Error("A página não retornou as duas listas de stock no formato esperado.");
-        }
+        if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock no formato esperado.");
         stock = [...normal, ...mirage];
       }
 
       const validStock = applySavedFruitPrices(stock);
       const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
       const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normalStock.length || !mirageStock.length) {
-        throw new Error("A fonte não retornou stock Normal e Mirage válidos.");
-      }
+      if (!normalStock.length || !mirageStock.length) throw new Error("A fonte não retornou stock Normal e Mirage válidos.");
 
       lastSuccessfulStock = validStock.map(item => ({ ...item }));
       lastSuccessfulStockAt = Date.now();
@@ -808,7 +831,6 @@ async function getStock() {
       console.warn("[STOCK] Fonte pública falhou:", detail);
     }
   }
-
   throw new Error("Todas as fontes públicas falharam. Nenhuma API paga foi consultada. " + failures.join(" | "));
 }
 
