@@ -2771,27 +2771,13 @@ async function interactionHasTicketStaffRole(interaction) {
 }
 
 function buildTicketControlPanel(ownerId, assumedBy = null) {
-  // Mantém os rótulos limpos e a disposição original em duas linhas.
-  // O Discord calcula a largura dos botões automaticamente; espaços artificiais
-  // podem estourar a linha e fazer cada botão ocupar uma linha separada.
-  const rawLabels = {
+  // Só adiciona um espaço invisível depois de "Assumir/Assumido".
+  const labels = {
     add: "Adicionar",
     remove: "Remover",
-    assume: assumedBy ? "Assumido" : "Assumir",
+    assume: (assumedBy ? "Assumido" : "Assumir") + String.fromCharCode(0x3164),
     assign: "Atribuir"
   };
-  // Calcula o preenchimento pela diferença de caracteres de cada rótulo.
-  // "Remover" tem 7 caracteres e serve como referência; sem pontos nem espaços visíveis.
-  const filler = String.fromCharCode(0x3164);
-  const longest = Math.max(...Object.values(rawLabels).map(label => [...label].length));
-  const labels = Object.fromEntries(
-    Object.entries(rawLabels).map(([key, label]) => {
-      const missing = longest - [...label].length;
-      const left = Math.floor(missing / 2);
-      const right = missing - left;
-      return [key, filler.repeat(left) + label + filler.repeat(right)];
-    })
-  );
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
