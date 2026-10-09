@@ -2774,7 +2774,12 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
   // Mantém os rótulos limpos e a disposição original em duas linhas.
   // O Discord calcula a largura dos botões automaticamente; espaços artificiais
   // podem estourar a linha e fazer cada botão ocupar uma linha separada.
-  const paddedLabel = label => label;
+  const labels = {
+    add: "Adicionar",
+    remove: "Remover",
+    assume: assumedBy ? "Assumido" : "Assumir",
+    assign: "Atribuir"
+  };
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
