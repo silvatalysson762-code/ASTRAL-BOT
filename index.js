@@ -3564,29 +3564,6 @@ client.on("messageCreate", async message => {
     console.warn("[TICKET] Erro ao limpar mensagem automática:", error?.message || error);
   }
 });
-    // Tenta apagá-las imediatamente em threads de ticket, sem esperar 500 ms.
-    if (!message.guild || !message.channel?.isThread?.()) return;
-    if (message.type !== MessageType.ThreadMemberJoin) return;
-
-    const threadName = String(message.channel.name || "").toLowerCase();
-    const parentId = String(message.channel.parentId || "");
-    const config = getGuildConfig(message.guild.id);
-    const configuredPanelChannel = String(config.supportMessageChannelId || "");
-    const isTicketThread =
-      threadName.includes("suporte") ||
-      threadName.includes("ticket") ||
-      threadName.includes("atendimento") ||
-      (configuredPanelChannel && parentId === configuredPanelChannel);
-
-    if (!isTicketThread) return;
-    await message.delete().catch(error => {
-      console.warn("[TICKET] Não consegui apagar aviso de entrada. Confira a permissão Gerenciar Mensagens no canal pai:", error?.message || error);
-    });
-  } catch (error) {
-    console.warn("[TICKET] Erro ao limpar mensagem automática:", error?.message || error);
-  }
-});
-
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.guild) return;
   if (!client.user) return;
