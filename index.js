@@ -16,7 +16,7 @@ for (const key of required) {
 }
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const STATE_PATH = path.join(__dirname, "data", "state.json");
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 let checking = false;
 let apiCooldownUntil = 0;
@@ -2873,22 +2873,59 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Adiciona o dono à thread privada, depois remove a mensagem de sistema
-    // que o Discord cria automaticamente ao adicionar alguém.
-    await thread.members.add(interaction.user.id);
-    await new Promise(resolve => setTimeout(resolve, 400));
+    // Threads privadas não herdam acesso dos cargos. Adicionamos o cliente,
+    // o dono do servidor e todos os membros dos cargos Administrador/Moderador/Staff.
+    const staffMemberIds = new Set([interaction.user.id]);
+    if (guild.ownerId) staffMemberIds.add(guild.ownerId);
+
+    const staffRoleIds = configuredTicketStaffRoleIds(config);
+    let fetchedMembers = false;
+    if (staffRoleIds.length) {
+      try {
+        // Requer Server Members Intent habilitado no Discord Developer Portal.
+        const allMembers = await guild.members.fetch();
+        fetchedMembers = true;
+        for (const member of allMembers.values()) {
+          if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) {
+            staffMemberIds.add(member.id);
+          }
+        }
+      } catch (error) {
+        console.warn("[TICKET] Não consegui buscar todos os membros do servidor; usando membros em cache:", error?.message || error);
+      }
+    }
+
+    // Fallback para membros já presentes no cache caso o fetch completo falhe.
+    for (const roleId of staffRoleIds) {
+      const role = guild.roles.cache.get(roleId);
+      if (role) {
+        for (const member of role.members.values()) staffMemberIds.add(member.id);
+      } else {
+        console.warn("[TICKET] Cargo de equipe configurado não encontrado:", roleId);
+      }
+    }
+
+    for (const memberId of staffMemberIds) {
+      if (memberId === client.user.id) continue;
+      await thread.members.add(memberId).catch(error => {
+        console.warn("[TICKET] Não consegui adicionar membro do ticket à thread:", memberId, error?.message || error);
+      });
+    }
+
+    // O painel precisa ser a primeira mensagem normal do ticket. Tentamos remover
+    // as mensagens de sistema geradas ao adicionar os membros à thread.
+    await new Promise(resolve => setTimeout(resolve, 500));
     try {
-      const recent = await thread.messages.fetch({ limit: 10 });
+      const recent = await thread.messages.fetch({ limit: 100 });
       for (const systemMessage of recent.values()) {
         if (systemMessage.type === MessageType.ThreadMemberJoin) {
           await systemMessage.delete().catch(() => {});
         }
       }
     } catch (error) {
-      console.warn("[TICKET] Não consegui limpar a mensagem automática de entrada:", error?.message || error);
+      console.warn("[TICKET] Não consegui limpar as mensagens automáticas de entrada:", error?.message || error);
     }
 
-    // O painel deve ser a primeira mensagem visível do ticket.
     await sendTicketControlPanel(thread, interaction.user.id);
 
     const ticketText = selectedFunction?.description
@@ -2897,20 +2934,6 @@ async function createAstralTicket(interaction, selectedFunction = null) {
 
     await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
-
-    // Threads privadas não herdam acesso dos cargos: cada membro precisa ser adicionado individualmente.
-    const staffMemberIds = new Set();
-    for (const roleId of configuredTicketStaffRoleIds(config)) {
-      const role = guild.roles.cache.get(roleId);
-      if (role) for (const member of role.members.values()) staffMemberIds.add(member.id);
-      else console.warn("[TICKET] Cargo de equipe configurado não encontrado:", roleId);
-    }
-    for (const memberId of staffMemberIds) {
-      if (memberId === interaction.user.id || memberId === client.user.id) continue;
-      await thread.members.add(memberId).catch(error => {
-        console.warn("[TICKET] Não consegui adicionar membro da equipe à thread:", memberId, error?.message || error);
-      });
-    }
 
     return { mode, target: thread, alreadyOpen: false };
   }
