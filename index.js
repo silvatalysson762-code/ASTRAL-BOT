@@ -2920,7 +2920,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
 
     const staffRoleMentions = ["administrator", "moderator", "staff"]
       .map(key => String(config?.adminRoles?.[key] || ""))
-      .filter((id, index, all) => /^\\d{17,20}$/.test(id) && all.indexOf(id) === index)
+      .filter((id, index, all) => /^\d{17,20}$/.test(id) && all.indexOf(id) === index)
       .map(id => `<@&${id}>`);
     const staffUserIds = [...memberIds].filter(id => id !== interaction.user.id && id !== client.user.id);
     const firstBatch = staffUserIds.slice(0, 100);
@@ -2928,7 +2928,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     if (mentionContent) {
       await thread.send({
         content: mentionContent,
-        allowedMentions: { roles: staffRoleMentions.map(mention => mention.match(/\\d{17,20}/)?.[0]).filter(Boolean), users: firstBatch, parse: [] }
+        allowedMentions: { roles: staffRoleMentions.map(mention => mention.match(/\d{17,20}/)?.[0]).filter(Boolean), users: firstBatch, parse: [] }
       }).catch(error => console.warn("[TICKET] Não consegui enviar o aviso da equipe:", error?.message || error));
     }
     // Membros extras além do primeiro lote são adicionados por menções; ficam visíveis
@@ -5215,7 +5215,7 @@ client.on("interactionCreate", async interaction => {
 
       const action = interaction.customId.endsWith(":add") ? "add" : "remove";
       const serverId = interaction.fields.getTextInputValue("server_id").trim();
-      if (!/^\\d{17,20}$/.test(serverId)) {
+      if (!/^\d{17,20}$/.test(serverId)) {
         await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " ID de servidor inválido.", ephemeral: true });
         return;
       }
