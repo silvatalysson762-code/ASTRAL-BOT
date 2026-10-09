@@ -4,7 +4,7 @@ const path = require("node:path");
 const {
   Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST,
-  SlashCommandBuilder, PermissionFlagsBits
+  SlashCommandBuilder, PermissionFlagsBits, Routes
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID"];
