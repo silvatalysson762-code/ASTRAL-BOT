@@ -2739,8 +2739,8 @@ async function interactionHasTicketStaffRole(interaction) {
 function buildTicketControlPanel(ownerId, assumedBy = null) {
   // Só adiciona um espaço invisível depois de "Assumir/Assumido".
   const labels = {
-    add: "Add Member",
-    remove: "Remove Member",
+    add: "Add",
+    remove: "Remove",
     assume: (assumedBy ? "Assumido" : "Assumir") + String.fromCharCode(0x3164),
     assign: "Atribuir"
   };
@@ -3673,15 +3673,31 @@ client.on("interactionCreate", async interaction => {
       const parts = interaction.customId.split(":");
       const action = parts[2];
       const ownerId = parts[3];
-      const selector = new UserSelectMenuBuilder()
-        .setCustomId("ticket:member_select:" + action + ":" + ownerId)
-        .setPlaceholder(action === "add" ? "Escolha quem adicionar" : "Escolha quem remover")
-        .setMinValues(1).setMaxValues(1);
-      await interaction.reply({
-        content: action === "add" ? "Selecione o membro que deseja adicionar ao ticket:" : "Selecione o membro que deseja remover do ticket:",
-        components: [new ActionRowBuilder().addComponents(selector)],
-        ephemeral: true
-      });
+      if (action === "add") {
+        const modal = new ModalBuilder()
+          .setCustomId("ticket:member_modal:add:" + ownerId)
+          .setTitle("Adicionar membro ao ticket")
+          .addComponents(new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId("member_id")
+              .setLabel("Menção ou ID do membro")
+              .setPlaceholder("@usuario ou 123456789012345678")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+              .setMaxLength(30)
+          ));
+        await interaction.showModal(modal);
+      } else {
+        const selector = new UserSelectMenuBuilder()
+          .setCustomId("ticket:member_select:remove:" + ownerId)
+          .setPlaceholder("Escolha quem remover")
+          .setMinValues(1).setMaxValues(1);
+        await interaction.reply({
+          content: "Selecione o membro que deseja remover do ticket:",
+          components: [new ActionRowBuilder().addComponents(selector)],
+          ephemeral: true
+        });
+      }
     } catch (error) {
       console.error("[TICKET] Erro ao abrir modal de membros:", error);
       if (!interaction.replied) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir essa opção.", ephemeral: true }).catch(() => {});
