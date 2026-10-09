@@ -715,22 +715,22 @@ function parseFruityBloxStock(html) {
   // Replica a lógica do endpoint /info/stock do projeto Blox Fruits API,
   // mas sem iniciar um servidor Python separado: o próprio bot consulta a página.
   const clean = value => decodeHtmlEntities(String(value || "")
-    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, " ")
-    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, " ")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
-    .replace(/[\\t\\r\\n ]+/g, " ")
+    .replace(/[\t\r\n ]+/g, " ")
     .trim());
   const normal = [];
   const mirage = [];
-  const sections = String(html).match(/<section\\b[^>]*>[\\s\\S]*?<\\/section>/gi) || [];
+  const sections = String(html).match(/<section\b[^>]*>[\s\S]*?<\/section>/gi) || [];
 
   for (const section of sections) {
-    const heading = section.match(/<h2\\b[^>]*>([\\s\\S]*?)<\\/h2>/i);
+    const heading = section.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i);
     if (!heading) continue;
     const title = clean(heading[1]).toLowerCase();
     if (title !== "normal" && title !== "mirage") continue;
 
-    const fruits = [...section.matchAll(/<h3\\b[^>]*>([\\s\\S]*?)<\\/h3>/gi)]
+    const fruits = [...section.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi)]
       .map(match => clean(match[1]))
       .filter(Boolean)
       .map(name => {
