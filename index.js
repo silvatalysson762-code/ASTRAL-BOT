@@ -2780,11 +2780,17 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
     assume: assumedBy ? "Assumido" : "Assumir",
     assign: "Atribuir"
   };
-  // Usa Hangul Filler real (U+3164), não o texto literal "\\u3164".
-  // Um preenchimento pequeno dos dois lados tenta equilibrar a largura visual.
+  // Calcula o preenchimento pela diferença de caracteres de cada rótulo.
+  // "Remover" tem 7 caracteres e serve como referência; sem pontos nem espaços visíveis.
   const filler = String.fromCharCode(0x3164);
+  const longest = Math.max(...Object.values(rawLabels).map(label => [...label].length));
   const labels = Object.fromEntries(
-    Object.entries(rawLabels).map(([key, label]) => [key, filler + label + filler])
+    Object.entries(rawLabels).map(([key, label]) => {
+      const missing = longest - [...label].length;
+      const left = Math.floor(missing / 2);
+      const right = missing - left;
+      return [key, filler.repeat(left) + label + filler.repeat(right)];
+    })
   );
 
   const container = new ContainerBuilder()
