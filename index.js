@@ -2785,12 +2785,15 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
       "## <:ticket_plus:1557205110847701052> PAINEL TICKET\n" +
       "> Gerencie os membros e a responsabilidade deste atendimento."
     ))
-    // Mantém a disposição original: Adicionar/Remover em cima, Assumir/Atribuir embaixo.
+    // Três colunas por linha: o botão X vermelho fica à direita nas duas linhas.
+    // O Discord não permite que um botão ocupe verticalmente duas linhas.
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel(labels.add)
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel(labels.remove)
-        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
+        .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setEmoji({ name: "offline", id: "1557204568432185454" })
+        .setStyle(ButtonStyle.Danger).setLabel("\u200B")
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
@@ -2799,16 +2802,14 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
         : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(labels.assume)
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(labels.assign)
-        .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
+        .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true),
+      new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setEmoji({ name: "offline", id: "1557204568432185454" })
+        .setStyle(ButtonStyle.Danger).setLabel("\u200B")
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 async function sendTicketControlPanel(target, ownerId) {
   await target.send(buildTicketControlPanel(ownerId));
-  await target.send({ components: [new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setLabel("Fechar")
-      .setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger)
-  )] });
 }
 
 async function sendTicketOpeningMessage(target, config, selectedFunction, ticketText) {
