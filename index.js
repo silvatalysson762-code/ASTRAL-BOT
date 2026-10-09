@@ -2780,14 +2780,14 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel("Adicionar")
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel("Remover")
+      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel("Remover  ")
         .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
         ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel("Assumido")
             .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Secondary).setDisabled(true)
-        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel("Assumir")
+        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel("Assumir ")
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel("Atribuir")
         .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
