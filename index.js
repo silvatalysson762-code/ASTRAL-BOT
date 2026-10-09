@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST,
   SlashCommandBuilder, PermissionFlagsBits
 } = require("discord.js");
 
@@ -3651,8 +3651,22 @@ client.on("interactionCreate", async interaction => {
       const target = interaction.channel;
       if (!target) throw new Error("Não encontrei o canal deste ticket.");
       if (target.isThread?.()) {
-        if (action === "add") await target.members.add(memberId);
-        else await target.members.remove(memberId);
+        if (action === "add") {
+          await target.members.add(memberId);
+          // O Discord gera uma mensagem de sistema ao adicionar alguém à thread.
+          // Remova somente essa mensagem automática, sem apagar mensagens da equipe.
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const recentMessages = await target.messages.fetch({ limit: 10 }).catch(() => null);
+          if (recentMessages) {
+            for (const systemMessage of recentMessages.values()) {
+              if (systemMessage.type === MessageType.ThreadMemberJoin) {
+                await systemMessage.delete().catch(() => {});
+              }
+            }
+          }
+        } else {
+          await target.members.remove(memberId);
+        }
       } else if (action === "add") {
         await target.permissionOverwrites.edit(memberId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
       } else {
