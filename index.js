@@ -2771,26 +2771,38 @@ async function interactionHasTicketStaffRole(interaction) {
 }
 
 function buildTicketControlPanel(ownerId, assumedBy = null) {
+  // O Discord não permite definir a largura do botão diretamente.
+  // Equalizamos os rótulos com espaços Unicode calculados pelo maior texto,
+  // para os quatro botões do painel dentro do ticket ficarem visualmente mais uniformes.
+  const labels = {
+    add: "Adicionar",
+    remove: "Remover",
+    assume: assumedBy ? "Assumido" : "Assumir",
+    assign: "Atribuir"
+  };
+  const longestLabel = Math.max(...Object.values(labels).map(label => [...label].length));
+  const paddedLabel = label => label + "\u2002".repeat(Math.max(0, longestLabel - [...label].length) + 2);
+
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
       "## <:ticket_plus:1557205110847701052> PAINEL TICKET\n" +
       "> Gerencie os membros e a responsabilidade deste atendimento."
     ))
-    // Mantém exatamente a disposição original: Adicionar/Remover em cima, Assumir/Atribuir embaixo.
+    // Mantém a disposição original: Adicionar/Remover em cima, Assumir/Atribuir embaixo.
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel("Adicionar")
+      new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel(paddedLabel(labels.add))
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel("Remover  ")
+      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel(paddedLabel(labels.remove))
         .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
-        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel("Assumido")
+        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel(paddedLabel(labels.assume))
             .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Secondary).setDisabled(true)
-        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel("Assumir ")
+        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(paddedLabel(labels.assume))
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel("Atribuir")
+      new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(paddedLabel(labels.assign))
         .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
