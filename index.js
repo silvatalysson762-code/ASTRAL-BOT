@@ -2781,7 +2781,9 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
     assign: "Atribuir"
   };
   const longestLabel = Math.max(...Object.values(labels).map(label => [...label].length));
-  const paddedLabel = label => label + "\u2002".repeat(Math.max(0, longestLabel - [...label].length) + 2);
+  // Espaços dos dois lados, sem pontos, para alinhar visualmente os rótulos.
+  // O Discord não permite definir a largura real dos botões.
+  const paddedLabel = label => "\u2003" + label + "\u2003".repeat(Math.max(0, longestLabel - [...label].length) + 1);
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
