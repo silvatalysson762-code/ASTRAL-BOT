@@ -3535,7 +3535,7 @@ async function registerCommands() {
   }
 }
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   migrateLegacyConfig();
   // Se a instância anterior estava reiniciando/rebuildando, confirma agora
   // que a nova instância realmente voltou online.
