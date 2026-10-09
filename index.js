@@ -3477,22 +3477,27 @@ process.on("uncaughtException", error => {
 });
 client.on("messageCreate", async message => {
   try {
+    // O Discord cria estas mensagens de sistema quando alguém entra numa thread.
+    // Tenta apagá-las imediatamente em threads de ticket, sem esperar 500 ms.
     if (!message.guild || !message.channel?.isThread?.()) return;
     if (message.type !== MessageType.ThreadMemberJoin) return;
-    const parent = message.channel.parent;
-    if (!parent || !parent.isTextBased()) return;
+
+    const threadName = String(message.channel.name || "").toLowerCase();
+    const parentId = String(message.channel.parentId || "");
     const config = getGuildConfig(message.guild.id);
     const configuredPanelChannel = String(config.supportMessageChannelId || "");
-    const isTicketThread = message.channel.name && (
-      message.channel.name.includes("-") ||
-      (configuredPanelChannel && parent.id === configuredPanelChannel)
-    );
+    const isTicketThread =
+      threadName.includes("suporte") ||
+      threadName.includes("ticket") ||
+      threadName.includes("atendimento") ||
+      (configuredPanelChannel && parentId === configuredPanelChannel);
+
     if (!isTicketThread) return;
     await message.delete().catch(error => {
-      console.warn("[TICKET] Não consegui apagar a mensagem automática de entrada:", error.message);
+      console.warn("[TICKET] Não consegui apagar aviso de entrada. Confira a permissão Gerenciar Mensagens no canal pai:", error?.message || error);
     });
   } catch (error) {
-    console.warn("[TICKET] Erro ao limpar mensagem automática:", error.message);
+    console.warn("[TICKET] Erro ao limpar mensagem automática:", error?.message || error);
   }
 });
 
