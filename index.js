@@ -2912,29 +2912,21 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // A menção adiciona os membros à thread privada. Mantemos a mensagem visível
-    // como aviso da equipe, no estilo de painéis de suporte.
-    const addThreadMembersByMention = async (ids, keepMessage = false) => {
+    // Adiciona de verdade o solicitante e a equipe à thread privada.
+    // Mensagens com menções não garantem que alguém vire membro da thread.
+    const addThreadMembers = async ids => {
       const uniqueIds = [...new Set(ids)].filter(id => id && id !== client.user.id);
-      for (let i = 0; i < uniqueIds.length; i += 100) {
-        const batch = uniqueIds.slice(i, i + 100);
-        if (!batch.length) continue;
+      for (const id of uniqueIds) {
         try {
-          const mentionMessage = await thread.send({
-            content: batch.map(id => `<@${id}>`).join(" "),
-            allowedMentions: { users: batch, parse: [] }
-          });
-          if (!keepMessage) {
-            await mentionMessage.delete().catch(error => {
-              console.warn("[TICKET] A mensagem temporária de menções não pôde ser apagada:", error?.message || error);
-            });
-          }
+          await thread.members.add(id);
         } catch (error) {
-          console.warn("[TICKET] Falha ao adicionar membros por menção à thread privada:", error?.message || error);
+          console.warn("[TICKET] Não consegui adicionar " + id + " à thread privada:", error?.message || error);
         }
       }
     };
 
+    // O solicitante precisa ser membro explícito da thread privada.
+    await addThreadMembers([interaction.user.id, ...memberIds]);
     // Remove o aviso de criação, se o Discord permitir.
     try {
       const starterNotice = await parent.messages.fetch(thread.id).catch(() => null);
@@ -2981,8 +2973,8 @@ async function createAstralTicket(interaction, selectedFunction = null) {
               missingIds.add(member.id);
             }
           }
-          // Os membros fora do cache são adicionados em segundo plano sem atrasar a abertura.
-          await addThreadMembersByMention([...missingIds], false);
+          // Adiciona os membros da equipe que não estavam no cache inicial.
+          await addThreadMembers([...missingIds]);
         } catch (error) {
           console.warn("[TICKET] Falha ao completar equipe em segundo plano:", error?.message || error);
         }
