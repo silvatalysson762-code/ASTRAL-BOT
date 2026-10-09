@@ -2865,58 +2865,16 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     const existing = parent.threads.cache.find(thread => thread.name === ticketName && !thread.archived && !thread.locked);
     if (existing) return { mode, target: existing, alreadyOpen: true };
 
-    // Prepara a lista da equipe ANTES de criar o ticket, para que o usuário
-    // não veja o tópico carregando enquanto o bot procura os membros.
-    const staffMemberIds = new Set([interaction.user.id]);
-    if (guild.ownerId) staffMemberIds.add(guild.ownerId);
-    const staffRoleIds = configuredTicketStaffRoleIds(config);
-
-    if (staffRoleIds.length) {
-      try {
-        // Buscar membros antes de criar a thread garante que cargos não fiquem fora do cache.
-        const allMembers = await guild.members.fetch();
-        for (const member of allMembers.values()) {
-          if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) {
-            staffMemberIds.add(member.id);
-          }
-        }
-      } catch (error) {
-        console.warn("[TICKET] Falha ao buscar membros antes de criar a thread:", error?.message || error);
-        // Fallback para membros que já estão no cache.
-        for (const roleId of staffRoleIds) {
-          const role = guild.roles.cache.get(roleId);
-          if (role) for (const member of role.members.values()) staffMemberIds.add(member.id);
-        }
-      }
-    }
-
+    // Thread pública: quem já tem acesso ao canal pai pode abrir o tópico,
+    // evitando adicionar cada membro individualmente e os avisos de entrada.
+    // Atenção: a privacidade depende das permissões do canal pai.
     const thread = await parent.threads.create({
       name: ticketName,
-      type: 12,
+      type: 11,
       invitable: false,
       autoArchiveDuration: 1440,
       reason: "Astral Support Ticket"
     });
-
-    // Adiciona cliente, dono e equipe antes de publicar o painel do ticket.
-    // Promise.all reduz a espera em comparação com adicionar um por um.
-    await Promise.all([...staffMemberIds]
-      .filter(memberId => memberId !== client.user.id)
-      .map(memberId => thread.members.add(memberId).catch(error => {
-        console.warn("[TICKET] Não consegui adicionar membro à thread:", memberId, error?.message || error);
-      })));
-
-    // Apaga as mensagens automáticas de entrada antes do painel, quando possível.
-    try {
-      const recent = await thread.messages.fetch({ limit: 100 });
-      await Promise.all([...recent.values()]
-        .filter(message => message.type === MessageType.ThreadMemberJoin)
-        .map(message => message.delete().catch(error => {
-          console.warn("[TICKET] Não consegui apagar aviso de entrada:", error?.message || error);
-        })));
-    } catch (error) {
-      console.warn("[TICKET] Não consegui verificar mensagens automáticas da thread:", error?.message || error);
-    }
 
     // O painel passa a ser a primeira mensagem normal enviada no ticket.
     await sendTicketControlPanel(thread, interaction.user.id);
