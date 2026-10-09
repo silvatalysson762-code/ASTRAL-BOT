@@ -20,6 +20,9 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 
 let checking = false;
 let apiCooldownUntil = 0;
+let lastSuccessfulStock = null;
+let lastSuccessfulStockAt = 0;
+const STOCK_API_CACHE_MS = 90 * 1000;
 const apiKeyCooldownUntil = new Map();
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
@@ -707,6 +710,12 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
 }
 
 async function getStock() {
+  // Reutiliza uma resposta recente para impedir chamadas duplicadas quando os ciclos Normal/Mirage coincidem.
+  if (lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
+    console.log("[STOCK API] Usando resposta válida em cache; nenhuma chamada adicional foi feita.");
+    return lastSuccessfulStock.map(item => ({ ...item }));
+  }
+
   // Proteção contra consumo acidental: uma consulta usa somente UMA chave.
   // Se falhar, não tenta outras chaves no mesmo ciclo, pois podem cobrar créditos
   // para a mesma solicitação. Após falha, aguarda 30 minutos antes de nova tentativa.
@@ -763,7 +772,9 @@ async function getStock() {
       }
 
       console.log("[STOCK API] Captura válida (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
-      return [...normal, ...mirage];
+      lastSuccessfulStock = [...normal, ...mirage].map(item => ({ ...item }));
+      lastSuccessfulStockAt = Date.now();
+      return lastSuccessfulStock.map(item => ({ ...item }));
     } catch (error) {
       // Falhas de cobrança, limite ou timeout nunca disparam chamadas às outras chaves.
       // 402/429: pausa longa; demais falhas: pausa de 30 minutos.
@@ -3480,9 +3491,17 @@ client.once("ready", async () => {
     console.error("Erro ao registrar comandos do Astral Stock:", error);
   }
 
-  // Captura inicial: se o estado estiver vazio, publica o stock válido atual.
-  // Se a fonte estiver indisponível, checkStock registra o erro e o agendador segue ativo.
-  await checkStock(false, ["normal", "mirage"], false);
+  // Não consulta a API a cada rebuild/reinicialização se já existe stock salvo.
+  // Isso evita gastar créditos apenas porque o processo voltou online.
+  const savedStock = readState().latestStock || {};
+  const hasSavedStock = (Array.isArray(savedStock.normal) && savedStock.normal.length > 0) ||
+    (Array.isArray(savedStock.mirage) && savedStock.mirage.length > 0);
+  if (!hasSavedStock) {
+    console.log("[STOCK] Ainda não existe stock salvo; fazendo uma única captura inicial.");
+    await checkStock(false, ["normal", "mirage"], false);
+  } else {
+    console.log("[STOCK] Stock salvo encontrado; pulando consulta inicial para economizar créditos.");
+  }
   startStockScheduler();
   await enforceGuildWhitelist();
   startBotStatusRotation();
