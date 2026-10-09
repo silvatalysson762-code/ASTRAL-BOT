@@ -2784,6 +2784,7 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
   // Espaços dos dois lados, sem pontos, para alinhar visualmente os rótulos.
   // O Discord não permite definir a largura real dos botões.
   const paddedLabel = label => "\u2003" + label + "\u2003".repeat(Math.max(0, longestLabel - [...label].length) + 1);
+  const assumeLabel = label => label === "Assumir" ? paddedLabel(label) + "\u2003" : paddedLabel(label);
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
@@ -2800,9 +2801,9 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
-        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel(paddedLabel(labels.assume))
+        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel(assumeLabel(labels.assume))
             .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Secondary).setDisabled(true)
-        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(paddedLabel(labels.assume))
+        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(assumeLabel(labels.assume))
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(paddedLabel(labels.assign))
         .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
