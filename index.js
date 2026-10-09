@@ -2859,13 +2859,13 @@ async function createAstralTicket(interaction, selectedFunction = null) {
   if (mode === "thread") {
     const parent = interaction.channel;
     if (!parent || !parent.isTextBased() || !parent.threads?.create) {
-      throw new Error("O modo Thread precisa ser usado em um canal de texto compatível com threads.");
+      throw new Error("O modo Thread Privada precisa ser usado em um canal de texto compatível com threads.");
     }
 
     const existing = parent.threads.cache.find(thread => thread.name === ticketName && !thread.archived && !thread.locked);
     if (existing) return { mode, target: existing, alreadyOpen: true };
 
-    // Prepara os IDs da equipe antes de criar o tópico público.
+    // Identifica a equipe antes de abrir o tópico, para reduzir a demora visível.
     const memberIds = new Set([interaction.user.id]);
     if (guild.ownerId) memberIds.add(guild.ownerId);
     const staffRoleIds = configuredTicketStaffRoleIds(config);
@@ -2877,7 +2877,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
           if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) memberIds.add(member.id);
         }
       } catch (error) {
-        console.warn("[TICKET] Falha ao buscar equipe antes de abrir tópico:", error?.message || error);
+        console.warn("[TICKET] Falha ao buscar equipe antes de criar tópico:", error?.message || error);
         for (const roleId of staffRoleIds) {
           const role = guild.roles.cache.get(roleId);
           if (role) for (const member of role.members.values()) memberIds.add(member.id);
@@ -2885,35 +2885,46 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       }
     }
 
-    // Thread pública, como solicitado. Ela não é privada: quem tem acesso ao
-    // canal pai pode encontrá-la. Adicionamos explicitamente a equipe também.
+    // Thread privada: só os membros adicionados e quem tem permissões de
+    // moderação apropriadas podem acessar o atendimento.
     const thread = await parent.threads.create({
       name: ticketName,
-      type: 11,
+      type: 12,
       invitable: false,
       autoArchiveDuration: 1440,
       reason: "Astral Support Ticket"
     });
 
-    // O Discord publica no canal pai um aviso "iniciou um tópico".
-    // Ele não pode ser evitado na criação, mas tentamos apagar a mensagem
-    // de sistema correspondente ao ID da thread imediatamente.
+    // Adiciona a equipe e o solicitante em paralelo para abrir mais rápido.
+    await Promise.all([...memberIds]
+      .filter(memberId => memberId !== client.user.id)
+      .map(memberId => thread.members.add(memberId).catch(error => {
+        console.warn("[TICKET] Falha ao adicionar membro à thread privada:", memberId, error?.message || error);
+      })));
+
+    // Apaga o aviso de criação no canal pai, quando o Discord permite.
     try {
       const starterNotice = await parent.messages.fetch(thread.id).catch(() => null);
       if (starterNotice && starterNotice.type === MessageType.ThreadCreated) {
         await starterNotice.delete();
       }
     } catch (error) {
-      console.warn("[TICKET] Não consegui apagar o aviso de criação do tópico. Verifique Gerenciar Mensagens no canal pai:", error?.message || error);
+      console.warn("[TICKET] Não consegui apagar aviso de criação do tópico:", error?.message || error);
     }
 
-    await Promise.all([...memberIds]
-      .filter(memberId => memberId !== client.user.id)
-      .map(memberId => thread.members.add(memberId).catch(error => {
-        console.warn("[TICKET] Falha ao adicionar membro ao tópico público:", memberId, error?.message || error);
-      })));
+    // Também varre avisos de entrada já criados; o listener continua cobrindo
+    // os eventos que chegarem depois desta busca.
+    try {
+      const recent = await thread.messages.fetch({ limit: 100 });
+      await Promise.all([...recent.values()]
+        .filter(message => message.type === MessageType.ThreadMemberJoin)
+        .map(message => message.delete().catch(error => {
+          console.warn("[TICKET] Não consegui apagar aviso de entrada:", error?.message || error);
+        })));
+    } catch (error) {
+      console.warn("[TICKET] Não consegui verificar avisos de entrada:", error?.message || error);
+    }
 
-    // As mensagens de entrada são removidas pelo listener messageCreate abaixo.
     await sendTicketControlPanel(thread, interaction.user.id);
 
     const ticketText = selectedFunction?.description
