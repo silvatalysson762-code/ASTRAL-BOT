@@ -2895,6 +2895,18 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
+    // O Discord publica no canal pai um aviso "iniciou um tópico".
+    // Ele não pode ser evitado na criação, mas tentamos apagar a mensagem
+    // de sistema correspondente ao ID da thread imediatamente.
+    try {
+      const starterNotice = await parent.messages.fetch(thread.id).catch(() => null);
+      if (starterNotice && starterNotice.type === MessageType.ThreadCreated) {
+        await starterNotice.delete();
+      }
+    } catch (error) {
+      console.warn("[TICKET] Não consegui apagar o aviso de criação do tópico. Verifique Gerenciar Mensagens no canal pai:", error?.message || error);
+    }
+
     await Promise.all([...memberIds]
       .filter(memberId => memberId !== client.user.id)
       .map(memberId => thread.members.add(memberId).catch(error => {
