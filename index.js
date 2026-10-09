@@ -2859,13 +2859,13 @@ async function createAstralTicket(interaction, selectedFunction = null) {
   if (mode === "thread") {
     const parent = interaction.channel;
     if (!parent || !parent.isTextBased() || !parent.threads?.create) {
-      throw new Error("O modo Thread Privada precisa ser usado em um canal de texto compatível com threads.");
+      throw new Error("O modo Thread precisa ser usado em um canal de texto compatível com threads.");
     }
 
     const existing = parent.threads.cache.find(thread => thread.name === ticketName && !thread.archived && !thread.locked);
     if (existing) return { mode, target: existing, alreadyOpen: true };
 
-    // Prepara a equipe antes de criar o tópico. A thread permanece privada.
+    // Prepara os IDs da equipe antes de criar o tópico público.
     const memberIds = new Set([interaction.user.id]);
     if (guild.ownerId) memberIds.add(guild.ownerId);
     const staffRoleIds = configuredTicketStaffRoleIds(config);
@@ -2877,7 +2877,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
           if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) memberIds.add(member.id);
         }
       } catch (error) {
-        console.warn("[TICKET] Não consegui buscar todos os membros para a equipe:", error?.message || error);
+        console.warn("[TICKET] Falha ao buscar equipe antes de abrir tópico:", error?.message || error);
         for (const roleId of staffRoleIds) {
           const role = guild.roles.cache.get(roleId);
           if (role) for (const member of role.members.values()) memberIds.add(member.id);
@@ -2885,22 +2885,23 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       }
     }
 
+    // Thread pública, como solicitado. Ela não é privada: quem tem acesso ao
+    // canal pai pode encontrá-la. Adicionamos explicitamente a equipe também.
     const thread = await parent.threads.create({
       name: ticketName,
-      type: 12,
+      type: 11,
       invitable: false,
       autoArchiveDuration: 1440,
       reason: "Astral Support Ticket"
     });
 
-    // Adiciona os membros em paralelo. O Discord pode gerar avisos de entrada;
-    // o limpador tenta removê-los, desde que o bot tenha Gerenciar Mensagens.
     await Promise.all([...memberIds]
       .filter(memberId => memberId !== client.user.id)
       .map(memberId => thread.members.add(memberId).catch(error => {
-        console.warn("[TICKET] Falha ao adicionar membro da equipe:", memberId, error?.message || error);
+        console.warn("[TICKET] Falha ao adicionar membro ao tópico público:", memberId, error?.message || error);
       })));
 
+    // As mensagens de entrada são removidas pelo listener messageCreate abaixo.
     await sendTicketControlPanel(thread, interaction.user.id);
 
     const ticketText = selectedFunction?.description
