@@ -2865,28 +2865,16 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     const existing = parent.threads.cache.find(thread => thread.name === ticketName && !thread.archived && !thread.locked);
     if (existing) return { mode, target: existing, alreadyOpen: true };
 
-    // Identifica a equipe antes de abrir o tópico, para reduzir a demora visível.
+    const staffRoleIds = configuredTicketStaffRoleIds(config);
+    // Não buscar todos os membros antes da criação: isso era o que deixava o
+    // ticket lento. Usa primeiro os membros já disponíveis no cache.
     const memberIds = new Set([interaction.user.id]);
     if (guild.ownerId) memberIds.add(guild.ownerId);
-    const staffRoleIds = configuredTicketStaffRoleIds(config);
-
-    if (staffRoleIds.length) {
-      try {
-        const allMembers = await guild.members.fetch();
-        for (const member of allMembers.values()) {
-          if (staffRoleIds.some(roleId => member.roles.cache.has(roleId))) memberIds.add(member.id);
-        }
-      } catch (error) {
-        console.warn("[TICKET] Falha ao buscar equipe antes de criar tópico:", error?.message || error);
-        for (const roleId of staffRoleIds) {
-          const role = guild.roles.cache.get(roleId);
-          if (role) for (const member of role.members.values()) memberIds.add(member.id);
-        }
-      }
+    for (const roleId of staffRoleIds) {
+      const role = guild.roles.cache.get(roleId);
+      if (role) for (const member of role.members.values()) memberIds.add(member.id);
     }
 
-    // Thread privada: só os membros adicionados e quem tem permissões de
-    // moderação apropriadas podem acessar o atendimento.
     const thread = await parent.threads.create({
       name: ticketName,
       type: 12,
@@ -2895,44 +2883,49 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Adiciona a equipe e o solicitante em paralelo para abrir mais rápido.
+    // Adiciona imediatamente solicitante, dono e equipe já encontrada.
     await Promise.all([...memberIds]
       .filter(memberId => memberId !== client.user.id)
       .map(memberId => thread.members.add(memberId).catch(error => {
         console.warn("[TICKET] Falha ao adicionar membro à thread privada:", memberId, error?.message || error);
       })));
 
-    // Apaga o aviso de criação no canal pai, quando o Discord permite.
+    // Remove o aviso de criação, se o Discord permitir.
     try {
       const starterNotice = await parent.messages.fetch(thread.id).catch(() => null);
-      if (starterNotice && starterNotice.type === MessageType.ThreadCreated) {
-        await starterNotice.delete();
-      }
+      if (starterNotice && starterNotice.type === MessageType.ThreadCreated) await starterNotice.delete();
     } catch (error) {
       console.warn("[TICKET] Não consegui apagar aviso de criação do tópico:", error?.message || error);
     }
 
-    // Também varre avisos de entrada já criados; o listener continua cobrindo
-    // os eventos que chegarem depois desta busca.
-    try {
-      const recent = await thread.messages.fetch({ limit: 100 });
-      await Promise.all([...recent.values()]
-        .filter(message => message.type === MessageType.ThreadMemberJoin)
-        .map(message => message.delete().catch(error => {
-          console.warn("[TICKET] Não consegui apagar aviso de entrada:", error?.message || error);
-        })));
-    } catch (error) {
-      console.warn("[TICKET] Não consegui verificar avisos de entrada:", error?.message || error);
-    }
-
+    // Publica o painel sem esperar uma busca completa no servidor.
     await sendTicketControlPanel(thread, interaction.user.id);
-
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
       : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
-
     await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
+
+    // Completa a busca da equipe em segundo plano para não atrasar a abertura.
+    // Os avisos de entrada continuam sendo tratados pelo listener de limpeza.
+    if (staffRoleIds.length) {
+      void (async () => {
+        try {
+          const allMembers = await guild.members.fetch();
+          const missingIds = new Set();
+          for (const member of allMembers.values()) {
+            if (staffRoleIds.some(roleId => member.roles.cache.has(roleId)) && !memberIds.has(member.id)) {
+              missingIds.add(member.id);
+            }
+          }
+          await Promise.all([...missingIds].map(memberId => thread.members.add(memberId).catch(error => {
+            console.warn("[TICKET] Falha ao adicionar membro da equipe em segundo plano:", memberId, error?.message || error);
+          })));
+        } catch (error) {
+          console.warn("[TICKET] Falha ao completar equipe em segundo plano:", error?.message || error);
+        }
+      })();
+    }
 
     return { mode, target: thread, alreadyOpen: false };
   }
