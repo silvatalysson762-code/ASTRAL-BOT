@@ -873,6 +873,55 @@ async function getStock() {
   }
   throw new Error("Nenhuma fonte de stock respondeu corretamente. " + failures.join(" | "));
 }
+async function testPublicStockSource() {
+  const failures = [];
+
+  // Teste independente: ignora cache e não chama a API paga nem altera o stock salvo.
+  for (const sourceUrl of STOCK_SOURCES) {
+    try {
+      console.log("[STOCK TEST] Testando fonte pública:", sourceUrl);
+      const response = await fetch(sourceUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
+        },
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const html = await response.text();
+      let stock;
+
+      if (sourceUrl.includes("fruityblox.com/stock")) {
+        stock = parseFruityBloxStock(html);
+      } else {
+        const pageText = htmlToStockText(html);
+        const normal = parseWikiStockSection(pageText, "Current Stock", "Last Stock", "Normal");
+        const mirage = parseWikiStockSection(pageText, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+        if (!normal.length || !mirage.length) {
+          throw new Error("A página não retornou as duas listas de stock.");
+        }
+        stock = [...normal, ...mirage];
+      }
+
+      const validStock = applySavedFruitPrices(stock);
+      const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normalStock.length || !mirageStock.length) {
+        throw new Error("Não foram encontradas listas válidas de Normal e Mirage.");
+      }
+
+      console.log("[STOCK TEST] SUCESSO:", sourceUrl, "| Normal:", normalStock.length, "| Mirage:", mirageStock.length);
+      return { sourceUrl, normal: normalStock, mirage: mirageStock };
+    } catch (error) {
+      failures.push(sourceUrl + ": " + (error.message || String(error)));
+      console.warn("[STOCK TEST] FALHA:", sourceUrl, "|", error.message || error);
+    }
+  }
+
+  throw new Error("Todas as fontes públicas falharam. " + failures.join(" | "));
+}
+
 function safeName(item) {
   return String(item.name || item.Name || item.fruit || item.Fruit || "Fruta desconhecida");
 }
@@ -3454,6 +3503,8 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("refresh-stock").setDescription("Fetch and publish the current stock")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("test-source").setDescription("Testa a fonte pública e mostra o stock consultado")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("stock-history").setDescription("Show recent stock changes")
     .setIntegrationTypes([0, 1]).setContexts([0]),
   new SlashCommandBuilder().setName("stock-prediction").setDescription("Estimate possible fruit returns from history")
@@ -5844,6 +5895,39 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
       console.error("Erro no /ia:", error);
       await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + (error.message || "Não consegui falar com a IA agora."));
+    }
+ } else if (interaction.commandName === "test-source") {
+    if (!(await isBotOwner(interaction.user.id))) {
+      await commandReply(interaction, {
+        content: uiEmoji("error", "<:offline:1557204568432185454>") + " Apenas o dono do bot pode testar a fonte pública.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const result = await testPublicStockSource();
+      const normalNames = result.normal.map(item => fruitEmoji(item) + " " + safeName(item)).join(", ");
+      const mirageNames = result.mirage.map(item => fruitEmoji(item) + " " + safeName(item)).join(", ");
+      const message = [
+        "## <:online:1557204563675848814> TESTE DA FONTE PÚBLICA",
+        "**Resultado:** Fonte funcionando, stock consultado com sucesso.",
+        "**Fonte usada:** " + result.sourceUrl,
+        "**Normal (" + result.normal.length + "):** " + normalNames,
+        "**Mirage (" + result.mirage.length + "):** " + mirageNames,
+        "",
+        "-# Teste direto, sem usar o cache, sem chamar a API paga e sem alterar o stock salvo."
+      ].join("\n");
+
+      console.log("[STOCK TEST] Resultado enviado ao dono. Fonte:", result.sourceUrl);
+      await interaction.editReply({ content: message, allowedMentions: { parse: [] } });
+    } catch (error) {
+      console.error("[STOCK TEST] Nenhuma fonte pública funcionou:", error.message || error);
+      await interaction.editReply({
+        content: uiEmoji("error", "<:offline:1557204568432185454>") + " **Teste da fonte falhou.**\n" + String(error.message || error).slice(0, 1600) + "\n\n-# Nenhum stock foi alterado e nenhuma API paga foi consultada.",
+        allowedMentions: { parse: [] }
+      });
     }
  } else if (interaction.commandName === "test-stock") {
     const lines = ALL_FRUITS.map(name => {
