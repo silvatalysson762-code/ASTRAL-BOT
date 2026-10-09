@@ -196,7 +196,7 @@ function createStoredZip(files) {
 }
 
 async function buildGitHubSourceZip() {
-  const repo = "silvatalysson762-code/blox-fruits-stock-bot";
+  const repo = "silvatalysson762-code/ASTRAL-BOT";
   const response = await fetch(
     "https://codeload.github.com/" + repo + "/zip/refs/heads/main",
     {
