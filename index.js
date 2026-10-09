@@ -655,6 +655,8 @@ function normalizeStock(payload) {
 }
 const STOCK_SOURCES = [...new Set([
   process.env.WIKI_STOCK_URL,
+  // Fonte pública usada pelo projeto Blox Fruits API, integrada diretamente ao bot.
+  "https://fruityblox.com/stock",
   "https://blox-fruits-wiki.com/wiki/stock/",
   "https://blox-fruits.fandom.com/wiki/Blox_Fruits_%22Stock%22"
 ].filter(Boolean))];
@@ -709,6 +711,51 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
   });
 }
 
+function parseFruityBloxStock(html) {
+  // Replica a lógica do endpoint /info/stock do projeto Blox Fruits API,
+  // mas sem iniciar um servidor Python separado: o próprio bot consulta a página.
+  const clean = value => decodeHtmlEntities(String(value || "")
+    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, " ")
+    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[\\t\\r\\n ]+/g, " ")
+    .trim());
+  const normal = [];
+  const mirage = [];
+  const sections = String(html).match(/<section\\b[^>]*>[\\s\\S]*?<\\/section>/gi) || [];
+
+  for (const section of sections) {
+    const heading = section.match(/<h2\\b[^>]*>([\\s\\S]*?)<\\/h2>/i);
+    if (!heading) continue;
+    const title = clean(heading[1]).toLowerCase();
+    if (title !== "normal" && title !== "mirage") continue;
+
+    const fruits = [...section.matchAll(/<h3\\b[^>]*>([\\s\\S]*?)<\\/h3>/gi)]
+      .map(match => clean(match[1]))
+      .filter(Boolean)
+      .map(name => {
+        const key = fruitKey(name);
+        const canonical = ALL_FRUITS.find(fruit => fruitKey(fruit) === key);
+        if (canonical) return canonical;
+        if (/^(east|eastern) dragon$/i.test(name)) return "Dragon East";
+        if (/^(west|western) dragon$/i.test(name)) return "Dragon West";
+        return name;
+      });
+
+    const target = title === "normal" ? normal : mirage;
+    for (const name of fruits) {
+      if (!target.some(item => fruitKey(item.name) === fruitKey(name))) {
+        target.push({ name, type: title === "normal" ? "Normal" : "Mirage" });
+      }
+    }
+  }
+
+  if (!normal.length || !mirage.length) {
+    throw new Error("FruityBlox não retornou as listas Normal e Mirage no formato esperado.");
+  }
+  return [...normal, ...mirage];
+}
+
 async function getStock() {
   // Reutiliza uma resposta recente para impedir chamadas duplicadas quando os ciclos Normal/Mirage coincidem.
   if (lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
@@ -719,7 +766,7 @@ async function getStock() {
   // Proteção contra consumo acidental: uma consulta usa somente UMA chave.
   // Se falhar, não tenta outras chaves no mesmo ciclo, pois podem cobrar créditos
   // para a mesma solicitação. Após falha, aguarda 30 minutos antes de nova tentativa.
-  if (apiCooldownUntil > Date.now()) {
+  if (process.env.STOCK_USE_PAID_API === "true" && apiCooldownUntil > Date.now()) {
     const remaining = Math.ceil((apiCooldownUntil - Date.now()) / 1000);
     throw new Error("Consulta de stock em pausa para evitar gastar créditos após falha. Nova tentativa em " + remaining + "s.");
   }
@@ -731,7 +778,7 @@ async function getStock() {
   ].filter(Boolean);
   const stockApiUrl = process.env.STOCK_API_URL;
 
-  if (stockApiUrl && apiKeys.length) {
+  if (process.env.STOCK_USE_PAID_API === "true" && stockApiUrl && apiKeys.length) {
     // Usa uma única chave por ciclo. Prioriza a primeira configurada.
     const apiKey = apiKeys[0];
     try {
@@ -799,11 +846,27 @@ async function getStock() {
       });
       if (!response.ok) throw new Error("HTTP " + response.status);
       const html = await response.text();
-      const text = htmlToStockText(html);
-      const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
-      const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-      if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
-      return applySavedFruitPrices([...normal, ...mirage]);
+      let stock;
+      if (sourceUrl.includes("fruityblox.com/stock")) {
+        stock = parseFruityBloxStock(html);
+      } else {
+        const text = htmlToStockText(html);
+        const normal = parseWikiStockSection(text, "Current Stock", "Last Stock", "Normal");
+        const mirage = parseWikiStockSection(text, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
+        if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock.");
+        stock = [...normal, ...mirage];
+      }
+
+      const validStock = applySavedFruitPrices(stock);
+      const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normalStock.length || !mirageStock.length) throw new Error("A fonte não retornou estoque Normal e Mirage válidos.");
+
+      // Guarda a última resposta válida em memória para /stock e consultas simultâneas.
+      lastSuccessfulStock = validStock.map(item => ({ ...item }));
+      lastSuccessfulStockAt = Date.now();
+      console.log("[STOCK] Fonte pública válida (Normal: " + normalStock.length + ", Mirage: " + mirageStock.length + ").");
+      return validStock.map(item => ({ ...item }));
     } catch (error) {
       failures.push(sourceUrl + ": " + error.message);
     }
