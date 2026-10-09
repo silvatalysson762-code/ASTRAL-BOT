@@ -2817,7 +2817,13 @@ async function sendTicketControlPanel(target, ownerId) {
 
 async function sendTicketOpeningMessage(target, config, selectedFunction, ticketText) {
   const title = String(selectedFunction?.name || "Atendimento");
-  const description = String(ticketText || "").replace(/\\n/g, "\n");
+  // Compacta linhas vazias repetidas para a mensagem de cada função não ficar alta demais.
+  const description = String(ticketText || "")
+    .replace(/\\n/g, "\n")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join("\n");
   const appearance = config.ticketAppearance || {};
   const rawColor = String(appearance.color || "00FFFF").replace(/^#/, "");
   const color = /^[0-9A-Fa-f]{6}$/.test(rawColor) ? parseInt(rawColor, 16) : 0x00FFFF;
@@ -2835,14 +2841,14 @@ async function sendTicketOpeningMessage(target, config, selectedFunction, ticket
   const container = new ContainerBuilder()
     .setAccentColor(color)
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent("## " + title + "\n> " + description.replace(/\n/g, "\n> "))
+      new TextDisplayBuilder().setContent("## " + title + "\n" + description)
     );
 
   if (appearance.thumbnail) {
     container.addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent("> Atendimento iniciado. Nossa equipe responderá em breve.")
+          new TextDisplayBuilder().setContent("Atendimento iniciado. Nossa equipe responderá em breve.")
         )
         .setThumbnailAccessory(
           new ThumbnailBuilder().setURL(String(appearance.thumbnail))
