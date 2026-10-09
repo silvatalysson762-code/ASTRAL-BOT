@@ -1,6 +1,6 @@
 const http = require("node:http");
 
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 8080);
 const API_KEY = process.env.STOCK_SERVICE_KEY || "";
 const CACHE_MS = 60 * 1000;
 const SOURCES = [
