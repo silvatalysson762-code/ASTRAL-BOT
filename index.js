@@ -2774,12 +2774,18 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
   // Mantém os rótulos limpos e a disposição original em duas linhas.
   // O Discord calcula a largura dos botões automaticamente; espaços artificiais
   // podem estourar a linha e fazer cada botão ocupar uma linha separada.
-  const labels = {
+  const rawLabels = {
     add: "Adicionar",
     remove: "Remover",
     assume: assumedBy ? "Assumido" : "Assumir",
     assign: "Atribuir"
   };
+  // Usa Hangul Filler real (U+3164), não o texto literal "\\u3164".
+  // Um preenchimento pequeno dos dois lados tenta equilibrar a largura visual.
+  const filler = String.fromCharCode(0x3164);
+  const labels = Object.fromEntries(
+    Object.entries(rawLabels).map(([key, label]) => [key, filler + label + filler])
+  );
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
