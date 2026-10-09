@@ -1503,70 +1503,37 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function runScheduledStockCycle(groupKey, resetAt) {
-  const initialState = readState();
-  const baseline = initialState.stockSignatures?.[groupKey] || null;
-  const resetLabel = new Date(resetAt).toISOString();
+  console.log("[SCHEDULER] " + groupKey + " aguardando o reset previsto: " + new Date(resetAt).toISOString() + ".");
 
-  console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento. Reset previsto: ${resetLabel}.`);
+  // Uma única consulta por reset. Não fica consultando a cada 60 segundos,
+  // pois isso pode consumir créditos rapidamente quando a rotação atrasa.
+  const delay = Math.min(Math.max(resetAt + 60000 - Date.now(), 5000), 120000);
+  await wait(delay);
 
-  // A rotação real pode atrasar alguns segundos/minutos em relação ao horário previsto.
-  // Por isso, nunca publicamos apenas porque o relógio virou: primeiro confirmamos
-  // que a assinatura do stock realmente mudou.
-  const firstCheckDelay = Math.min(
-    Math.max(resetAt + 30000 - Date.now(), 5000),
-    60000
-  );
-  await wait(firstCheckDelay);
+  try {
+    const stock = await getStock();
+    const items = stock.filter(item =>
+      String(item.type || "").toLowerCase() === groupKey
+    );
+    if (!items.length) throw new Error("A fonte não retornou stock válido para " + groupKey + ".");
 
-  let attempts = 0;
-  let consecutiveErrors = 0;
+    const currentSignature = signature(items);
+    const savedSignature = readState().stockSignatures?.[groupKey];
 
-  while (true) {
-    attempts++;
-
-    try {
-      const stock = await getStock();
-      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-
-      // Nunca considera uma resposta parcial como uma rotação válida.
-      if (!normal.length || !mirage.length) {
-        throw new Error("A fonte retornou stock incompleto; aguardando a próxima consulta.");
-      }
-
-      const items = groupKey === "normal" ? normal : mirage;
-      const currentSignature = signature(items);
-      const savedSignature = readState().stockSignatures?.[groupKey] || baseline;
-
-      if (savedSignature && currentSignature === savedSignature) {
-        consecutiveErrors = 0;
-        console.log(`[SCHEDULER] ${groupKey}: a fonte ainda mostra o stock anterior. Tentativa ${attempts}; nova consulta em 60s.`);
-      } else {
-        // A assinatura mudou. checkStock grava/publica somente depois de confirmar
-        // novamente que o resultado recebido é válido.
-        console.log(`[SCHEDULER] ${groupKey}: nova rotação detectada; validando publicação.`);
-        const published = await checkStock(false, [groupKey], false, stock);
-        const after = readState().stockSignatures?.[groupKey];
-
-        if (published && after === currentSignature) {
-          console.log(`[SCHEDULER] ${groupKey}: nova rotação publicada e salva com sucesso.`);
-          return;
-        }
-
-        console.warn(`[SCHEDULER] ${groupKey}: a rotação foi detectada, mas não foi confirmada no estado. Nova tentativa em 30s.`);
-      }
-    } catch (error) {
-      consecutiveErrors++;
-      const retrySeconds = Math.min(60, 15 + consecutiveErrors * 10);
-      console.warn(`[SCHEDULER] ${groupKey}: consulta ${attempts} falhou: ${error.message}. Nova tentativa em ${retrySeconds}s.`);
-      await wait(retrySeconds * 1000);
-      continue;
+    if (savedSignature && currentSignature === savedSignature) {
+      console.log("[SCHEDULER] " + groupKey + ": stock não mudou. Nenhuma nova consulta será feita até o próximo reset.");
+      return;
     }
 
-    await wait(60000);
+    console.log("[SCHEDULER] " + groupKey + ": alteração detectada; salvando/publicando o resultado recebido.");
+    const published = await checkStock(false, [groupKey], false, stock);
+    if (!published) {
+      console.warn("[SCHEDULER] " + groupKey + ": não foi possível salvar/publicar. Não haverá repetição automática neste ciclo.");
+    }
+  } catch (error) {
+    console.warn("[SCHEDULER] " + groupKey + ": consulta única falhou. Não haverá repetição até o próximo reset: " + error.message);
   }
 }
-
 const activeStockCycles = new Set();
 let schedulerTimer = null;
 
