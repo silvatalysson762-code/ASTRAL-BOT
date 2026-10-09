@@ -707,85 +707,74 @@ function parseWikiStockSection(text, heading, nextHeading, type) {
 }
 
 async function getStock() {
+  // Proteção contra consumo acidental: uma consulta usa somente UMA chave.
+  // Se falhar, não tenta outras chaves no mesmo ciclo, pois podem cobrar créditos
+  // para a mesma solicitação. Após falha, aguarda 30 minutos antes de nova tentativa.
+  if (apiCooldownUntil > Date.now()) {
+    const remaining = Math.ceil((apiCooldownUntil - Date.now()) / 1000);
+    throw new Error("Consulta de stock em pausa para evitar gastar créditos após falha. Nova tentativa em " + remaining + "s.");
+  }
+
   const apiKeys = [
     process.env.STOCK_API_KEY_1,
     process.env.STOCK_API_KEY_2,
     process.env.STOCK_API_KEY_3
   ].filter(Boolean);
-
   const stockApiUrl = process.env.STOCK_API_URL;
 
   if (stockApiUrl && apiKeys.length) {
-    const failures = [];
+    // Usa uma única chave por ciclo. Prioriza a primeira configurada.
+    const apiKey = apiKeys[0];
+    try {
+      console.log("[STOCK API] Fazendo uma única consulta com a key 1 (sem fallback automático).");
+      const response = await fetch(stockApiUrl, {
+        headers: {
+          "Accept": "application/json",
+          "X-API-Key": apiKey,
+          "User-Agent": "AstralStockDiscordBot/1.0"
+        },
+        signal: AbortSignal.timeout(12000)
+      });
 
-    for (let i = 0; i < apiKeys.length; i++) {
-      const apiKey = apiKeys[i];
-      const cooldownUntil = apiKeyCooldownUntil.get(i) || 0;
-      if (cooldownUntil > Date.now()) {
-        const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
-        console.log("[STOCK API] Key " + (i + 1) + " está em cooldown por " + remaining + "s; pulando para a próxima.");
-        continue;
-      }
-      try {
-        console.log("[STOCK API] Consultando API com key " + (i + 1) + ".");
-        const response = await fetch(stockApiUrl, {
-          headers: {
-            "Accept": "application/json",
-            "X-API-Key": apiKey,
-            "User-Agent": "AstralStockDiscordBot/1.0"
-          },
-          signal: AbortSignal.timeout(20000)
-        });
-
-        const responseText = await response.text();
-
-        if (!response.ok) {
-          if (response.status === 429) {
-            const retryAfterRaw = response.headers.get("retry-after");
-            const retryAfterSeconds = Number(retryAfterRaw);
-            const cooldownMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-              ? retryAfterSeconds * 1000
-              : 60000;
-            apiKeyCooldownUntil.set(i, Date.now() + cooldownMs);
-            console.warn("[STOCK API] Key " + (i + 1) + " recebeu 429; cooldown de " + Math.ceil(cooldownMs / 1000) + "s.");
-          }
-          let detail = responseText.slice(0, 250);
-          try {
-            const parsed = JSON.parse(responseText);
-            detail = parsed.message || parsed.error || detail;
-          } catch {}
-          throw new Error("HTTP " + response.status + (detail ? ": " + detail : ""));
-        }
-
-        let payload;
+      const responseText = await response.text();
+      if (!response.ok) {
+        let detail = responseText.slice(0, 250);
         try {
-          payload = JSON.parse(responseText);
-        } catch {
-          throw new Error("A API retornou uma resposta que não é JSON válido.");
-        }
-
-        const normalizedStock = applySavedFruitPrices(normalizeStock(payload));
-        const normal = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-        const mirage = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-        const stock = [...normal, ...mirage];
-
-        if (!normal.length || !mirage.length) {
-          throw new Error("A API não retornou as listas Normal e Mirage.");
-        }
-
-        console.log("[STOCK API] Captura válida com key " + (i + 1) +
-          " (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
-        return stock;
-      } catch (error) {
-        failures.push("key " + (i + 1) + ": " + error.message);
-        console.warn("[STOCK API] Falha com key " + (i + 1) + "; tentando a próxima:", error.message);
+          const parsed = JSON.parse(responseText);
+          detail = parsed.message || parsed.error || detail;
+        } catch {}
+        const error = new Error("HTTP " + response.status + (detail ? ": " + detail : ""));
+        error.status = response.status;
+        throw error;
       }
-    }
 
-    throw new Error("Todas as STOCK_API_KEY falharam. " + failures.join(" | "));
+      let payload;
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        throw new Error("A API retornou uma resposta que não é JSON válido.");
+      }
+
+      const normalizedStock = applySavedFruitPrices(normalizeStock(payload));
+      const normal = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirage = normalizedStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normal.length || !mirage.length) {
+        throw new Error("A API não retornou as listas Normal e Mirage.");
+      }
+
+      console.log("[STOCK API] Captura válida (Normal: " + normal.length + ", Mirage: " + mirage.length + ").");
+      return [...normal, ...mirage];
+    } catch (error) {
+      // Falhas de cobrança, limite ou timeout nunca disparam chamadas às outras chaves.
+      // 402/429: pausa longa; demais falhas: pausa de 30 minutos.
+      const cooldownMs = error.status === 402 || error.status === 429 ? 4 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      apiCooldownUntil = Date.now() + cooldownMs;
+      console.warn("[STOCK API] Consulta falhou. Nenhuma outra chave será chamada. Pausa de " + Math.ceil(cooldownMs / 60000) + " min:", error.message);
+      throw error;
+    }
   }
 
-  // Compatibilidade: se nenhuma API estiver configurada, tenta as fontes públicas.
+  // Compatibilidade sem API configurada: fontes públicas não usam créditos do Parse.bot.
   const failures = [];
   for (const sourceUrl of STOCK_SOURCES) {
     try {
@@ -808,7 +797,6 @@ async function getStock() {
       failures.push(sourceUrl + ": " + error.message);
     }
   }
-
   throw new Error("Nenhuma fonte de stock respondeu corretamente. " + failures.join(" | "));
 }
 function safeName(item) {
