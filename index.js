@@ -2883,12 +2883,32 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Adiciona imediatamente solicitante, dono e equipe já encontrada.
-    await Promise.all([...memberIds]
-      .filter(memberId => memberId !== client.user.id)
-      .map(memberId => thread.members.add(memberId).catch(error => {
-        console.warn("[TICKET] Falha ao adicionar membro à thread privada:", memberId, error?.message || error);
-      })));
+    // Testa o método por menção: o Discord pode incluir os usuários mencionados
+    // na thread privada automaticamente. A mensagem de menções é apagada logo após
+    // o envio para não deixar um recado extra no ticket.
+    const addThreadMembersByMention = async ids => {
+      const uniqueIds = [...new Set(ids)].filter(id => id && id !== client.user.id);
+      for (let i = 0; i < uniqueIds.length; i += 100) {
+        const batch = uniqueIds.slice(i, i + 100);
+        if (!batch.length) continue;
+        let mentionMessage = null;
+        try {
+          mentionMessage = await thread.send({
+            content: batch.map(id => `<@${id}>`).join(" "),
+            allowedMentions: { users: batch, parse: [] }
+          });
+          // A menção é o mecanismo de entrada; removemos a mensagem imediatamente.
+          await mentionMessage.delete().catch(error => {
+            console.warn("[TICKET] A mensagem temporária de menções não pôde ser apagada:", error?.message || error);
+          });
+        } catch (error) {
+          console.warn("[TICKET] Falha ao adicionar membros por menção à thread privada:", error?.message || error);
+        }
+      }
+    };
+
+    // Adiciona solicitante, dono e equipe encontrada usando menções temporárias.
+    await addThreadMembersByMention([...memberIds]);
 
     // Remove o aviso de criação, se o Discord permitir.
     try {
@@ -2918,9 +2938,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
               missingIds.add(member.id);
             }
           }
-          await Promise.all([...missingIds].map(memberId => thread.members.add(memberId).catch(error => {
-            console.warn("[TICKET] Falha ao adicionar membro da equipe em segundo plano:", memberId, error?.message || error);
-          })));
+          await addThreadMembersByMention([...missingIds]);
         } catch (error) {
           console.warn("[TICKET] Falha ao completar equipe em segundo plano:", error?.message || error);
         }
