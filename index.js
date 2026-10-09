@@ -2771,25 +2771,10 @@ async function interactionHasTicketStaffRole(interaction) {
 }
 
 function buildTicketControlPanel(ownerId, assumedBy = null) {
-  // O Discord não permite definir a largura do botão diretamente.
-  // Equalizamos os rótulos com espaços Unicode calculados pelo maior texto,
-  // para os quatro botões do painel dentro do ticket ficarem visualmente mais uniformes.
-  const labels = {
-    add: "Adicionar",
-    remove: "Remover",
-    assume: assumedBy ? "Assumido" : "Assumir",
-    assign: "Atribuir"
-  };
-  // Espaços comuns no fim são removidos pelo Discord. Use Hangul Filler (invisível)
-  // para ocupar largura real no rótulo e alinhar os quatro botões.
-  const longestLabel = Math.max(...Object.values(labels).map(label => [...label].length));
-  const filler = "\\u3164";
-  const paddedLabel = label => {
-    const missing = Math.max(0, longestLabel - [...label].length);
-    const left = Math.floor(missing / 2) + 1;
-    const right = missing - Math.floor(missing / 2) + 1;
-    return filler.repeat(left) + label + filler.repeat(right);
-  };
+  // Mantém os rótulos limpos e a disposição original em duas linhas.
+  // O Discord calcula a largura dos botões automaticamente; espaços artificiais
+  // podem estourar a linha e fazer cada botão ocupar uma linha separada.
+  const paddedLabel = label => label;
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
@@ -2799,18 +2784,18 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
     ))
     // Mantém a disposição original: Adicionar/Remover em cima, Assumir/Atribuir embaixo.
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel(paddedLabel(labels.add))
+      new ButtonBuilder().setCustomId("ticket:member:add:" + ownerId).setLabel(labels.add)
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel(paddedLabel(labels.remove))
+      new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel(labels.remove)
         .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       assumedBy
-        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel(paddedLabel(labels.assume))
+        ? new ButtonBuilder().setCustomId("ticket:assumed:" + ownerId + ":" + assumedBy).setLabel(labels.assume)
             .setEmoji({ name: "ticket_check", id: "1557205113100046347" }).setStyle(ButtonStyle.Secondary).setDisabled(true)
-        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(paddedLabel(labels.assume))
+        : new ButtonBuilder().setCustomId("ticket:assume:" + ownerId).setLabel(labels.assume)
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(paddedLabel(labels.assign))
+      new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(labels.assign)
         .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -2948,18 +2933,18 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       .map(key => String(config?.adminRoles?.[key] || ""))
       .filter((id, index, all) => /^\d{17,20}$/.test(id) && all.indexOf(id) === index)
       .map(id => `<@&${id}>`);
-    const staffUserIds = [...memberIds].filter(id => id !== interaction.user.id && id !== client.user.id);
-    const firstBatch = staffUserIds.slice(0, 100);
-    const mentionContent = [...staffRoleMentions, ...firstBatch.map(id => `<@${id}>`)].join(" ");
-    if (mentionContent) {
+    // Na mensagem de aviso, mencionar somente os cargos configurados.
+    // Os usuários necessários continuam sendo adicionados à thread sem serem marcados no texto.
+    if (staffRoleMentions.length) {
       await thread.send({
-        content: mentionContent,
-        allowedMentions: { roles: staffRoleMentions.map(mention => mention.match(/\d{17,20}/)?.[0]).filter(Boolean), users: firstBatch, parse: [] }
-      }).catch(error => console.warn("[TICKET] Não consegui enviar o aviso da equipe:", error?.message || error));
+        content: staffRoleMentions.join(" "),
+        allowedMentions: {
+          roles: staffRoleMentions.map(mention => mention.match(/\d{17,20}/)?.[0]).filter(Boolean),
+          users: [],
+          parse: []
+        }
+      }).catch(error => console.warn("[TICKET] Não consegui enviar o aviso dos cargos:", error?.message || error));
     }
-    // Membros extras além do primeiro lote são adicionados por menções; ficam visíveis
-    // apenas se forem necessários para completar a lista de acesso.
-    if (staffUserIds.length > 100) await addThreadMembersByMention(staffUserIds.slice(100), false);
 
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
