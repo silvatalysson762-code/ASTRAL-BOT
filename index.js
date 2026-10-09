@@ -2792,7 +2792,7 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
         .setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("ticket:member:remove:" + ownerId).setLabel(labels.remove)
         .setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setEmoji({ name: "offline", id: "1557204568432185454" })
+      new ButtonBuilder().setCustomId("ticket:close:" + ownerId + ":top").setEmoji({ name: "offline", id: "1557204568432185454" })
         .setStyle(ButtonStyle.Danger).setLabel("\u200B")
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
@@ -2803,7 +2803,7 @@ function buildTicketControlPanel(ownerId, assumedBy = null) {
             .setEmoji({ name: "ticket_plus", id: "1557205110847701052" }).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("ticket:assign_decorative").setLabel(labels.assign)
         .setEmoji({ name: "shop", id: "1557204870896033843" }).setStyle(ButtonStyle.Primary).setDisabled(true),
-      new ButtonBuilder().setCustomId("ticket:close:" + ownerId).setEmoji({ name: "offline", id: "1557204568432185454" })
+      new ButtonBuilder().setCustomId("ticket:close:" + ownerId + ":bottom").setEmoji({ name: "offline", id: "1557204568432185454" })
         .setStyle(ButtonStyle.Danger).setLabel("\u200B")
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
