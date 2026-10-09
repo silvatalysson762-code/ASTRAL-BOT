@@ -3904,8 +3904,16 @@ client.on("interactionCreate", async interaction => {
       };
       await interaction.editReply(ticketReply);
     } catch (error) {
-      console.error("[TICKET] Erro ao abrir atendimento:", error);
-      await interaction.editReply({ content: "<:offline:1557204568432185454> Não consegui abrir o atendimento. Verifique se o bot tem **Gerenciar Canais**." }).catch(() => {});
+      console.error("[TICKET] Erro ao abrir atendimento:", {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        rawError: error?.rawError
+      });
+      const detail = String(error?.message || "Erro desconhecido").slice(0, 700);
+      await interaction.editReply({
+        content: "<:offline:1557204568432185454> Não consegui abrir o atendimento. **Erro:** " + detail + "\\nConfira as permissões do bot para o modo de ticket configurado."
+      }).catch(() => {});
     }
     return;
   }
