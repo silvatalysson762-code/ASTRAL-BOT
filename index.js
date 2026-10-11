@@ -761,41 +761,84 @@ async function getStock() {
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
 
-  // Primeiro tenta o serviço próprio hospedado pelo usuário, se configurado.
-  // O serviço retorna JSON e não usa a API paga Parse.bot.
-  const serviceUrl = String(process.env.STOCK_SERVICE_URL || "").trim().replace(/\/$/, "");
-  if (serviceUrl) {
-    try {
-      const headers = { "Accept": "application/json" };
-      if (process.env.STOCK_SERVICE_KEY) headers["x-api-key"] = process.env.STOCK_SERVICE_KEY;
-      console.log("[STOCK] Consultando serviço próprio:", serviceUrl + "/stock");
-      const response = await fetch(serviceUrl + "/stock", {
-        headers,
-        signal: AbortSignal.timeout(20000)
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || ("HTTP " + response.status));
-      if (!Array.isArray(data.stock)) throw new Error("O serviço não retornou uma lista de stock válida.");
+  // API principal: Parse.bot. A API 1 é sempre tentada primeiro;
+  // API 2/3 só entram como contingência, respeitando cooldowns de rate limit.
+  const endpoint = "https://api.parse.bot/scraper/e534d388-6640-4c19-b9b6-b2ba12930793/get_stock";
+  const configuredKeys = [
+    { name: "API 1", value: String(process.env.STOCK_API_KEY_1 || "").trim() },
+    { name: "API 2", value: String(process.env.STOCK_API_KEY_2 || "").trim() },
+    { name: "API 3", value: String(process.env.STOCK_API_KEY_3 || "").trim() }
+  ].filter(entry => entry.value);
 
-      const validStock = applySavedFruitPrices(data.stock.map(item => normalizeItem(item, item.type || "Normal")));
-      const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normalStock.length || !mirageStock.length) throw new Error("O serviço retornou stock Normal/Mirage incompleto.");
+  const failures = [];
+  if (configuredKeys.length) {
+    for (const entry of configuredKeys) {
+      const cooldownUntil = apiKeyCooldownUntil.get(entry.name) || 0;
+      if (Date.now() < cooldownUntil) {
+        console.log("[STOCK] " + entry.name + " em cooldown por rate limit; pulando temporariamente.");
+        continue;
+      }
 
-      lastSuccessfulStock = validStock.map(item => ({ ...item }));
-      lastSuccessfulStockAt = Date.now();
-      console.log("[STOCK] Serviço próprio respondeu:", data.source || "fonte pública", "| Normal:", normalStock.length, "| Mirage:", mirageStock.length);
-      return validStock.map(item => ({ ...item }));
-    } catch (error) {
-      console.warn("[STOCK] Serviço próprio falhou; tentando fontes públicas diretas:", error.message || error);
+      try {
+        console.log("[STOCK] Consultando Parse.bot pela " + entry.name + ".");
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "x-api-key": entry.value,
+            "Authorization": "Bearer " + entry.value
+          },
+          signal: AbortSignal.timeout(20000)
+        });
+
+        if (response.status === 429) {
+          const retryAfter = Number(response.headers.get("retry-after"));
+          const cooldownMs = Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : 60 * 1000;
+          apiKeyCooldownUntil.set(entry.name, Date.now() + cooldownMs);
+          const detail = entry.name + " recebeu HTTP 429; cooldown de " + Math.ceil(cooldownMs / 1000) + "s.";
+          failures.push(detail);
+          console.warn("[STOCK] " + detail);
+          continue;
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const detail = payload?.message || payload?.error || ("HTTP " + response.status);
+          throw new Error(String(detail));
+        }
+
+        const validStock = applySavedFruitPrices(normalizeStock(payload));
+        const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+        const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+        if (!normalStock.length || !mirageStock.length) {
+          throw new Error("A API não retornou stock Normal e Mirage válidos.");
+        }
+
+        apiKeyCooldownUntil.delete(entry.name);
+        lastSuccessfulStock = validStock.map(item => ({ ...item }));
+        lastSuccessfulStockAt = Date.now();
+        console.log("[STOCK] Parse.bot OK pela " + entry.name + " | Normal: " + normalStock.length + " | Mirage: " + mirageStock.length);
+        return validStock.map(item => ({ ...item }));
+      } catch (error) {
+        const detail = entry.name + ": " + (error.message || String(error));
+        failures.push(detail);
+        console.warn("[STOCK] Falha na " + entry.name + ":", error.message || error);
+      }
     }
+  } else {
+    failures.push("Nenhuma chave STOCK_API_KEY_1/2/3 configurada.");
+    console.warn("[STOCK] Nenhuma chave Parse.bot configurada; tentando as fontes públicas.");
   }
 
-  // Alternativa de contingência: fontes públicas fixas. Nunca consulta Parse.bot.
-  const failures = [];
+  // Mantém a contingência pública para não parar o bot se todas as chaves falharem.
+  if (configuredKeys.length) {
+    console.warn("[STOCK] Todas as chaves Parse.bot disponíveis falharam; tentando fontes públicas.");
+  }
   for (const sourceUrl of STOCK_SOURCES) {
     try {
-      console.log("[STOCK] Consultando fonte pública:", sourceUrl);
+      console.log("[STOCK] Consultando fonte pública de contingência:", sourceUrl);
       const response = await fetch(sourceUrl, {
         headers: {
           "Accept": "text/html,application/xhtml+xml",
@@ -831,9 +874,9 @@ async function getStock() {
       console.warn("[STOCK] Fonte pública falhou:", detail);
     }
   }
-  throw new Error("Todas as fontes públicas falharam. Nenhuma API paga foi consultada. " + failures.join(" | "));
-}
 
+  throw new Error("Todas as fontes de stock falharam. " + failures.join(" | "));
+}
 async function testPublicStockSource() {
   const failures = [];
 
