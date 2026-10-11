@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, REST,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, SeparatorBuilder, SeparatorSpacingSize, REST,
   SlashCommandBuilder, PermissionFlagsBits, Routes
 } = require("discord.js");
 
@@ -3072,7 +3072,7 @@ const ticketBlacklistPromptSessions = new Map();
 function buildTicketBlacklistPanel(guildId) {
   const entries = getActiveTicketBlacklist(guildId);
   const lines = entries.length
-    ? entries.slice(0, 10).map(entry => "<@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
+    ? entries.slice(0, 10).map(entry => "<:user_remove:1557205118385127485> <@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
     : "Lista vazia.";
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\nBloqueie membros ou remova alguém da lista.\n\n**Bloqueados (" + entries.length + ")**\n" + lines + (entries.length > 10 ? "\n-# Exibindo os primeiros 10 usuários." : "") + "\n-# Duração em minutos: 0 = permanente."))
@@ -4288,7 +4288,7 @@ client.on("interactionCreate", async interaction => {
     const isAdd = interaction.customId === "ticket:blacklist:add";
     await interaction.reply(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
     const promptInteraction = interaction;
-    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, mainMessage: interaction.message, action: isAdd ? "add" : "remove" });
+    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, channelId: interaction.channelId, messageId: interaction.message?.id, action: isAdd ? "add" : "remove" });
     return;
   }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
@@ -4311,7 +4311,7 @@ client.on("interactionCreate", async interaction => {
     const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
     const session = ticketBlacklistPromptSessions.get(sessionKey);
     await interaction.update({ components: [new ContainerBuilder().setAccentColor(getBotPanelAccentColor()).addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:user_remove:1557205118385127485> Membro removido\n<@" + userId + "> foi removido da blacklist."))], flags: MessageFlags.IsComponentsV2 });
-    if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch {} }
+    if (session?.channelId && session?.messageId) { try { const ch = await client.channels.fetch(session.channelId); const msg = await ch?.messages.fetch(session.messageId); await msg?.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch (err) { console.error("Falha ao atualizar painel da blacklist:", err?.message || err); } }
     ticketBlacklistPromptSessions.delete(sessionKey);
     return;
   }
