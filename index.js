@@ -3076,7 +3076,7 @@ function buildTicketBlacklistPanel(guildId) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\nBloqueie membros ou remova alguém da lista.\n\n**Bloqueados (" + entries.length + ")**\n" + lines + (entries.length > 10 ? "\n-# Exibindo os primeiros 10 usuários." : "") + "\n-# Duração em minutos: 0 = permanente."))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji({ name: "user_remove", id: "1557205118385127485" }).setStyle(ButtonStyle.Danger)
+      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
@@ -3102,7 +3102,7 @@ function buildTicketBlacklistRemoveSelectPanel(guildId) {
     return { label: name.slice(0, 100), description: entry.expiresAt ? "Bloqueado até " + new Date(Number(entry.expiresAt)).toLocaleString("pt-BR") : "Bloqueio permanente", value: String(entry.userId) };
   });
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:trash:1557204826280951858> REMOVER DA BLACKLIST\nSelecione qual membro deseja desbloquear." + (entries.length > 25 ? "\n-# Mostrando os primeiros 25 usuários." : "")))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:user_remove:1557205118385127485> REMOVER DA BLACKLIST\nSelecione qual membro deseja desbloquear." + (entries.length > 25 ? "\n-# Mostrando os primeiros 25 usuários." : "")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder().setCustomId("ticket:blacklist:select-remove").setPlaceholder(entries.length ? "Selecionar membro bloqueado" : "A blacklist está vazia").setMinValues(1).setMaxValues(1).setDisabled(entries.length === 0).addOptions(options.length ? options : [{ label: "Ninguém na blacklist", value: "none", description: "Não há usuários para remover" }])
     ));
