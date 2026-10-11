@@ -3075,9 +3075,7 @@ function buildTicketBlacklistPanel(guildId) {
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\nBloqueie membros ou remova alguém da lista.\n\n**Bloqueados (" + entries.length + ")**\n" + lines + (entries.length > 10 ? "\n-# Exibindo os primeiros 10 usuários." : "") + "\n-# Duração em minutos: 0 = permanente."))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success)
-    ))
-    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
