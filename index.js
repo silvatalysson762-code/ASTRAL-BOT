@@ -3124,21 +3124,16 @@ const ticketBlacklistPromptSessions = new Map();
 function buildTicketBlacklistPanel(guildId) {
   const entries = getActiveTicketBlacklist(guildId);
   const lines = entries.length
-    ? entries.slice(0, 10).map(entry => "<:user_remove:1557205118385127485> <@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
-    : "Lista vazia.";
-  const verticalBar = "> │\n";
+    ? entries.slice(0, 10).map(entry => "> <:user_remove:1557205118385127485> <@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
+    : "> Lista vazia.";
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-      "<:prohibited:1557204569975562370> **BLACKLIST DE TICKETS**\n" +
-      "Bloqueie membros ou remova alguém da lista.\n" +
-      verticalBar +
-      verticalBar +
-      "<:prohibited:1557204569975562370> **Bloqueados (" + entries.length + ")**\n" +
-      verticalBar +
-      verticalBar +
+      "## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\n" +
+      "> Bloqueie membros ou remova alguém da lista.\n\n" +
+      "**<:prohibited:1557204569975562370> Bloqueados (" + entries.length + ")**\n" +
       lines +
-      (entries.length > 10 ? "\n-# Exibindo os primeiros 10 usuários." : "") +
-      "\n-# Duração em minutos: 0 = permanente."
+      (entries.length > 10 ? "\n> -# Exibindo os primeiros 10 usuários." : "") +
+      "\n> -# Duração em minutos: 0 = permanente."
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
