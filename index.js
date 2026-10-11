@@ -4310,7 +4310,7 @@ client.on("interactionCreate", async interaction => {
     updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
     const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
     const session = ticketBlacklistPromptSessions.get(sessionKey);
-    await interaction.update({ components: [new ContainerBuilder().setAccentColor(getBotPanelAccentColor()).addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:online:1557204563675848814> Membro removido\n<@" + userId + "> foi removido da blacklist."))], flags: MessageFlags.IsComponentsV2 });
+    await interaction.update({ components: [new ContainerBuilder().setAccentColor(getBotPanelAccentColor()).addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:user_remove:1557205118385127485> Membro removido\n<@" + userId + "> foi removido da blacklist."))], flags: MessageFlags.IsComponentsV2 });
     if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch {} }
     ticketBlacklistPromptSessions.delete(sessionKey);
     return;
@@ -4332,7 +4332,7 @@ client.on("interactionCreate", async interaction => {
         updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []; cfg.ticketBlacklist = cfg.ticketBlacklist.filter(entry => String(entry.userId) !== userId); cfg.ticketBlacklist.push({ userId, expiresAt, reason: reason || null, addedBy: interaction.user.id, addedAt: Date.now() }); });
         const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
         const session = ticketBlacklistPromptSessions.get(sessionKey);
-        await interaction.reply({ content: "<:prohibited:1557204569975562370> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
+        await interaction.reply({ content: "<:user_add:1557205138689495101> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
         if (session?.promptInteraction) { try { await session.promptInteraction.deleteReply(); } catch {} }
         if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch {} }
         ticketBlacklistPromptSessions.delete(sessionKey);
