@@ -3071,21 +3071,26 @@ function buildTicketBlacklistPanel(guildId) {
   const entries = getActiveTicketBlacklist(guildId);
   const lines = entries.length ? entries.slice(0, 15).map((entry, i) => (i + 1) + ". <@" + entry.userId + "> • " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n") : "Nenhum usuário está na blacklist.";
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\n> Usuários listados aqui não conseguem abrir novos atendimentos neste servidor.\n\n### Usuários bloqueados (" + entries.length + ")\n" + lines + (entries.length > 15 ? "\n-# Mostrando os primeiros 15 usuários." : "") + "\n\n-# Duração vazia ou 0 horas = bloqueio permanente."))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\n> Usuários listados aqui não conseguem abrir novos atendimentos neste servidor.\n\n### Selecione um membro para bloquear\nEscolha a pessoa no seletor abaixo. Depois configure a duração em minutos.\n\n### Usuários bloqueados (" + entries.length + ")\n" + lines + (entries.length > 15 ? "\n-# Mostrando os primeiros 15 usuários." : "") + "\n\n-# Duração em minutos: 0 = permanente."))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "prohibited", id: "1557204569975562370" }).setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Secondary)
+      new UserSelectMenuBuilder().setCustomId("ticket:blacklist:select-add").setPlaceholder("Selecionar membro do servidor").setMinValues(1).setMaxValues(1)
     ))
-    .addActionRowComponents(new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)));
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+    ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildTicketBlacklistModal(action) {
+function buildTicketBlacklistModal(action, selectedUserId = null) {
   const adding = action === "add";
-  const modal = new ModalBuilder().setCustomId("ticket:blacklist:modal:" + action).setTitle(adding ? "Adicionar à Blacklist" : "Remover da Blacklist");
-  modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("blacklist_user_id").setLabel("ID DO USUÁRIO").setPlaceholder("ID numérico do Discord").setStyle(TextInputStyle.Short).setRequired(true).setMinLength(17).setMaxLength(20)));
+  const customId = "ticket:blacklist:modal:" + action + (selectedUserId ? ":" + selectedUserId : "");
+  const modal = new ModalBuilder().setCustomId(customId).setTitle(adding ? "Configurar bloqueio" : "Remover da Blacklist");
+  if (!selectedUserId) {
+    modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("blacklist_user_id").setLabel("ID DO USUÁRIO").setPlaceholder("ID numérico do Discord").setStyle(TextInputStyle.Short).setRequired(true).setMinLength(17).setMaxLength(20)));
+  }
   if (adding) {
-    modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("blacklist_duration_hours").setLabel("DURAÇÃO EM HORAS (0 = PERMANENTE)").setPlaceholder("Ex.: 24. Vazio ou 0 para permanente").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(8)));
+    modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("blacklist_duration_minutes").setLabel("DURAÇÃO EM MINUTOS (0 = PERMANENTE)").setPlaceholder("Ex.: 60. Use 0 para permanente").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(8)));
     modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("blacklist_reason").setLabel("MOTIVO (OPCIONAL)").setPlaceholder("Motivo do bloqueio").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)));
   }
   return modal;
@@ -4242,27 +4247,34 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isButton() && interaction.customId === "ticket:blacklist:add") { await interaction.showModal(buildTicketBlacklistModal("add")); return; }
+  if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
+    const selectedUserId = interaction.values[0];
+    await interaction.showModal(buildTicketBlacklistModal("add", selectedUserId));
+    return;
+  }
   if (interaction.isButton() && interaction.customId === "ticket:blacklist:remove") { await interaction.showModal(buildTicketBlacklistModal("remove")); return; }
   if (interaction.isButton() && interaction.customId === "ticket:blacklist:back") { await interaction.update(buildTicketConfigPanel(interaction.guildId)); return; }
 
   if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:blacklist:modal:")) {
-    const action = interaction.customId.split(":").pop();
+    const parts = interaction.customId.split(":");
+    const action = parts[3];
     try {
-      const userId = interaction.fields.getTextInputValue("blacklist_user_id").trim();
-      if (!/^\d{17,20}$/.test(userId)) throw new Error("Informe um ID válido do Discord (17 a 20 números).");
+      const userId = (parts[4] || interaction.fields.getTextInputValue("blacklist_user_id")).trim();
+      if (!/^\d{17,20}$/.test(userId)) throw new Error("Selecione um membro válido do Discord.");
       if (action === "add") {
-        const rawHours = interaction.fields.getTextInputValue("blacklist_duration_hours").trim();
-        const hours = rawHours ? Number(rawHours) : 0;
-        if (!Number.isFinite(hours) || hours < 0 || hours > 87600) throw new Error("A duração deve ser 0 ou um número de horas entre 1 e 87600.");
+        const rawMinutes = interaction.fields.getTextInputValue("blacklist_duration_minutes").trim();
+        const minutes = Number(rawMinutes);
+        if (!Number.isInteger(minutes) || minutes < 0 || minutes > 52560000) throw new Error("A duração deve ser 0 ou um número inteiro de minutos até 52560000.");
         const reason = interaction.fields.getTextInputValue("blacklist_reason").trim();
-        const expiresAt = hours > 0 ? Date.now() + hours * 3600000 : null;
+        const expiresAt = minutes > 0 ? Date.now() + minutes * 60000 : null;
         updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []; cfg.ticketBlacklist = cfg.ticketBlacklist.filter(entry => String(entry.userId) !== userId); cfg.ticketBlacklist.push({ userId, expiresAt, reason: reason || null, addedBy: interaction.user.id, addedAt: Date.now() }); });
-        await interaction.reply({ content: "<:prohibited:1557204569975562370> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + hours + " hora(s)." : "permanentemente."), ephemeral: true });
-      } else {
+        await interaction.reply({ content: "<:prohibited:1557204569975562370> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
+      } else if (action === "remove") {
         const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
         updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
         await interaction.reply({ content: found ? "<:online:1557204563675848814> <@" + userId + "> foi removido da blacklist." : "<:offline:1557204568432185454> Esse usuário não está na blacklist.", ephemeral: true });
+      } else {
+        throw new Error("Ação da blacklist inválida.");
       }
     } catch (error) { await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui atualizar a blacklist."), ephemeral: true }).catch(() => {}); }
     return;
