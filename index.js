@@ -3122,7 +3122,7 @@ function getActiveTicketBlacklist(guildId) {
 const ticketBlacklistPromptSessions = new Map();
 
 function buildTicketBlacklistPanel(guildId) {
-  const entries = getActiveTicketBlacklist(guildId);
+  const entries = getActiveTicketBlacklist(guildId).slice().sort((a, b) => Number(b.addedAt || 0) - Number(a.addedAt || 0));
   const lines = entries.length
     ? entries.slice(0, 10).map(entry => {
         const addedBy = entry.addedBy ? " · adicionado por <@" + entry.addedBy + ">" : "";
