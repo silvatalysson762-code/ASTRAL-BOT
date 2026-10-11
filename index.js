@@ -3124,7 +3124,11 @@ const ticketBlacklistPromptSessions = new Map();
 function buildTicketBlacklistPanel(guildId) {
   const entries = getActiveTicketBlacklist(guildId);
   const lines = entries.length
-    ? entries.slice(0, 10).map(entry => "> <:user_remove:1557205118385127485> <@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
+    ? entries.slice(0, 10).map(entry => {
+        const addedBy = entry.addedBy ? " · adicionado por <@" + entry.addedBy + ">" : "";
+        const reason = entry.reason ? " · " + String(entry.reason).slice(0, 100) : "";
+        return "> <:user_remove:1557205118385127485> <@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente") + addedBy + reason;
+      }).join("\n")
     : "> Lista vazia.";
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
