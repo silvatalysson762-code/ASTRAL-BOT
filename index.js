@@ -3069,27 +3069,46 @@ function getActiveTicketBlacklist(guildId) {
 
 function buildTicketBlacklistPanel(guildId) {
   const entries = getActiveTicketBlacklist(guildId);
+  const lines = entries.length
+    ? entries.slice(0, 10).map(entry => "<@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
+    : "Lista vazia.";
+  const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\nBloqueie membros ou remova alguém da lista.\n\n**Bloqueados (" + entries.length + ")**\n" + lines + (entries.length > 10 ? "\n-# Exibindo os primeiros 10 usuários." : "") + "\n-# Duração em minutos: 0 = permanente."))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success)
+    ))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
+    ))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+    ));
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildTicketBlacklistAddSelectPanel() {
+  const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:user_add:1557205138689495101> ADICIONAR À BLACKLIST\nSelecione o membro que deseja bloquear."))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder().setCustomId("ticket:blacklist:select-add").setPlaceholder("Selecionar membro para bloquear").setMinValues(1).setMaxValues(1)
+    ));
+  return { components: [container], flags: MessageFlags.IsComponentsV2, ephemeral: true };
+}
+
+function buildTicketBlacklistRemoveSelectPanel(guildId) {
+  const entries = getActiveTicketBlacklist(guildId);
   const guild = client.guilds.cache.get(String(guildId));
-  const removeOptions = entries.slice(0, 25).map(entry => {
+  const options = entries.slice(0, 25).map(entry => {
     const member = guild?.members.cache.get(String(entry.userId));
     const name = member?.displayName || ("Usuário " + String(entry.userId));
     return { label: name.slice(0, 100), description: entry.expiresAt ? "Bloqueado até " + new Date(Number(entry.expiresAt)).toLocaleString("pt-BR") : "Bloqueio permanente", value: String(entry.userId) };
   });
-  if (!removeOptions.length) removeOptions.push({ label: "Ninguém na blacklist", value: "none", description: "Não há usuários para remover" });
-  const lines = entries.length ? entries.slice(0, 10).map(entry => "<@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n") : "Lista vazia.";
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\nBloqueie membros ou remova alguém da lista.\n\n**Bloqueados (" + entries.length + ")**\n" + lines + (entries.length > 10 ? "\n-# Exibindo 10; use o seletor para remover até 25." : "") + "\n-# Duração em minutos: 0 = permanente."))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:trash:1557204826280951858> REMOVER DA BLACKLIST\nSelecione qual membro deseja desbloquear." + (entries.length > 25 ? "\n-# Mostrando os primeiros 25 usuários." : "")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new UserSelectMenuBuilder().setCustomId("ticket:blacklist:select-add").setPlaceholder("Selecionar membro para bloquear").setMinValues(1).setMaxValues(1)
-    ))
-    .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId("ticket:blacklist:select-remove").setPlaceholder("Selecionar bloqueado para remover").setMinValues(1).setMaxValues(1).setDisabled(entries.length === 0).addOptions(removeOptions)
-    ))
-    .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger).setDisabled(true)
+      new StringSelectMenuBuilder().setCustomId("ticket:blacklist:select-remove").setPlaceholder(entries.length ? "Selecionar membro bloqueado" : "A blacklist está vazia").setMinValues(1).setMaxValues(1).setDisabled(entries.length === 0).addOptions(options.length ? options : [{ label: "Ninguém na blacklist", value: "none", description: "Não há usuários para remover" }])
     ));
-  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+  return { components: [container], flags: MessageFlags.IsComponentsV2, ephemeral: true };
 }
 
 function buildTicketBlacklistModal(action, selectedUserId = null) {
@@ -4260,6 +4279,14 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  if (interaction.isButton() && interaction.customId === "ticket:blacklist:add") {
+    await interaction.reply(buildTicketBlacklistAddSelectPanel());
+    return;
+  }
+  if (interaction.isButton() && interaction.customId === "ticket:blacklist:remove") {
+    await interaction.reply(buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
+    return;
+  }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
     const selectedUserId = interaction.values[0];
     await interaction.showModal(buildTicketBlacklistModal("add", selectedUserId));
@@ -4277,8 +4304,7 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
-    await interaction.update(buildTicketBlacklistPanel(interaction.guildId));
-    await interaction.followUp({ content: "<:online:1557204563675848814> <@" + userId + "> foi removido da blacklist.", ephemeral: true });
+    await interaction.update({ content: "<:online:1557204563675848814> <@" + userId + "> foi removido da blacklist.", components: [], flags: MessageFlags.Ephemeral });
     return;
   }
   if (interaction.isButton() && interaction.customId === "ticket:blacklist:back") { await interaction.update(buildTicketConfigPanel(interaction.guildId)); return; }
