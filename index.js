@@ -3087,7 +3087,7 @@ function buildTicketBlacklistPanel(guildId) {
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Secondary).setDisabled(true)
+      new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger).setDisabled(true)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
