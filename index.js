@@ -4340,7 +4340,7 @@ client.on("interactionCreate", async interaction => {
     const isAdd = interaction.customId === "ticket:blacklist:add";
     await interaction.reply(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
     const promptInteraction = interaction;
-    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, channelId: interaction.channelId, messageId: interaction.message?.id, action: isAdd ? "add" : "remove" });
+    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, mainMessage: interaction.message || null, channelId: interaction.channelId, messageId: interaction.message?.id, action: isAdd ? "add" : "remove" });
     return;
   }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
@@ -4386,7 +4386,7 @@ client.on("interactionCreate", async interaction => {
         const session = ticketBlacklistPromptSessions.get(sessionKey);
         await interaction.reply({ content: "<:user_add:1557205138689495101> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
         if (session?.promptInteraction) { try { await session.promptInteraction.deleteReply(); } catch {} }
-        if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch {} }
+        if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch (err) { console.error("Falha ao atualizar painel da blacklist após adicionar:", err?.message || err); } }
         ticketBlacklistPromptSessions.delete(sessionKey);
       } else if (action === "remove") {
         const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
