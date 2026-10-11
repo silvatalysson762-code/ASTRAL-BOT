@@ -4021,7 +4021,9 @@ client.on("interactionCreate", async interaction => {
       const detail = String(error?.message || "Erro desconhecido").slice(0, 700);
       const isBlacklistError = detail.includes("Você está na blacklist deste servidor");
       await interaction.editReply({
-        content: "<:offline:1557204568432185454> Não consegui abrir o atendimento. **Erro:** " + detail + (isBlacklistError ? "" : "\\nConfira as permissões do bot para o modo de ticket configurado.")
+        content: isBlacklistError
+          ? detail
+          : "<:offline:1557204568432185454> Não consegui abrir o atendimento. **Erro:** " + detail + "\\nConfira as permissões do bot para o modo de ticket configurado."
       }).catch(() => {});
     }
     return;
