@@ -2245,7 +2245,7 @@ function buildMainPanel(guildId, userId) {
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## " + home + " ASTRAL STORE\n" +
+        "## <:62256:1558901602599968918> PAINEL DE CONTROLE\n" +
         "> Olá, " + (userId ? "<@" + userId + ">" : "@USUARIO") + "! Aqui está o resumo da sua loja.\n" +
         "### " + overview + " Visão Geral\n" +
         "> " + bell + " Notificações não lidas: **0**\n" +
@@ -5689,7 +5689,7 @@ client.on("interactionCreate", async interaction => {
       // Reconhece a interação imediatamente para mostrar "Abrindo painel..."
       // e depois substitui o aviso pelo painel privado em Components V2.
       await interaction.reply({
-        content: "<:online:1557204563675848814> Abrindo painel...",
+        content: "<a:refresh_alt:1557205141051019274> Abrindo painel...",
         ephemeral: true
       });
 
