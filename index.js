@@ -3067,6 +3067,8 @@ function getActiveTicketBlacklist(guildId) {
   return entries.filter(entry => !entry.expiresAt || Number(entry.expiresAt) > now);
 }
 
+const ticketBlacklistPromptSessions = new Map();
+
 function buildTicketBlacklistPanel(guildId) {
   const entries = getActiveTicketBlacklist(guildId);
   const lines = entries.length
@@ -4277,12 +4279,16 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isButton() && interaction.customId === "ticket:blacklist:add") {
-    await interaction.reply(buildTicketBlacklistAddSelectPanel());
-    return;
-  }
-  if (interaction.isButton() && interaction.customId === "ticket:blacklist:remove") {
-    await interaction.reply(buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
+  if (interaction.isButton() && (interaction.customId === "ticket:blacklist:add" || interaction.customId === "ticket:blacklist:remove")) {
+    const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
+    const previous = ticketBlacklistPromptSessions.get(sessionKey);
+    if (previous?.promptInteraction) {
+      try { await previous.promptInteraction.deleteReply(); } catch {}
+    }
+    const isAdd = interaction.customId === "ticket:blacklist:add";
+    await interaction.reply(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
+    const promptInteraction = interaction;
+    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, mainMessage: interaction.message, action: isAdd ? "add" : "remove" });
     return;
   }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
@@ -4302,7 +4308,11 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
-    await interaction.update({ content: "<:online:1557204563675848814> <@" + userId + "> foi removido da blacklist.", components: [], flags: MessageFlags.Ephemeral });
+    const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
+    const session = ticketBlacklistPromptSessions.get(sessionKey);
+    await interaction.update({ components: [new ContainerBuilder().setAccentColor(getBotPanelAccentColor()).addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:online:1557204563675848814> Membro removido\n<@" + userId + "> foi removido da blacklist."))], flags: MessageFlags.IsComponentsV2 });
+    if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch {} }
+    ticketBlacklistPromptSessions.delete(sessionKey);
     return;
   }
   if (interaction.isButton() && interaction.customId === "ticket:blacklist:back") { await interaction.update(buildTicketConfigPanel(interaction.guildId)); return; }
@@ -4320,7 +4330,12 @@ client.on("interactionCreate", async interaction => {
         const reason = interaction.fields.getTextInputValue("blacklist_reason").trim();
         const expiresAt = minutes > 0 ? Date.now() + minutes * 60000 : null;
         updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []; cfg.ticketBlacklist = cfg.ticketBlacklist.filter(entry => String(entry.userId) !== userId); cfg.ticketBlacklist.push({ userId, expiresAt, reason: reason || null, addedBy: interaction.user.id, addedAt: Date.now() }); });
+        const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
+        const session = ticketBlacklistPromptSessions.get(sessionKey);
         await interaction.reply({ content: "<:prohibited:1557204569975562370> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
+        if (session?.promptInteraction) { try { await session.promptInteraction.deleteReply(); } catch {} }
+        if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch {} }
+        ticketBlacklistPromptSessions.delete(sessionKey);
       } else if (action === "remove") {
         const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
         updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
