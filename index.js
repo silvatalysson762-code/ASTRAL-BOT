@@ -3170,9 +3170,11 @@ function buildTicketBlacklistRemoveSelectPanel(guildId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2, ephemeral: true };
 }
 
-function buildTicketBlacklistModal(action, selectedUserId = null) {
+function buildTicketBlacklistModal(action, selectedUserId = null, panelChannelId = null, panelMessageId = null) {
   const adding = action === "add";
-  const customId = "ticket:blacklist:modal:" + action + (selectedUserId ? ":" + selectedUserId : "");
+  // Guarda os IDs do painel no modal: a sessão em memória pode não estar disponível
+  // quando o modal for enviado, então não dependemos só do Map.
+  const customId = "ticket:blacklist:modal:" + action + ":" + (selectedUserId || "manual") + ":" + (panelChannelId || "0") + ":" + (panelMessageId || "0");
   const modal = new ModalBuilder().setCustomId(customId).setTitle(adding ? "Configurar bloqueio" : "Remover da Blacklist");
   if (!selectedUserId) {
     modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("blacklist_user_id").setLabel("ID DO USUÁRIO").setPlaceholder("ID numérico do Discord").setStyle(TextInputStyle.Short).setRequired(true).setMinLength(17).setMaxLength(20)));
@@ -4352,7 +4354,9 @@ client.on("interactionCreate", async interaction => {
   }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
     const selectedUserId = interaction.values[0];
-    await interaction.showModal(buildTicketBlacklistModal("add", selectedUserId));
+    const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
+    const session = ticketBlacklistPromptSessions.get(sessionKey);
+    await interaction.showModal(buildTicketBlacklistModal("add", selectedUserId, session?.channelId || interaction.channelId, session?.messageId || null));
     return;
   }
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:blacklist:select-remove") {
@@ -4379,8 +4383,11 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:blacklist:modal:")) {
     const parts = interaction.customId.split(":");
     const action = parts[3];
+    const modalUserId = parts[4] && parts[4] !== "manual" ? parts[4] : "";
+    const panelChannelIdFromModal = parts[5] && parts[5] !== "0" ? parts[5] : null;
+    const panelMessageIdFromModal = parts[6] && parts[6] !== "0" ? parts[6] : null;
     try {
-      const userId = (parts[4] || interaction.fields.getTextInputValue("blacklist_user_id")).trim();
+      const userId = (modalUserId || interaction.fields.getTextInputValue("blacklist_user_id")).trim();
       if (!/^\d{17,20}$/.test(userId)) throw new Error("Selecione um membro válido do Discord.");
       if (action === "add") {
         const rawMinutes = interaction.fields.getTextInputValue("blacklist_duration_minutes").trim();
@@ -4394,18 +4401,23 @@ client.on("interactionCreate", async interaction => {
         await interaction.reply({ content: "<:user_add:1557205138689495101> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
         if (session?.promptInteraction) { try { await session.promptInteraction.deleteReply(); } catch {} }
         let panelUpdated = false;
+        // Tenta a mensagem original guardada na sessão e, se isso falhar, usa os IDs
+        // incorporados ao modal para encontrar o painel correto mesmo sem sessão em memória.
         if (session?.mainMessage) {
           try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
           catch (err) { console.error("Edição direta do painel da blacklist falhou:", err?.message || err); }
         }
-        if (!panelUpdated && session?.channelId && session?.messageId) {
+        const panelChannelId = panelChannelIdFromModal || session?.channelId;
+        const panelMessageId = panelMessageIdFromModal || session?.messageId;
+        if (!panelUpdated && panelChannelId && panelMessageId) {
           try {
-            const panelChannel = await client.channels.fetch(session.channelId);
-            const panelMessage = await panelChannel?.messages.fetch(session.messageId);
+            const panelChannel = await client.channels.fetch(panelChannelId);
+            const panelMessage = await panelChannel?.messages.fetch(panelMessageId);
             if (panelMessage) { await panelMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+            else console.error("Painel da blacklist não encontrado no canal/mensagem guardados.");
           } catch (err) { console.error("Falha ao buscar painel da blacklist para atualizar:", err?.message || err); }
         }
-        if (!panelUpdated) console.error("Painel da blacklist não foi atualizado: sessão da mensagem principal indisponível.");
+        if (!panelUpdated) console.error("Painel da blacklist não foi atualizado: IDs da mensagem principal indisponíveis.");
         ticketBlacklistPromptSessions.delete(sessionKey);
       } else if (action === "remove") {
         const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
