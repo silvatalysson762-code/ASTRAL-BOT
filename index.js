@@ -3127,7 +3127,15 @@ function buildTicketBlacklistPanel(guildId) {
     ? entries.slice(0, 10).map(entry => "<:user_remove:1557205118385127485> <@" + entry.userId + "> · " + (entry.expiresAt ? "até <t:" + Math.floor(Number(entry.expiresAt) / 1000) + ":R>" : "permanente")).join("\n")
     : "Lista vazia.";
   const container = new ContainerBuilder().setAccentColor(getBotPanelAccentColor())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\nBloqueie membros ou remova alguém da lista.\n\n**Bloqueados (" + entries.length + ")**\n" + lines + (entries.length > 10 ? "\n-# Exibindo os primeiros 10 usuários." : "") + "\n-# Duração em minutos: 0 = permanente."))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+      "> ## <:prohibited:1557204569975562370> BLACKLIST DE TICKETS\n" +
+      "> Bloqueie membros ou remova alguém da lista.\n" +
+      "> \n" +
+      "> **<:prohibited:1557204569975562370> Bloqueados (" + entries.length + ")**\n" +
+      "> " + lines.replace(/\n/g, "\n> ") +
+      (entries.length > 10 ? "\n> -# Exibindo os primeiros 10 usuários." : "") +
+      "\n> -# Duração em minutos: 0 = permanente."
+    ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:blacklist:add").setLabel("Adicionar").setEmoji({ name: "user_add", id: "1557205138689495101" }).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
@@ -4340,7 +4348,7 @@ client.on("interactionCreate", async interaction => {
     const isAdd = interaction.customId === "ticket:blacklist:add";
     await interaction.reply(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
     const promptInteraction = interaction;
-    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, mainMessage: interaction.message || null, channelId: interaction.channelId, messageId: interaction.message?.id, action: isAdd ? "add" : "remove" });
+    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, mainMessage: interaction.message || null, channelId: interaction.channelId, messageId: interaction.message?.id, guildId: interaction.guildId, action: isAdd ? "add" : "remove" });
     return;
   }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
@@ -4386,7 +4394,19 @@ client.on("interactionCreate", async interaction => {
         const session = ticketBlacklistPromptSessions.get(sessionKey);
         await interaction.reply({ content: "<:user_add:1557205138689495101> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
         if (session?.promptInteraction) { try { await session.promptInteraction.deleteReply(); } catch {} }
-        if (session?.mainMessage) { try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch (err) { console.error("Falha ao atualizar painel da blacklist após adicionar:", err?.message || err); } }
+        let panelUpdated = false;
+        if (session?.mainMessage) {
+          try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+          catch (err) { console.error("Edição direta do painel da blacklist falhou:", err?.message || err); }
+        }
+        if (!panelUpdated && session?.channelId && session?.messageId) {
+          try {
+            const panelChannel = await client.channels.fetch(session.channelId);
+            const panelMessage = await panelChannel?.messages.fetch(session.messageId);
+            if (panelMessage) { await panelMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+          } catch (err) { console.error("Falha ao buscar painel da blacklist para atualizar:", err?.message || err); }
+        }
+        if (!panelUpdated) console.error("Painel da blacklist não foi atualizado: sessão da mensagem principal indisponível.");
         ticketBlacklistPromptSessions.delete(sessionKey);
       } else if (action === "remove") {
         const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
