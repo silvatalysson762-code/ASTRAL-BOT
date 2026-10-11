@@ -1630,36 +1630,45 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function runScheduledStockCycle(groupKey, resetAt) {
-  console.log("[SCHEDULER] " + groupKey + " aguardando o reset previsto: " + new Date(resetAt).toISOString() + ".");
+  const state = readState();
+  const baseline = state.stockSignatures?.[groupKey] || null;
+  console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento após o reset ${new Date(resetAt).toISOString()}.`);
 
-  // Uma única consulta por reset. Não fica consultando a cada 60 segundos,
-  // pois isso pode consumir créditos rapidamente quando a rotação atrasa.
-  const delay = Math.min(Math.max(resetAt + 60000 - Date.now(), 5000), 120000);
-  await wait(delay);
+  // Limite rígido de consultas por rotação para proteger os créditos:
+  // tentativa 1 após 1 min; tentativa 2 após mais 5 min; tentativa 3 após mais 10 min.
+  // Se o stock ainda não tiver mudado, paramos até o próximo reset.
+  const retryDelays = [60000, 5 * 60000, 10 * 60000];
+  for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+    await wait(retryDelays[attempt]);
+    try {
+      const stock = await getStock();
+      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normal.length || !mirage.length) {
+        throw new Error("A fonte não retornou as duas listas completas.");
+      }
 
-  try {
-    const stock = await getStock();
-    const items = stock.filter(item =>
-      String(item.type || "").toLowerCase() === groupKey
-    );
-    if (!items.length) throw new Error("A fonte não retornou stock válido para " + groupKey + ".");
+      const items = groupKey === "normal" ? normal : mirage;
+      const currentSignature = signature(items);
+      const savedSignature = readState().stockSignatures?.[groupKey] || baseline;
 
-    const currentSignature = signature(items);
-    const savedSignature = readState().stockSignatures?.[groupKey];
-
-    if (savedSignature && currentSignature === savedSignature) {
-      console.log("[SCHEDULER] " + groupKey + ": stock não mudou. Nenhuma nova consulta será feita até o próximo reset.");
-      return;
+      if (savedSignature === null || currentSignature !== savedSignature) {
+        console.log(`[SCHEDULER] Nova rotação detectada para ${groupKey}; tentando publicar.`);
+        const published = await checkStock(false, [groupKey], false, stock);
+        const after = readState().stockSignatures?.[groupKey];
+        if (published && after === currentSignature) {
+          console.log(`[SCHEDULER] ${groupKey} publicado e salvo com sucesso.`);
+          return;
+        }
+      } else {
+        console.log(`[SCHEDULER] ${groupKey} ainda não mudou (tentativa ${attempt + 1}/${retryDelays.length}).`);
+      }
+    } catch (error) {
+      console.warn(`[SCHEDULER] Falha na tentativa ${attempt + 1}/${retryDelays.length} de ${groupKey}: ${error.message}.`);
     }
-
-    console.log("[SCHEDULER] " + groupKey + ": alteração detectada; salvando/publicando o resultado recebido.");
-    const published = await checkStock(false, [groupKey], false, stock);
-    if (!published) {
-      console.warn("[SCHEDULER] " + groupKey + ": não foi possível salvar/publicar. Não haverá repetição automática neste ciclo.");
-    }
-  } catch (error) {
-    console.warn("[SCHEDULER] " + groupKey + ": consulta única falhou. Não haverá repetição até o próximo reset: " + error.message);
   }
+
+  console.warn(`[SCHEDULER] Limite de ${retryDelays.length} consultas atingido para ${groupKey}; aguardando o próximo reset para evitar consumir créditos.`);
 }
 const activeStockCycles = new Set();
 let schedulerTimer = null;
