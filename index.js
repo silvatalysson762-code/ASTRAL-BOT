@@ -1528,7 +1528,12 @@ async function runScheduledStockCycle(groupKey, resetAt) {
   // Limite rígido de consultas por rotação para proteger os créditos:
   // tentativa 1 após 1 min; tentativa 2 após mais 5 min; tentativa 3 após mais 10 min.
   // Se o stock ainda não tiver mudado, paramos até o próximo reset.
-  const retryDelays = [60000, 5 * 60000, 10 * 60000];
+  // Quando os dois estoques viram no mesmo horário, dá prioridade ao Normal.
+  // A primeira consulta da Mirage fica alguns segundos depois para evitar que
+  // as duas publicações disputem a ordem no Discord.
+  const retryDelays = groupKey === "mirage"
+    ? [75000, 5 * 60000, 10 * 60000]
+    : [60000, 5 * 60000, 10 * 60000];
   for (let attempt = 0; attempt < retryDelays.length; attempt++) {
     await wait(retryDelays[attempt]);
     try {
