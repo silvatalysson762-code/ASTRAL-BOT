@@ -2234,10 +2234,16 @@ function buildMainPanel(guildId, userId) {
               emoji: { name: "cargo", id: "1559282427132645426" }
             },
             {
+              label: "Canais",
+              description: "Configure os canais do servidor",
+              value: "server_channels",
+              emoji: { name: "wifi", id: "1559285233235394661" }
+            },
+            {
               label: "Boas-vindas/Saídas",
-              description: "Configure os canais de entrada e saída dos membros",
+              description: "Configure as mensagens de entrada e saída dos membros",
               value: "server_settings",
-              emoji: "👋"
+              emoji: { name: "entrada", id: "1559285231301951569" }
             }
           )
       )
