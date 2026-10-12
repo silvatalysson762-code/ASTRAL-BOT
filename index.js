@@ -3332,7 +3332,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
     rows.push(new ActionRowBuilder().addComponents(roleMenu));
 
     const actionButtons = [
-      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("admin_fruit_page:" + page).setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ];
     if (current) {
       actionButtons.push(
