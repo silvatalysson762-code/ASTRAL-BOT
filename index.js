@@ -2225,13 +2225,13 @@ function buildMainPanel(guildId, userId) {
               label: "Bot",
               description: "Reinicie, faça rebuild e personalize o bot",
               value: "bot",
-              emoji: { name: "discord", id: "1557204573817405440" }
+              emoji: { name: "bot", id: "1559282581176848465" }
             },
             {
               label: "Cargos",
               description: "Gerencie os cargos do servidor",
               value: "roles",
-              emoji: { name: "user", id: "1557205116849758238" }
+              emoji: { name: "cargo", id: "1559282427132645426" }
             },
             {
               label: "Configuração",
