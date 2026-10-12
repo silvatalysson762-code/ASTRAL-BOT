@@ -29,7 +29,7 @@ const CHANNELS = {
 const CHANNEL_EMOJIS = {
   welcomeChannelId: { name: "62565", id: "1559293995840970764" },
   goodbyeChannelId: { name: "62548", id: "1559294145737138218" },
-  stockChannelId: { name: "chart", id: "1557204890474909799" },
+  stockChannelId: { name: "62586", id: "1559331004366200933" },
   supportMessageChannelId: { name: "ticket_plus", id: "1557205110847701052" },
   reviewChannelId: { name: "estrela", id: "1559282428621623427" }
 };
