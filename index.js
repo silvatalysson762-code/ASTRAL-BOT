@@ -3347,7 +3347,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0, 
       actionButtons.push(
         new ButtonBuilder()
           .setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit))
-          .setLabel("Remover cargo")
+          .setLabel("Remover")
           .setEmoji({ name: "offline", id: "1557204568432185454" })
           .setStyle(ButtonStyle.Danger)
       );
