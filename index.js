@@ -4637,19 +4637,24 @@ client.on("interactionCreate", async interaction => {
       }
 
       if (interaction.customId === "ticket:post_message") {
-        if (!interaction.channel || !interaction.channel.isTextBased()) {
-          await interaction.reply({ content: "<:offline:1557204568432185454> Este canal não pode receber a mensagem de suporte.", ephemeral: true });
+        const savedConfig = getGuildConfig(guild.id);
+        const targetChannel = savedConfig.supportMessageChannelId
+          ? await guild.channels.fetch(savedConfig.supportMessageChannelId).catch(() => null)
+          : interaction.channel;
+
+        if (!targetChannel || !targetChannel.isTextBased() || !targetChannel.send) {
+          await interaction.reply({ content: "<:offline:1557204568432185454> Configure primeiro um canal de texto válido para o painel de Ticket em Canais padrão.", ephemeral: true });
           return;
         }
 
-        const sent = await interaction.channel.send(buildSupportPanel(guild));
+        const sent = await targetChannel.send(buildSupportPanel(guild));
         updateGuildConfig(guild.id, config => {
-          config.supportMessageChannelId = interaction.channel.id;
+          config.supportMessageChannelId = targetChannel.id;
           config.supportMessageId = sent.id;
         });
 
         await interaction.reply({
-          content: "<:online:1557204563675848814> **Mensagem postada**",
+          content: "<:online:1557204563675848814> **Painel de Ticket publicado em <#" + targetChannel.id + ">**",
           ephemeral: true
         });
         return;
