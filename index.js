@@ -3340,7 +3340,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0, 
     rows.push(new ActionRowBuilder().addComponents(roleMenu));
 
     const actionButtons = [
-      new ButtonBuilder().setCustomId("admin_fruit_page:" + page).setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("admin_fruit_back_list:" + page).setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ];
 
     if (current) {
@@ -5386,6 +5386,25 @@ client.on("interactionCreate", async interaction => {
       console.error("[PANEL] Erro ao selecionar fruta:", error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir a configuração dessa fruta.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("admin_fruit_back_list:")) {
+    try {
+      const canManage = await isBotOwner(interaction.user.id) ||
+        Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+      if (!canManage) {
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        return;
+      }
+      const page = Number(interaction.customId.slice("admin_fruit_back_list:".length)) || 0;
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, null, page, null, interaction.user.id));
+    } catch (error) {
+      console.error("[PANEL] Erro ao voltar para a lista de frutas:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui voltar para a lista de frutas.", ephemeral: true }).catch(() => {});
       }
     }
     return;
