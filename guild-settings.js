@@ -161,8 +161,6 @@ function panel(guild) {
       .setChannelTypes(ChannelType.GuildText)
   );
   const buttonsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saídas").setEmoji("🚪").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
   );
   const container = new ContainerBuilder()
@@ -171,6 +169,35 @@ function panel(guild) {
     .addActionRowComponents(categoryRow, channelRow, buttonsRow);
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
+function buildWelcomeLandingPanel(guild) {
+  const s = getSettings(guild.id);
+  const welcomeChannel = s.welcomeChannelId ? "<#" + s.welcomeChannelId + ">" : "Não configurado";
+  const goodbyeChannel = s.goodbyeChannelId ? "<#" + s.goodbyeChannelId + ">" : "Não configurado";
+  const container = new ContainerBuilder()
+    .setAccentColor(0x00FFFF)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent([
+      "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
+      "> Configure separadamente as mensagens enviadas quando alguém entra ou sai do servidor.",
+      ">",
+      "> **👋 Boas-vindas**",
+      "> Canal: " + welcomeChannel,
+      "> Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
+      ">",
+      "> **🚪 Saídas**",
+      "> Canal: " + goodbyeChannel,
+      "> Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
+      "-# ASTRAL STORE • Mensagens de membros"
+    ].join("\n")))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saídas").setEmoji("🚪").setStyle(ButtonStyle.Secondary)
+    ))
+    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+    ));
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function messagePanel(guild, type) {
   const s = getSettings(guild.id);
   const welcome = type === "welcome";
@@ -427,4 +454,4 @@ function register(client) {
   client.on("guildBanAdd", ban => sendLog(ban.guild, "moderationLogChannelId", makeEmbed("Membro banido", ban.user.tag + " (" + ban.user.id + ")", 0xED4245)));
   client.on("guildBanRemove", ban => sendLog(ban.guild, "moderationLogChannelId", makeEmbed("Banimento removido", ban.user.tag + " (" + ban.user.id + ")", 0x57F287)));
 }
-module.exports = { commands, handleInteraction, register, buildPanel: panel, logTicket };
+module.exports = { commands, handleInteraction, register, buildPanel: panel, buildWelcomeLandingPanel, logTicket };
