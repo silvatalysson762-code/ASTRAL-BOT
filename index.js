@@ -3373,9 +3373,11 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:62586:1559331004366200933>CARGOS DE FRUTAS\n\n" +
-        "> Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
-        "(Página **" + (page + 1) + "** de **" + totalPages + "**)\n\n" +
-        (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + "<:cargo:1559282427132645426> Cargo atual: " + currentRole : "<:62587:1559333297518153780>Escolha uma fruta abaixo.")
+        (selectedFruit
+          ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n<:cargo:1559282427132645426> Cargo atual: " + currentRole
+          : "> Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
+            "(Página **" + (page + 1) + "** de **" + totalPages + "**)\n\n" +
+            "<:62587:1559333297518153780>Escolha uma fruta abaixo.")
       )
     )
     .addActionRowComponents(...rows);
