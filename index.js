@@ -3096,8 +3096,8 @@ function buildTicketBlacklistAddSelectPanel() {
   return { components: [container], flags: MessageFlags.IsComponentsV2, ephemeral: true };
 }
 
-function buildTicketBlacklistRemoveSelectPanel(guildId) {
-  const entries = getActiveTicketBlacklist(guildId);
+function buildTicketBlacklistRemoveSelectPanel(guildId, userId = null) {
+  const entries = userId ? getTicketBlacklistDraft(guildId, userId).filter(entry => !entry.expiresAt || Number(entry.expiresAt) > Date.now()) : getActiveTicketBlacklist(guildId);
   const guild = client.guilds.cache.get(String(guildId));
   const options = entries.slice(0, 25).map(entry => {
     const member = guild?.members.cache.get(String(entry.userId));
@@ -4336,7 +4336,7 @@ client.on("interactionCreate", async interaction => {
     const isAdd = interaction.customId === "ticket:blacklist:add";
     // Atualiza a própria mensagem do painel para o seletor. Assim, o próximo passo
     // continua ligado à mensagem original, inclusive quando ela é efêmera.
-    await interaction.update(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
+    await interaction.update(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId, interaction.user.id));
     ticketBlacklistPromptSessions.set(sessionKey, { panelInteraction: interaction, mainMessage: interaction.message || null, channelId: interaction.channelId, messageId: interaction.message?.id, guildId: interaction.guildId, action: isAdd ? "add" : "remove" });
     return;
   }
