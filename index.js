@@ -3509,7 +3509,9 @@ const commands = [
 
   new SlashCommandBuilder().setName("painel").setDescription("Abrir o painel central do Astral Stock"),
   // Stock tools
-  new SlashCommandBuilder().setName("refresh-stock").setDescription("Fetch and publish the current stock")
+  new SlashCommandBuilder().setName("refresh-stock").setDescription("Reenviar o estoque salvo sem consultar as fontes")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder().setName("api-refresh-stock").setDescription("Pedir à API para consultar novamente as fontes públicas")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("stock-history").setDescription("Show recent stock changes")
     .setIntegrationTypes([0, 1]).setContexts([0]),
@@ -6066,6 +6068,38 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply(uiEmoji("success", "✅") + " Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
     } catch (e) {
       await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui reenviar o stock salvo: " + e.message + ".");
+    }
+  } else if (interaction.commandName === "api-refresh-stock") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim()
+        .replace(/\\/stock\\/?$/, "/stock/refresh");
+      const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
+      const headers = { "Accept": "application/json" };
+      if (apiKey) headers["x-api-key"] = apiKey;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        signal: AbortSignal.timeout(60000)
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload || payload.status !== true) {
+        throw new Error(payload?.message || payload?.error || ("A API respondeu HTTP " + response.status));
+      }
+      lastSuccessfulStock = null;
+      lastSuccessfulStockAt = 0;
+      await interaction.editReply(
+        uiEmoji("success", "✅") + " **Consulta da API concluída!**\\n" +
+        "Normal: **" + (payload.normal_count ?? "?") + "** frutas\\n" +
+        "Mirage: **" + (payload.mirage_count ?? "?") + "** frutas\\n" +
+        (payload.updatedAt ? "Atualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
+        (payload.error ? "\\nAviso: " + payload.error : "")
+      );
+    } catch (e) {
+      await interaction.editReply(
+        uiEmoji("error", "<:offline:1557204568432185454>") +
+        " Não consegui pedir uma nova consulta à API: " + (e.message || "erro desconhecido")
+      );
     }
   } else if (interaction.commandName === "set-stock-channel") {
     const channel = interaction.options.getChannel("channel", true);
