@@ -4276,9 +4276,9 @@ client.on("interactionCreate", async interaction => {
     }
     updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
     const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
-    const session = ticketBlacklistPromptSessions.get(sessionKey);
-    await interaction.update({ components: [new ContainerBuilder().setAccentColor(getBotPanelAccentColor()).addTextDisplayComponents(new TextDisplayBuilder().setContent("## <:user_remove:1557205118385127485> Membro removido\n<@" + userId + "> foi removido da blacklist."))], flags: MessageFlags.IsComponentsV2 });
-    if (session?.channelId && session?.messageId) { try { const ch = await client.channels.fetch(session.channelId); const msg = await ch?.messages.fetch(session.messageId); await msg?.edit(buildTicketBlacklistPanel(interaction.guildId)); } catch (err) { console.error("Falha ao atualizar painel da blacklist:", err?.message || err); } }
+    // O seletor está na própria mensagem efêmera do painel. Restaure o painel
+    // nessa mesma mensagem em vez de substituí-lo por uma confirmação separada.
+    await interaction.update(buildTicketBlacklistPanel(interaction.guildId));
     ticketBlacklistPromptSessions.delete(sessionKey);
     return;
   }
