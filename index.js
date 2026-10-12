@@ -761,11 +761,11 @@ async function getStock() {
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
 
-  // API própria do ASTRAL, hospedada na Discloud. Não usa Parse.bot.
+  // Única origem de estoque: API própria do ASTRAL hospedada na Discloud.
   const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim();
   const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
   try {
-    console.log("[STOCK] Consultando a API própria do ASTRAL.");
+    console.log("[STOCK] Consultando somente a API própria do ASTRAL.");
     const headers = { "Accept": "application/json" };
     if (apiKey) headers["x-api-key"] = apiKey;
     const response = await fetch(endpoint, {
@@ -774,9 +774,7 @@ async function getStock() {
       signal: AbortSignal.timeout(25000)
     });
     const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(payload?.message || payload?.error || ("HTTP " + response.status));
-    }
+    if (!response.ok) throw new Error(payload?.message || payload?.error || ("HTTP " + response.status));
     if (!payload || payload.status !== true) {
       throw new Error(payload?.message || payload?.error || "A API própria ainda não tem estoque válido.");
     }
@@ -791,102 +789,32 @@ async function getStock() {
     console.log("[STOCK] API própria OK | Normal: " + normalStock.length + " | Mirage: " + mirageStock.length);
     return validStock.map(item => ({ ...item }));
   } catch (error) {
-    console.warn("[STOCK] API própria indisponível; tentando fontes públicas: " + (error.message || error));
-    failures.push("API própria: " + (error.message || error));
-  }
-
-  // Mantém a contingência pública para não parar o bot se todas as chaves falharem.
-  if (configuredKeys.length) {
-    console.warn("[STOCK] Todas as chaves Parse.bot disponíveis falharam; tentando fontes públicas.");
-  }
-  for (const sourceUrl of STOCK_SOURCES) {
-    try {
-      console.log("[STOCK] Consultando fonte pública de contingência:", sourceUrl);
-      const response = await fetch(sourceUrl, {
-        headers: {
-          "Accept": "text/html,application/xhtml+xml",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
-        },
-        signal: AbortSignal.timeout(15000)
-      });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      const html = await response.text();
-      let stock;
-      if (sourceUrl.includes("fruityblox.com/stock")) {
-        stock = parseFruityBloxStock(html);
-      } else {
-        const pageText = htmlToStockText(html);
-        const normal = parseWikiStockSection(pageText, "Current Stock", "Last Stock", "Normal");
-        const mirage = parseWikiStockSection(pageText, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-        if (!normal.length || !mirage.length) throw new Error("A página não retornou as duas listas de stock no formato esperado.");
-        stock = [...normal, ...mirage];
-      }
-
-      const validStock = applySavedFruitPrices(stock);
-      const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normalStock.length || !mirageStock.length) throw new Error("A fonte não retornou stock Normal e Mirage válidos.");
-
-      lastSuccessfulStock = validStock.map(item => ({ ...item }));
-      lastSuccessfulStockAt = Date.now();
-      console.log("[STOCK] Fonte pública válida:", sourceUrl, "| Normal:", normalStock.length, "| Mirage:", mirageStock.length);
-      return validStock.map(item => ({ ...item }));
-    } catch (error) {
-      const detail = sourceUrl + ": " + (error.message || String(error));
-      failures.push(detail);
-      console.warn("[STOCK] Fonte pública falhou:", detail);
+    console.error("[STOCK] A API própria falhou. Nenhuma fonte pública será consultada:", error.message || error);
+    if (lastSuccessfulStock?.length && Date.now() - lastSuccessfulStockAt < 6 * 60 * 60 * 1000) {
+      console.warn("[STOCK] Usando o último estoque válido salvo em memória.");
+      return lastSuccessfulStock.map(item => ({ ...item }));
     }
+    throw new Error("A API própria do ASTRAL está indisponível. Nenhuma API pública ou Parse.bot foi consultada. " + (error.message || error));
   }
-
-  throw new Error("Todas as fontes de stock falharam. " + failures.join(" | "));
 }
+
 async function testPublicStockSource() {
-  const failures = [];
-
-  // Teste independente: ignora cache e não chama a API paga nem altera o stock salvo.
-  for (const sourceUrl of STOCK_SOURCES) {
-    try {
-      console.log("[STOCK TEST] Testando fonte pública:", sourceUrl);
-      const response = await fetch(sourceUrl, {
-        headers: {
-          "Accept": "text/html,application/xhtml+xml",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
-        },
-        signal: AbortSignal.timeout(15000)
-      });
-
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      const html = await response.text();
-      let stock;
-
-      if (sourceUrl.includes("fruityblox.com/stock")) {
-        stock = parseFruityBloxStock(html);
-      } else {
-        const pageText = htmlToStockText(html);
-        const normal = parseWikiStockSection(pageText, "Current Stock", "Last Stock", "Normal");
-        const mirage = parseWikiStockSection(pageText, "Current Mirage Stock", "Last Mirage Stock", "Mirage");
-        if (!normal.length || !mirage.length) {
-          throw new Error("A página não retornou as duas listas de stock.");
-        }
-        stock = [...normal, ...mirage];
-      }
-
-      const validStock = applySavedFruitPrices(stock);
-      const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normalStock.length || !mirageStock.length) {
-        throw new Error("Não foram encontradas listas válidas de Normal e Mirage.");
-      }
-
-      console.log("[STOCK TEST] SUCESSO:", sourceUrl, "| Normal:", normalStock.length, "| Mirage:", mirageStock.length);
-      return { sourceUrl, normal: normalStock, mirage: mirageStock };
-    } catch (error) {
-      failures.push(sourceUrl + ": " + (error.message || String(error)));
-      console.warn("[STOCK TEST] FALHA:", sourceUrl, "|", error.message || error);
-    }
+  // Testa exclusivamente a API própria; não consulta sites externos diretamente.
+  const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim();
+  const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
+  const headers = { "Accept": "application/json" };
+  if (apiKey) headers["x-api-key"] = apiKey;
+  const response = await fetch(endpoint, { headers, signal: AbortSignal.timeout(25000) });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload || payload.status !== true) {
+    throw new Error(payload?.message || payload?.error || ("API própria retornou HTTP " + response.status));
   }
-
-  throw new Error("Todas as fontes públicas falharam. " + failures.join(" | "));
+  const validStock = applySavedFruitPrices(normalizeStock(payload));
+  const normal = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+  const mirage = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+  if (!normal.length || !mirage.length) throw new Error("A API própria não retornou listas Normal e Mirage válidas.");
+  console.log("[STOCK TEST] API própria OK | Normal:", normal.length, "| Mirage:", mirage.length);
+  return { sourceUrl: endpoint, normal, mirage };
 }
 
 function safeName(item) {
