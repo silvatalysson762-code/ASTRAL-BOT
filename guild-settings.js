@@ -161,7 +161,7 @@ function panel(guild) {
       .setChannelTypes(ChannelType.GuildText)
   );
   const buttonsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("panel:config").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
   );
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
@@ -179,18 +179,18 @@ function buildWelcomeLandingPanel(guild) {
       "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
       "> Configure separadamente as mensagens enviadas quando alguém entra ou sai do servidor.",
       ">",
-      "> **👋 Boas-vindas**",
-      "> Canal: " + welcomeChannel,
-      "> Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
-      ">",
-      "> **🚪 Saídas**",
-      "> Canal: " + goodbyeChannel,
-      "> Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
+      "**<:62565:1559293995840970764> Boas-vindas**",
+      "Canal: " + welcomeChannel,
+      "Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
+      "",
+      "**<:62548:1559294145737138218> Saída**",
+      "Canal: " + goodbyeChannel,
+      "Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado")
       "-# ASTRAL STORE • Mensagens de membros"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saídas").setEmoji("🚪").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("<:62565:1559293995840970764>").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saída").setEmoji("<:62548:1559294145737138218>").setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
@@ -241,7 +241,7 @@ function messagePanel(guild, type) {
         new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(s[prefix + "Enabled"] ? "Desabilitar" : "Habilitar").setEmoji("🔄").setStyle(s[prefix + "Enabled"] ? ButtonStyle.Danger : ButtonStyle.Success)
       ),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("guildcfg:home").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
       )
     ]
   };
