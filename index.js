@@ -4486,7 +4486,7 @@ client.on("interactionCreate", async interaction => {
       const endParts = end.split(":").map(Number);
       if ((endParts[0] * 60 + endParts[1]) <= (startParts[0] * 60 + startParts[1])) throw new Error("O horário de fim precisa ser depois do horário de início.");
       getTicketScheduleDraft(interaction.guildId, interaction.user.id).days[dayKey] = { active: status === "ativo", start, end };
-      await interaction.reply({ content: "<:online:1557204563675848814> Horário alterado. Clique em **Salvar** no painel para aplicar.", ephemeral: true });
+      await interaction.reply({ ...buildTicketSchedulePanel(interaction.guildId, interaction.user.id), flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao salvar dia:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui salvar este horário."), ephemeral: true }).catch(() => {});
