@@ -5737,25 +5737,31 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isButton() && interaction.customId.startsWith("ticket:function_delete:")) {
     try {
       const functionId = interaction.customId.slice("ticket:function_delete:".length);
-      const config = getGuildConfig(interaction.guildId);
-      const fn = (config.ticketFunctions || []).find(item => item.id === functionId);
+      const functionsDraft = getTicketFunctionDraft(interaction.guildId, interaction.user.id);
+      const fn = functionsDraft.find(item => item.id === functionId);
       if (!fn) {
         await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais.", ephemeral: true });
         return;
       }
 
-      updateGuildConfig(interaction.guildId, cfg => {
-        cfg.ticketFunctions = (Array.isArray(cfg.ticketFunctions) ? cfg.ticketFunctions : [])
-          .filter(item => item.id !== functionId);
-      });
-
-      await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+      const deleteIndex = functionsDraft.findIndex(item => item.id === functionId);
+      if (deleteIndex >= 0) functionsDraft.splice(deleteIndex, 1);
+      await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[TICKET] Erro ao excluir função:", error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui excluir a função.", ephemeral: true }).catch(() => {});
       }
     }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:functions_save") {
+    const key = ticketFunctionDraftKey(interaction.guildId, interaction.user.id);
+    const draft = ticketFunctionDrafts.get(key);
+    if (draft && ticketFunctionIsDirty(interaction.guildId, interaction.user.id)) updateGuildConfig(interaction.guildId, cfg => { cfg.ticketFunctions = draft.map(fn => ({ ...fn, emoji: fn.emoji ? { ...fn.emoji } : null })); });
+    ticketFunctionDrafts.delete(key);
+    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId, interaction.user.id));
     return;
   }
 
@@ -5836,16 +5842,10 @@ client.on("interactionCreate", async interaction => {
         emoji = await resolveTicketFunctionEmoji(guild, parsed.id);
         if (!emoji) throw new Error("Não encontrei esse emoji no servidor nem nos emojis da aplicação.");
       }
-      updateGuildConfig(guild.id, cfg => {
-        const target = (cfg.ticketFunctions || []).find(item => item.id === functionId);
-        if (!target) throw new Error("Essa função não existe mais.");
-        target.name = name;
-        target.preDescription = preDescription;
-        target.description = description || null;
-        target.banner = banner || null;
-        target.emoji = emoji;
-      });
-      const panel = buildTicketManageFunctionsPanel(guild.id);
+      const target = getTicketFunctionDraft(guild.id, interaction.user.id).find(item => item.id === functionId);
+      if (!target) throw new Error("Essa função não existe mais.");
+      target.name = name; target.preDescription = preDescription; target.description = description || null; target.banner = banner || null; target.emoji = emoji;
+      const panel = buildTicketManageFunctionsPanel(guild.id, interaction.user.id);
       if (interaction.message) await interaction.update(panel);
       else await interaction.reply({ ...panel, flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     } catch (error) {
@@ -5898,7 +5898,8 @@ client.on("interactionCreate", async interaction => {
       return;
     }
     [functions[index], functions[target]] = [functions[target], functions[index]];
-    updateGuildConfig(interaction.guildId, cfg => { cfg.ticketFunctions = functions; });
+    const functionsDraft = getTicketFunctionDraft(interaction.guildId, interaction.user.id);
+    functionsDraft.splice(0, functionsDraft.length, ...functions);
     await interaction.update(buildTicketFunctionReorderPanel(interaction.guildId, interaction.user.id));
     return;
   }
