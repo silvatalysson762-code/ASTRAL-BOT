@@ -3307,7 +3307,7 @@ function buildConfigPanel(guildId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) {
+function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0, pendingRoleId = null) {
   const config = getGuildConfig(guildId);
   const current = selectedFruit ? configuredFruitRoleId(config, selectedFruit) : null;
   const currentRole = current ? "<@&" + current + ">" : "Nenhum cargo configurado";
@@ -3334,6 +3334,15 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
     const actionButtons = [
       new ButtonBuilder().setCustomId("admin_fruit_page:" + page).setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ];
+    if (pendingRoleId) {
+      actionButtons.push(
+        new ButtonBuilder()
+          .setCustomId("admin_fruit_save:" + fruitKey(selectedFruit) + ":" + pendingRoleId)
+          .setLabel("Salvar")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)
+      );
+    }
     if (current) {
       actionButtons.push(
         new ButtonBuilder()
@@ -3374,7 +3383,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
       new TextDisplayBuilder().setContent(
         "## <:62586:1559331004366200933>CARGOS DE FRUTAS\n\n" +
         (selectedFruit
-          ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n<:cargo:1559282427132645426> Cargo atual: " + currentRole
+          ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n<:cargo:1559282427132645426> Cargo atual: " + currentRole + (pendingRoleId ? "\n<:save:1557205052974960780> Cargo selecionado: <@&" + pendingRoleId + ">" : "")
           : "> Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
             "(Página **" + (page + 1) + "** de **" + totalPages + "**)\n\n" +
             "<:62587:1559333297518153780>Escolha uma fruta abaixo.")
@@ -5418,6 +5427,47 @@ client.on("interactionCreate", async interaction => {
         return;
       }
 
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, fruit, 0, role.id));
+    } catch (error) {
+      console.error("[PANEL] Erro ao configurar cargo:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui configurar esse cargo.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+
+  if (interaction.isButton() && interaction.customId.startsWith("admin_fruit_save:")) {
+    try {
+      const canManage = await isBotOwner(interaction.user.id) ||
+        Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+      if (!canManage) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        return;
+      }
+
+      const payload = interaction.customId.slice("admin_fruit_save:".length);
+      const separator = payload.lastIndexOf(":");
+      const fruitKeyName = payload.slice(0, separator);
+      const roleId = payload.slice(separator + 1);
+      const fruit = ALL_FRUITS.find(name => fruitKey(name) === fruitKeyName);
+      const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+      if (!fruit || !role) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Fruta ou cargo inválido.", ephemeral: true });
+        return;
+      }
+
+      const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
+      if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Eu preciso da permissão **Gerenciar Cargos**.", ephemeral: true });
+        return;
+      }
+      if (!role.editable) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consigo gerenciar esse cargo. Ele precisa estar abaixo do meu cargo mais alto.", ephemeral: true });
+        return;
+      }
+
       updateGuildConfig(interaction.guildId, config => {
         config.roles = config.roles || {};
         config.roles[fruitKey(fruit)] = role.id;
@@ -5425,9 +5475,9 @@ client.on("interactionCreate", async interaction => {
 
       await interaction.update(buildFruitAdminPanel(interaction.guildId, fruit));
     } catch (error) {
-      console.error("[PANEL] Erro ao configurar cargo:", error);
+      console.error("[PANEL] Erro ao salvar cargo de fruta:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui configurar esse cargo.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui salvar o cargo.", ephemeral: true }).catch(() => {});
       }
     }
     return;
