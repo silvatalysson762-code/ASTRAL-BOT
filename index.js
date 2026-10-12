@@ -6099,12 +6099,12 @@ client.on("interactionCreate", async interaction => {
 
       await checkStock(true, ["normal", "mirage"], true, refreshedStock);
       await interaction.editReply(
-        uiEmoji("success", "✅") + " **API consultada e estoque sincronizado!**\\n" +
-        "Normal: **" + normalCount + "** frutas\\n" +
-        "Mirage: **" + mirageCount + "** frutas\\n" +
+        uiEmoji("success", "✅") + " **API consultada e estoque sincronizado!**\n" +
+        "Normal: **" + normalCount + "** frutas\n" +
+        "Mirage: **" + mirageCount + "** frutas\n" +
         "O resultado novo foi salvo e publicado no Discord." +
-        (payload.updatedAt ? "\\nAtualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
-        (payload.error ? "\\nAviso: " + payload.error : "")
+        (payload.updatedAt ? "\nAtualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
+        (payload.error ? "\nAviso: " + payload.error : "")
       );
     } catch (e) {
       await interaction.editReply(
