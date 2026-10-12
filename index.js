@@ -3307,7 +3307,7 @@ function buildConfigPanel(guildId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildFruitAdminPanel(guildId, selectedFruit = null) {
+function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) {
   const config = getGuildConfig(guildId);
   const current = selectedFruit ? configuredFruitRoleId(config, selectedFruit) : null;
   const currentRole = current ? "<@&" + current + ">" : "Nenhum cargo configurado";
@@ -3317,20 +3317,31 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
     emoji: fruitEmojiObject(fruit),
     description: configuredFruitRoleId(config, fruit) ? "Cargo configurado" : "Sem cargo"
   }));
+  const pageSize = 25;
+  const totalPages = Math.max(1, Math.ceil(fruits.length / pageSize));
+  const selectedIndex = selectedFruit ? ALL_FRUITS.findIndex(fruit => fruitKey(fruit) === fruitKey(selectedFruit)) : -1;
+  const page = selectedIndex >= 0 ? Math.floor(selectedIndex / pageSize) : Math.max(0, Math.min(totalPages - 1, Number(requestedPage) || 0));
+  const pageFruits = fruits.slice(page * pageSize, (page + 1) * pageSize);
   const menu = new StringSelectMenuBuilder()
-    .setCustomId("admin_fruit_select")
+    .setCustomId("admin_fruit_select:" + page)
     .setPlaceholder("🍈 Selecione uma fruta para configurar")
     .setMinValues(1).setMaxValues(1)
-    .addOptions(fruits.slice(0, 25));
+    .addOptions(pageFruits);
   const rows = [new ActionRowBuilder().addComponents(menu)];
-  if (fruits.length > 25) {
-    const menu2 = new StringSelectMenuBuilder()
-      .setCustomId("admin_fruit_select_2")
-      .setPlaceholder("🍓 Mais frutas")
-      .setMinValues(1).setMaxValues(1)
-      .addOptions(fruits.slice(25));
-    rows.push(new ActionRowBuilder().addComponents(menu2));
-  }
+
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("admin_fruit_page:" + Math.max(0, page - 1))
+      .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page === 0),
+    new ButtonBuilder()
+      .setCustomId("admin_fruit_page:" + Math.min(totalPages - 1, page + 1))
+      .setEmoji({ name: "arrow_right", id: "1557204771864313889" })
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages - 1)
+  ));
+
   if (selectedFruit) {
     const roleMenu = new RoleSelectMenuBuilder()
       .setCustomId("admin_role_select:" + fruitKey(selectedFruit))
@@ -3339,11 +3350,11 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
     rows.push(new ActionRowBuilder().addComponents(roleMenu));
     rows.push(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit)).setLabel("Remover cargo").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar ao painel").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar ao painel").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ));
   } else {
     rows.push(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar ao painel").setEmoji(uiEmoji("arrow", "➡️")).setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar ao painel").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ));
   }
   const container = new ContainerBuilder()
@@ -3351,14 +3362,14 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:62586:1559331004366200933>CARGOS DE FRUTAS\n\n" +
-        "Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n\n" +
+        "Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
+        "> Página **" + (page + 1) + "** de **" + totalPages + "**\n\n" +
         (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + uiEmoji("users","👥") + " Cargo atual: " + currentRole : uiEmoji("list","📋") + " Escolha uma fruta abaixo.")
       )
     )
     .addActionRowComponents(...rows);
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
-
 function buildServerAdminPanel() {
   const ids = getAllowedGuildIds();
   const lines = ids.map(id => {
@@ -5322,8 +5333,7 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
-  if (interaction.isStringSelectMenu() &&
-      (interaction.customId === "admin_fruit_select" || interaction.customId === "admin_fruit_select_2")) {
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith("admin_fruit_select:")) {
     try {
       const canManage = await isBotOwner(interaction.user.id) ||
         Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
@@ -5338,11 +5348,31 @@ client.on("interactionCreate", async interaction => {
         return;
       }
 
-      await interaction.update(buildFruitAdminPanel(interaction.guildId, fruit));
+      const page = Number(interaction.customId.split(":")[1]) || 0;
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, fruit, page));
     } catch (error) {
       console.error("[PANEL] Erro ao selecionar fruta:", error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir a configuração dessa fruta.", ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("admin_fruit_page:")) {
+    try {
+      const canManage = await isBotOwner(interaction.user.id) ||
+        Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+      if (!canManage) {
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Você precisa da permissão **Gerenciar Servidor**.", ephemeral: true });
+        return;
+      }
+      const page = Number(interaction.customId.slice("admin_fruit_page:".length)) || 0;
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, null, page));
+    } catch (error) {
+      console.error("[PANEL] Erro ao mudar página de frutas:", error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui mudar a página de frutas.", ephemeral: true }).catch(() => {});
       }
     }
     return;
@@ -5411,7 +5441,7 @@ client.on("interactionCreate", async interaction => {
         delete config.roles[fruitKey(fruit)];
       });
 
-      await interaction.update(buildFruitAdminPanel(interaction.guildId));
+      await interaction.update(buildFruitAdminPanel(interaction.guildId, null, Math.max(0, Math.floor(ALL_FRUITS.findIndex(name => fruitKey(name) === fruitKey(fruit)) / 25))));
     } catch (error) {
       console.error("[PANEL] Erro ao remover cargo:", error);
       if (!interaction.replied && !interaction.deferred) {
