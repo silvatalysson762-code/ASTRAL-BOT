@@ -245,15 +245,15 @@ function messageEditorPanel(guild, type, userId) {
       "> **Mídia**",
       "> Thumbnail: " + (draft.thumbnail ? "Configurada" : "Avatar do membro"),
       "> Banner: " + (draft.banner ? "Configurado" : "Não configurado"),
-      "> **Variáveis disponíveis**",
-      "> `{member}` • Menção ao membro",
-      "> `{username}` • Nome de usuário",
-      "> `{displayname}` • Nome de exibição",
-      "> `{server}` • Nome do servidor",
-      "> `{membercount}` • Quantidade de membros",
-      "> `{createdat}` • Quando a conta foi criada",
-      "> `{accountage}` • Idade da conta em dias",
-      "> `{id}` • ID do usuário"
+      "**Variáveis disponíveis**",
+      "`{member}` • Menção ao membro",
+      "`{username}` • Nome de usuário",
+      "`{displayname}` • Nome de exibição",
+      "`{server}` • Nome do servidor",
+      "`{membercount}` • Quantidade de membros",
+      "`{createdat}` • Quando a conta foi criada",
+      "`{accountage}` • Idade da conta em dias",
+      "`{id}` • ID do usuário"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar campos").setEmoji("✏️").setStyle(ButtonStyle.Primary),
