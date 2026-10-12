@@ -129,19 +129,19 @@ function panel(guild) {
   const channelValue = key => s[key] ? "<#" + s[key] + ">" : "`Não configurado`";
   const description = [
     "# 📡 CANAIS DO SERVIDOR",
-    "┃ Selecione uma categoria e depois escolha o canal.",
-    "┃",
-    "┃ **👋 Boas-vindas:** " + channelValue("welcomeChannelId"),
-    "┃ **🚪 Saídas:** " + channelValue("goodbyeChannelId"),
-    "┃ **🧾 Logs de membros:** " + channelValue("memberLogChannelId"),
-    "┃ **💬 Logs de mensagens:** " + channelValue("messageLogChannelId"),
-    "┃ **🛡️ Logs de moderação:** " + channelValue("moderationLogChannelId"),
-    "┃ **🗂️ Logs do servidor:** " + channelValue("serverLogChannelId"),
-    "┃ **🎫 Logs de tickets:** " + channelValue("ticketLogChannelId"),
-    "┃ **📢 Anúncios:** " + channelValue("announcementChannelId"),
-    "┃ **💡 Sugestões:** " + channelValue("suggestionChannelId"),
-    "┃ **🍈 Stock:** " + channelValue("stockChannelId"),
-    "┃ **🔔 Alertas de stock:** " + channelValue("stockAlertChannelId"),
+    "> Selecione uma categoria e depois escolha o canal.",
+    ">",
+    "> **👋 Boas-vindas:** " + channelValue("welcomeChannelId"),
+    "> **🚪 Saídas:** " + channelValue("goodbyeChannelId"),
+    "> **🧾 Logs de membros:** " + channelValue("memberLogChannelId"),
+    "> **💬 Logs de mensagens:** " + channelValue("messageLogChannelId"),
+    "> **🛡️ Logs de moderação:** " + channelValue("moderationLogChannelId"),
+    "> **🗂️ Logs do servidor:** " + channelValue("serverLogChannelId"),
+    "> **🎫 Logs de tickets:** " + channelValue("ticketLogChannelId"),
+    "> **📢 Anúncios:** " + channelValue("announcementChannelId"),
+    "> **💡 Sugestões:** " + channelValue("suggestionChannelId"),
+    "> **🍈 Stock:** " + channelValue("stockChannelId"),
+    "> **🔔 Alertas de stock:** " + channelValue("stockAlertChannelId"),
     "-# ASTRAL STORE • Configuração de canais"
   ].join("\n");
   const categoryRow = new ActionRowBuilder().addComponents(
@@ -166,7 +166,7 @@ function panel(guild) {
     new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
   );
   const container = new ContainerBuilder()
-    .setAccentColor(0x5865F2)
+    .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(description))
     .addActionRowComponents(categoryRow, channelRow, buttonsRow);
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
