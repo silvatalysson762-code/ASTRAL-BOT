@@ -2644,6 +2644,18 @@ function buildTicketOpeningModePanel(guildId, userId) {
 }
 
 
+const ticketScheduleDrafts = new Map();
+function ticketScheduleDraftKey(guildId, userId) { return String(guildId) + ":" + String(userId); }
+function getTicketScheduleDraft(guildId, userId) {
+  const key = ticketScheduleDraftKey(guildId, userId);
+  if (!ticketScheduleDrafts.has(key)) ticketScheduleDrafts.set(key, normalizeTicketSchedule(getGuildConfig(guildId)));
+  return ticketScheduleDrafts.get(key);
+}
+function ticketScheduleIsDirty(guildId, userId) {
+  const key = ticketScheduleDraftKey(guildId, userId);
+  return ticketScheduleDrafts.has(key) && JSON.stringify(ticketScheduleDrafts.get(key)) !== JSON.stringify(normalizeTicketSchedule(getGuildConfig(guildId)));
+}
+
 const TICKET_SCHEDULE_DAYS = [
   { key: "sunday", label: "Domingo" },
   { key: "monday", label: "Segunda-feira" },
@@ -2675,9 +2687,10 @@ function ticketScheduleSummary(config) {
   return { schedule, activeCount };
 }
 
-function buildTicketSchedulePanel(guildId) {
+function buildTicketSchedulePanel(guildId, userId = null) {
   const config = getGuildConfig(guildId);
-  const result = ticketScheduleSummary(config);
+  const scheduleDraft = userId ? getTicketScheduleDraft(guildId, userId) : normalizeTicketSchedule(config);
+  const result = { schedule: scheduleDraft, activeCount: TICKET_SCHEDULE_DAYS.filter(day => scheduleDraft.days[day.key].active).length };
   const schedule = result.schedule;
   const activeCount = result.activeCount;
   const statusEmoji = schedule.enabled ? "<:online:1557204563675848814>" : "<:offline:1557204568432185454>";
@@ -2737,15 +2750,16 @@ function buildTicketSchedulePanel(guildId) {
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("ticket:schedule_all_off").setLabel("Desativar todos os dias").setEmoji({ name: "offline", id: "1557204568432185454" }).setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("ticket:schedule_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+        ...(userId && ticketScheduleIsDirty(guildId, userId) ? [new ButtonBuilder().setCustomId("ticket:schedule_save").setLabel("Salvar").setEmoji({ name: "save", id: "1557205052974960780" }).setStyle(ButtonStyle.Success)] : []),
+        new ButtonBuilder().setCustomId("ticket:schedule_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }) .setStyle(ButtonStyle.Secondary)
       )
     );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildTicketScheduleDayModal(guildId, dayKey) {
+function buildTicketScheduleDayModal(guildId, dayKey, userId = null) {
   const config = getGuildConfig(guildId);
-  const schedule = normalizeTicketSchedule(config);
+  const schedule = userId ? getTicketScheduleDraft(guildId, userId) : normalizeTicketSchedule(config);
   const day = TICKET_SCHEDULE_DAYS.find(item => item.key === dayKey);
   const current = schedule.days[dayKey] || { active: false, start: "09:00", end: "18:00" };
   if (!day) throw new Error("Dia da semana inválido.");
@@ -4278,7 +4292,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (selected === "schedule") {
-      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId, interaction.user.id));
       return;
     }
 
@@ -4450,7 +4464,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const dayKey = interaction.values[0];
       if (!TICKET_SCHEDULE_DAYS.some(day => day.key === dayKey)) throw new Error("Dia da semana inválido.");
-      await interaction.showModal(buildTicketScheduleDayModal(interaction.guildId, dayKey));
+      await interaction.showModal(buildTicketScheduleDayModal(interaction.guildId, dayKey, interaction.user.id));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao abrir configuração do dia:", error);
       if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui abrir a configuração deste dia.", ephemeral: true }).catch(() => {});
@@ -4471,11 +4485,8 @@ client.on("interactionCreate", async interaction => {
       const startParts = start.split(":").map(Number);
       const endParts = end.split(":").map(Number);
       if ((endParts[0] * 60 + endParts[1]) <= (startParts[0] * 60 + startParts[1])) throw new Error("O horário de fim precisa ser depois do horário de início.");
-      updateGuildConfig(interaction.guildId, config => {
-        config.ticketSchedule = normalizeTicketSchedule(config);
-        config.ticketSchedule.days[dayKey] = { active: status === "ativo", start, end };
-      });
-      await interaction.reply({ content: "<:online:1557204563675848814> **Salvo**", ephemeral: true });
+      getTicketScheduleDraft(interaction.guildId, interaction.user.id).days[dayKey] = { active: status === "ativo", start, end };
+      await interaction.reply({ content: "<:online:1557204563675848814> Horário alterado. Clique em **Salvar** no painel para aplicar.", ephemeral: true });
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao salvar dia:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui salvar este horário."), ephemeral: true }).catch(() => {});
@@ -4485,10 +4496,8 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton() && interaction.customId === "ticket:schedule_toggle") {
     try {
-      updateGuildConfig(interaction.guildId, config => {
-        config.ticketSchedule = normalizeTicketSchedule(config);
-        config.ticketSchedule.enabled = !config.ticketSchedule.enabled;
-      });
+      const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
+      schedule.enabled = !schedule.enabled;
       await interaction.update(buildTicketSchedulePanel(interaction.guildId));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao alternar sistema:", error);
@@ -4499,10 +4508,8 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton() && interaction.customId === "ticket:schedule_outside") {
     try {
-      updateGuildConfig(interaction.guildId, config => {
-        config.ticketSchedule = normalizeTicketSchedule(config);
-        config.ticketSchedule.allowOutsideHours = !config.ticketSchedule.allowOutsideHours;
-      });
+      const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
+      schedule.allowOutsideHours = !schedule.allowOutsideHours;
       await interaction.update(buildTicketSchedulePanel(interaction.guildId));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao alternar abertura fora do horário:", error);
@@ -4513,10 +4520,8 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton() && interaction.customId === "ticket:schedule_all_on") {
     try {
-      updateGuildConfig(interaction.guildId, config => {
-        config.ticketSchedule = normalizeTicketSchedule(config);
-        for (const day of TICKET_SCHEDULE_DAYS) config.ticketSchedule.days[day.key].active = true;
-      });
+      const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
+      for (const day of TICKET_SCHEDULE_DAYS) schedule.days[day.key].active = true;
       await interaction.update(buildTicketSchedulePanel(interaction.guildId));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao ativar todos os dias:", error);
@@ -4527,10 +4532,8 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton() && interaction.customId === "ticket:schedule_all_off") {
     try {
-      updateGuildConfig(interaction.guildId, config => {
-        config.ticketSchedule = normalizeTicketSchedule(config);
-        for (const day of TICKET_SCHEDULE_DAYS) config.ticketSchedule.days[day.key].active = false;
-      });
+      const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
+      for (const day of TICKET_SCHEDULE_DAYS) schedule.days[day.key].active = false;
       await interaction.update(buildTicketSchedulePanel(interaction.guildId));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao desativar todos os dias:", error);
@@ -4539,7 +4542,17 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  if (interaction.isButton() && interaction.customId === "ticket:schedule_save") {
+    const key = ticketScheduleDraftKey(interaction.guildId, interaction.user.id);
+    const draft = ticketScheduleDrafts.get(key);
+    if (draft && ticketScheduleIsDirty(interaction.guildId, interaction.user.id)) updateGuildConfig(interaction.guildId, config => { config.ticketSchedule = JSON.parse(JSON.stringify(draft)); });
+    ticketScheduleDrafts.delete(key);
+    await interaction.update(buildTicketSchedulePanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+
   if (interaction.isButton() && interaction.customId === "ticket:schedule_back") {
+    ticketScheduleDrafts.delete(ticketScheduleDraftKey(interaction.guildId, interaction.user.id));
     await interaction.update(buildTicketConfigPanel(interaction.guildId));
     return;
   }
