@@ -5054,6 +5054,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.update(panel);
     } catch (error) {
       console.error("[PANEL] Erro no menu principal:", error);
+      console.error("[PANEL] Detalhes da rejeição do Discord:", JSON.stringify(error?.rawError?.errors || error?.errors || error?.rawError || {}, null, 2));
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
       }
