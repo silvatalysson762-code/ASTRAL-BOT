@@ -2106,7 +2106,7 @@ function buildBotControlPanel(userId = "") {
       (() => {
         const buttons = [
           new ButtonBuilder()
-            .setCustomId("panel:main")
+            .setCustomId("panel:bot_back")
             .setLabel("Voltar")
             .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
             .setStyle(ButtonStyle.Secondary)
@@ -5118,6 +5118,12 @@ client.on("interactionCreate", async interaction => {
         await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
       }
     }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:bot_back") {
+    pendingBotCustomizations.delete(String(interaction.user.id));
+    await interaction.update(buildMainPanel(interaction.guildId, interaction.user.id));
     return;
   }
 
