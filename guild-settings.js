@@ -185,7 +185,7 @@ function buildWelcomeLandingPanel(guild) {
       "",
       "**<:62548:1559294145737138218> Saída**",
       "Canal: " + goodbyeChannel,
-      "Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado")
+      "Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
       "-# ASTRAL STORE • Mensagens de membros"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
