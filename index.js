@@ -2237,7 +2237,7 @@ function buildMainPanel(guildId, userId) {
               label: "Canais",
               description: "Configure os canais do servidor",
               value: "server_channels",
-              emoji: { name: "wifi", id: "1559285233235394661" }
+              emoji: { name: "62604", id: "1559349840184344757" }
             },
             {
               label: "Boas-vindas/Saídas",
