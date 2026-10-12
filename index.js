@@ -5304,7 +5304,7 @@ client.on("interactionCreate", async interaction => {
       pending[type] = value;
       pendingBotCustomizations.set(userKey, pending);
 
-      await interaction.reply({ content: "<:online:1557204563675848814> **Alteração preparada.** Clique em **Salvar** para aplicar.", ephemeral: true });
+      await interaction.update(buildBotControlPanel(userKey));
     } catch (error) {
       console.error("[PANEL] Erro na personalização do bot:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui alterar o bot.").slice(0, 500), ephemeral: true }).catch(() => {});
