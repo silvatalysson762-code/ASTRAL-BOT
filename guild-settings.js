@@ -248,6 +248,12 @@ function buildWelcomeLandingPanel(guild) {
 }
 
 const messageDrafts = new Map();
+const enabledDrafts = new Map();
+function enabledDraftKey(guildId, userId, prefix) { return draftKey(guildId, userId, prefix) + ":enabled"; }
+function enabledIsDirty(guildId, userId, prefix) {
+  const key = enabledDraftKey(guildId, userId, prefix);
+  return enabledDrafts.has(key) && enabledDrafts.get(key) !== Boolean(getSettings(guildId)[prefix + "Enabled"]);
+}
 function draftKey(guildId, userId, prefix) {
   return String(guildId) + ":" + String(userId) + ":" + prefix;
 }
@@ -314,7 +320,8 @@ function messagePanel(guild, type, userId) {
   const welcome = type === "welcome";
   const prefix = welcome ? "welcome" : "goodbye";
   const channelId = s[prefix + "ChannelId"];
-  const enabled = Boolean(s[prefix + "Enabled"]);
+  const enabledKey = enabledDraftKey(guild.id, userId, prefix);
+  const enabled = enabledDrafts.has(enabledKey) ? enabledDrafts.get(enabledKey) : Boolean(s[prefix + "Enabled"]);
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
@@ -332,7 +339,8 @@ function messagePanel(guild, type, userId) {
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary),
+      ...(enabledIsDirty(guild.id, userId, prefix) ? [new ButtonBuilder().setCustomId("guildcfg:save_enabled_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : [])
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -424,6 +432,8 @@ async function handleInteraction(interaction) {
     return true;
   }
   if (interaction.isButton() && id === "guildcfg:home") {
+    enabledDrafts.delete(enabledDraftKey(interaction.guildId, interaction.user.id, "welcome"));
+    enabledDrafts.delete(enabledDraftKey(interaction.guildId, interaction.user.id, "goodbye"));
     await interaction.update(buildWelcomeLandingPanel(interaction.guild));
     return true;
   }
@@ -439,7 +449,20 @@ async function handleInteraction(interaction) {
   }
   if (interaction.isButton() && /^guildcfg:toggle_(welcome|goodbye)$/.test(id)) {
     const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
-    updateSettings(interaction.guildId, s => { s[prefix + "Enabled"] = !s[prefix + "Enabled"]; });
+    const key = enabledDraftKey(interaction.guildId, interaction.user.id, prefix);
+    const current = enabledDrafts.has(key) ? enabledDrafts.get(key) : Boolean(getSettings(interaction.guildId)[prefix + "Enabled"]);
+    enabledDrafts.set(key, !current);
+    await interaction.update(messagePanel(interaction.guild, prefix, interaction.user.id));
+    return true;
+  }
+  if (interaction.isButton() && /^guildcfg:save_enabled_(welcome|goodbye)$/.test(id)) {
+    const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
+    const key = enabledDraftKey(interaction.guildId, interaction.user.id, prefix);
+    if (enabledDrafts.has(key)) {
+      const enabled = enabledDrafts.get(key);
+      updateSettings(interaction.guildId, s => { s[prefix + "Enabled"] = enabled; });
+      enabledDrafts.delete(key);
+    }
     await interaction.update(messagePanel(interaction.guild, prefix, interaction.user.id));
     return true;
   }
