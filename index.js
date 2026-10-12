@@ -3373,7 +3373,9 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0, 
         .setStyle(ButtonStyle.Primary)
         .setDisabled(page >= totalPages - 1)
     ));
-    const listButtons = [];
+    const listButtons = [
+      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
+    ];
     if (Object.keys(drafts).length) {
       listButtons.push(
         new ButtonBuilder()
@@ -3383,7 +3385,6 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0, 
           .setStyle(ButtonStyle.Success)
       );
     }
-    listButtons.push(new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary));
     rows.push(new ActionRowBuilder().addComponents(...listButtons));
   }
   const container = new ContainerBuilder()
