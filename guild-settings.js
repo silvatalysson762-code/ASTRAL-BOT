@@ -161,7 +161,7 @@ function panel(guild) {
       .setChannelTypes(ChannelType.GuildText)
   );
   const buttonsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("panel:config").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
   );
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
@@ -177,14 +177,15 @@ function buildWelcomeLandingPanel(guild) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
-      "Configure separadamente as mensagens de entrada e saída do servidor.",
-      "**<:62565:1559293995840970764> Boas-vindas**",
-      "Canal: " + welcomeChannel,
-      "Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
-      "",
-      "**<:62548:1559294145737138218> Saída**",
-      "Canal: " + goodbyeChannel,
-      "Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
+      "┃ Configure separadamente as mensagens de entrada e saída do servidor.",
+      "┃",
+      "┃ **<:62565:1559293995840970764> Boas-vindas**",
+      "┃ Canal: " + welcomeChannel,
+      "┃ Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
+      "┃",
+      "┃ **<:62548:1559294145737138218> Saída**",
+      "┃ Canal: " + goodbyeChannel,
+      "┃ Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
       "-# ASTRAL STORE • Mensagens de membros"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
@@ -192,7 +193,7 @@ function buildWelcomeLandingPanel(guild) {
       new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saída").setEmoji("<:62548:1559294145737138218>").setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("panel:config").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -240,7 +241,7 @@ function messagePanel(guild, type) {
         new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(s[prefix + "Enabled"] ? "Desabilitar" : "Habilitar").setEmoji("🔄").setStyle(s[prefix + "Enabled"] ? ButtonStyle.Danger : ButtonStyle.Success)
       ),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("guildcfg:home").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
       )
     ]
   };
