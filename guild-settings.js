@@ -139,74 +139,24 @@ function makeEmbed(title, description, color = 0x5865F2) {
 function panel(guild) {
   const s = getSettings(guild.id);
   const channelValue = key => s[key] ? "<#" + s[key] + ">" : "`Não configurado`";
-  const groups = [
-    {
-      title: "👋 MEMBROS",
-      rows: [
-        ["Boas-vindas", "welcomeChannelId"],
-        ["Saída", "goodbyeChannelId"],
-        ["Logs de membros", "memberLogChannelId"]
-      ]
-    },
-    {
-      title: "🛡️ MODERAÇÃO",
-      rows: [
-        ["Logs de mensagens", "messageLogChannelId"],
-        ["Logs de moderação", "moderationLogChannelId"]
-      ]
-    },
-    {
-      title: "🎫 TICKETS",
-      rows: [["Logs de tickets", "ticketLogChannelId"]]
-    },
-    {
-      title: "🍈 BLOX FRUITS",
-      rows: [
-        ["Stock Normal/Mirage", "stockChannelId"],
-        ["Alertas de stock", "stockAlertChannelId"]
-      ]
-    },
-    {
-      title: "🌐 COMUNIDADE E GERAL",
-      rows: [
-        ["Logs do servidor", "serverLogChannelId"],
-        ["Anúncios", "announcementChannelId"],
-        ["Sugestões", "suggestionChannelId"]
-      ]
-    }
-  ];
   const description = [
     "# 📡 CANAIS DO SERVIDOR",
-    "> Configure os canais do bot neste painel. Escolha uma opção e selecione o canal.",
-    ...groups.flatMap(group => [
-      "",
-      "**" + group.title + "**",
-      ...group.rows.map(([label, key]) => "> " + label + ": " + channelValue(key))
-    ]),
+    "> Lista de todos os canais padrão usados pelo ASTRAL BOT.",
+    "> Selecione uma configuração na lista e depois escolha o canal.",
     "",
-    "-# ASTRAL STORE • Configuração centralizada"
+    ...Object.entries(CHANNELS).map(([key, label]) => "> **" + label + ":** " + channelValue(key)),
+    "",
+    "-# ASTRAL STORE • Configuração de canais"
   ].join("\n");
   const categoryRow = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("guildcfg:category")
-      .setPlaceholder("① Escolha a configuração de canal")
-      .addOptions(Object.entries(CHANNELS).map(([value, label]) => {
-        const group = value === "welcomeChannelId" || value === "goodbyeChannelId" || value === "memberLogChannelId"
-          ? "Membros"
-          : value === "messageLogChannelId" || value === "moderationLogChannelId"
-            ? "Moderação"
-            : value === "ticketLogChannelId"
-              ? "Tickets"
-              : value === "stockChannelId" || value === "stockAlertChannelId"
-                ? "Blox Fruits"
-                : "Comunidade e geral";
-        const settings = getSettings(guild.id);
-        return {
-          label: "[" + group + "] " + label,
-          value,
-          description: (settings[value] ? "Canal configurado" : "Ainda não configurado") + " • " + label
-        };
-      }))
+      .setPlaceholder("① Escolha o canal que deseja configurar")
+      .addOptions(Object.entries(CHANNELS).map(([value, label]) => ({
+        label,
+        value,
+        description: getSettings(guild.id)[value] ? "Canal já configurado" : "Canal ainda não configurado"
+      })))
   );
   const channelRow = new ActionRowBuilder().addComponents(
     new ChannelSelectMenuBuilder()
