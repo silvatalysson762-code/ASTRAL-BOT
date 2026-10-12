@@ -248,9 +248,10 @@ function messageEditorPanel(guild, type, userId) {
       safeText(draft.message || "`Não configurada`", 500),
       "> **Thumbnail:** " + (draft.thumbnail ? "Configurada" : "Avatar do membro"),
       "> **Banner:** " + (draft.banner ? "Configurado" : "Não configurado"),
-      "> **Variáveis**",
-      "> `{member}` • `{username}` • `{displayname}` • `{server}`",
-      "> `{membercount}` • `{createdat}` • `{accountage}`"
+      "> **Variáveis disponíveis**",
+      "> `{member}` • `{username}` • `{displayname}`",
+      "> `{server}` • `{membercount}` • `{createdat}`",
+      "> `{accountage}` • `{id}`"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar campos").setEmoji("✏️").setStyle(ButtonStyle.Primary),
