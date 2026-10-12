@@ -133,8 +133,8 @@ function panel(guild) {
   return {
     embeds: [new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle("<:settings_button:1557204872648982579> CANAIS DO SERVIDOR")
-      .setDescription("Escolha qual mensagem deseja configurar. Boas-vindas e saídas possuem configurações separadas.\n\n" + lines.join("\n"))
+      .setTitle("┃ <:settings_button:1557204872648982579> CANAIS DO SERVIDOR")
+      .setDescription("┃ Escolha qual mensagem deseja configurar.\n┃ Boas-vindas e saídas possuem configurações separadas.\n┃\n" + lines.map(line => "┃ " + line).join("\n"))
       .addFields(
         { name: "👋 Boas-vindas", value: "**Canal:** " + (s.welcomeChannelId ? "<#" + s.welcomeChannelId + ">" : "`Não configurado`") + "\n**Status:** " + (s.welcomeEnabled ? "Ativado" : "Desativado"), inline: true },
         { name: "🚪 Saídas", value: "**Canal:** " + (s.goodbyeChannelId ? "<#" + s.goodbyeChannelId + ">" : "`Não configurado`") + "\n**Status:** " + (s.goodbyeEnabled ? "Ativado" : "Desativado"), inline: true },
@@ -171,16 +171,24 @@ function messagePanel(guild, type) {
   const deleteAfter = Number(s[prefix + "DeleteAfter"] || 0);
   return {
     embeds: [new EmbedBuilder().setColor(welcome ? 0x57F287 : 0xED4245)
-      .setTitle((welcome ? "👋 " : "🚪 ") + title)
-      .setDescription("**Canal:** " + (channelId ? "<#" + channelId + ">" : "`Não configurado`") +
-        "\n**Status:** " + (s[prefix + "Enabled"] ? "Ativado" : "Desativado") +
-        "\n**Modo atual:** " + (mode === "v2" ? "Container V2" : "Mensagem normal") +
-        "\n**Mensagem:**\n" + safeText(message, 900) +
-        "\n\n**Tempo para apagar:** " + (deleteAfter === 0 ? "Nunca" : deleteAfter + " segundos") +
-        "\n**Título:** " + safeText(appearance, 150) +
-        "\n**Cor:** #" + color +
-        "\n**Imagem/GIF:** " + (image || "Não configurada") +
-        "\n\n**Variáveis:** `{user}`, `{username}`, `{server}`, `{memberCount}`, `{id}`")],
+      .setTitle("┃ " + (welcome ? "👋 " : "🚪 ") + title)
+      .setDescription([
+        "┃ **Canal:** " + (channelId ? "<#" + channelId + ">" : "`Não configurado`"),
+        "┃ **Status:** " + (s[prefix + "Enabled"] ? "Ativado" : "Desativado"),
+        "┃ **Modo atual:** " + (mode === "v2" ? "Container V2" : "Mensagem normal"),
+        "┃",
+        "┃ **Mensagem**",
+        ...safeText(message, 900).split("\n").map(line => "┃ " + line),
+        "┃",
+        "┃ **Tempo para apagar:** " + (deleteAfter === 0 ? "Nunca" : deleteAfter + " segundos"),
+        "┃ **Título:** " + safeText(appearance, 150),
+        "┃ **Cor:** #" + color,
+        "┃ **Imagem/GIF:** " + (image || "Não configurada"),
+        "┃",
+        "┃ **Variáveis disponíveis**",
+        "┃ `{user}` • `{username}` • `{server}` • `{memberCount}` • `{id}`"
+      ].join("\n"))
+      .setFooter({ text: "ASTRAL STORE • Mensagens de entrada e saída" })],
     components: [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("guildcfg:edit_" + prefix).setLabel("Mensagem & Tempo").setEmoji("✏️").setStyle(ButtonStyle.Primary),
