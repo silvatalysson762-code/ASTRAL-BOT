@@ -2458,9 +2458,20 @@ function buildTicketFunctionModal(existingFunction = null) {
   );
 }
 
-function buildTicketManageFunctionsPanel(guildId) {
+const ticketFunctionDrafts = new Map();
+function ticketFunctionDraftKey(guildId, userId) { return String(guildId) + ":" + String(userId); }
+function getTicketFunctionDraft(guildId, userId) {
+  const key = ticketFunctionDraftKey(guildId, userId);
+  if (!ticketFunctionDrafts.has(key)) ticketFunctionDrafts.set(key, (getGuildConfig(guildId).ticketFunctions || []).map(fn => ({ ...fn, emoji: fn.emoji ? { ...fn.emoji } : null })));
+  return ticketFunctionDrafts.get(key);
+}
+function ticketFunctionIsDirty(guildId, userId) {
+  const key = ticketFunctionDraftKey(guildId, userId);
+  return ticketFunctionDrafts.has(key) && JSON.stringify(ticketFunctionDrafts.get(key)) !== JSON.stringify(getGuildConfig(guildId).ticketFunctions || []);
+}
+function buildTicketManageFunctionsPanel(guildId, userId = null) {
   const config = getGuildConfig(guildId);
-  const functions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
+  const functions = userId ? getTicketFunctionDraft(guildId, userId) : (Array.isArray(config.ticketFunctions) ? config.ticketFunctions : []);
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
@@ -2489,6 +2500,7 @@ function buildTicketManageFunctionsPanel(guildId) {
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket:manage_functions_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
+      ...(userId && ticketFunctionIsDirty(guildId, userId) ? [new ButtonBuilder().setCustomId("ticket:functions_save").setLabel("Salvar").setEmoji({ name: "save", id: "1557205052974960780" }).setStyle(ButtonStyle.Success)] : []),
       new ButtonBuilder().setCustomId("ticket:reorder_functions").setLabel("Reordenar").setEmoji({ name: "settings_button", id: "1557204872648982579" }).setStyle(ButtonStyle.Primary)
     )
   );
