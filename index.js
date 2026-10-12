@@ -6086,14 +6086,25 @@ client.on("interactionCreate", async interaction => {
       if (!response.ok || !payload || payload.status !== true) {
         throw new Error(payload?.message || payload?.error || ("A API respondeu HTTP " + response.status));
       }
+      // A API terminou de consultar as fontes. Limpa o cache local do bot,
+      // busca o resultado recém-atualizado e sincroniza o stock salvo/publicado.
       lastSuccessfulStock = null;
       lastSuccessfulStockAt = 0;
+      const refreshedStock = await getStock();
+      const normalCount = refreshedStock.filter(item => String(item.type || "").toLowerCase() === "normal").length;
+      const mirageCount = refreshedStock.filter(item => String(item.type || "").toLowerCase() === "mirage").length;
+      if (!normalCount || !mirageCount) {
+        throw new Error("A API não retornou listas completas de Normal e Mirage.");
+      }
+
+      await checkStock(true, ["normal", "mirage"], true, refreshedStock);
       await interaction.editReply(
-        uiEmoji("success", "✅") + " **Consulta da API concluída!**\n" +
-        "Normal: **" + (payload.normal_count ?? "?") + "** frutas\\n" +
-        "Mirage: **" + (payload.mirage_count ?? "?") + "** frutas\\n" +
-        (payload.updatedAt ? "Atualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
-        (payload.error ? "\nAviso: " + payload.error : "")
+        uiEmoji("success", "✅") + " **API consultada e estoque sincronizado!**\\n" +
+        "Normal: **" + normalCount + "** frutas\\n" +
+        "Mirage: **" + mirageCount + "** frutas\\n" +
+        "O resultado novo foi salvo e publicado no Discord." +
+        (payload.updatedAt ? "\\nAtualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
+        (payload.error ? "\\nAviso: " + payload.error : "")
       );
     } catch (e) {
       await interaction.editReply(
