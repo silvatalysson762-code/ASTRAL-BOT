@@ -12,7 +12,10 @@ const {
   ChannelSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle
+  TextInputStyle,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  MessageFlags
 } = require("discord.js");
 
 const CONFIG_PATH = path.join(__dirname, "config.json");
@@ -35,7 +38,15 @@ const DEFAULTS = {
   welcomeMessage: "👋 Bem-vindo(a) {user} ao **{server}**! Você é o membro **#{memberCount}**.",
   goodbyeMessage: "👋 **{username}** saiu do servidor **{server}**.",
   welcomeImageUrl: "",
-  goodbyeImageUrl: ""
+  goodbyeImageUrl: "",
+  welcomeTitle: "**Bem-Vindo a {server}**",
+  goodbyeTitle: "**Até logo!**",
+  welcomeColor: "301934",
+  goodbyeColor: "ED4245",
+  welcomeDeleteAfter: 0,
+  goodbyeDeleteAfter: 0,
+  welcomeMode: "embed",
+  goodbyeMode: "embed"
 };
 
 function readConfig() {
@@ -123,38 +134,88 @@ function panel(guild) {
     embeds: [new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle("<:settings_button:1557204872648982579> CANAIS DO SERVIDOR")
-      .setDescription("**Canais de boas-vindas, saída, logs e Blox Fruits**\nSelecione uma categoria abaixo e escolha o canal. As alterações são salvas automaticamente.\n\n" + lines.join("\n"))
+      .setDescription("Escolha qual mensagem deseja configurar. Boas-vindas e saídas possuem configurações separadas.\n\n" + lines.join("\n"))
       .addFields(
         { name: "👋 Boas-vindas", value: "**Canal:** " + (s.welcomeChannelId ? "<#" + s.welcomeChannelId + ">" : "`Não configurado`") + "\n**Status:** " + (s.welcomeEnabled ? "Ativado" : "Desativado"), inline: true },
-        { name: "🚪 Saída", value: "**Canal:** " + (s.goodbyeChannelId ? "<#" + s.goodbyeChannelId + ">" : "`Não configurado`") + "\n**Status:** " + (s.goodbyeEnabled ? "Ativado" : "Desativado"), inline: true },
-        { name: "🧾 Logs", value: ["memberLogChannelId", "messageLogChannelId", "moderationLogChannelId", "serverLogChannelId", "ticketLogChannelId"].map(key => "**" + CHANNELS[key] + ":** " + (s[key] ? "<#" + s[key] + ">" : "`Não configurado`")).join("\n"), inline: false },
-        { name: "🍈 Stock Blox Fruits", value: "**Stock Normal/Mirage:** " + (s.stockChannelId ? "<#" + s.stockChannelId + ">" : "`Não configurado`") + "\n**Alertas de frutas:** " + (s.stockAlertChannelId ? "<#" + s.stockAlertChannelId + ">" : "`Não configurado`"), inline: false },
-        { name: "📢 Outros canais", value: ["announcementChannelId", "suggestionChannelId"].map(key => "**" + CHANNELS[key] + ":** " + (s[key] ? "<#" + s[key] + ">" : "`Não configurado`")).join("\n"), inline: false },
-        { name: "Editar mensagem", value: "**Boas-vindas:** " + safeText(s.welcomeMessage, 500) + "\n**Saída:** " + safeText(s.goodbyeMessage, 500), inline: false },
-        { name: "Variáveis disponíveis", value: "`{user}` menção • `{username}` nome • `{server}` servidor • `{memberCount}` membros • `{id}` ID", inline: false }
-      )
-      .setFooter({ text: "ASTRAL BOT • Canais e mensagens configurados em um só painel" })],
+        { name: "🚪 Saídas", value: "**Canal:** " + (s.goodbyeChannelId ? "<#" + s.goodbyeChannelId + ">" : "`Não configurado`") + "\n**Status:** " + (s.goodbyeEnabled ? "Ativado" : "Desativado"), inline: true },
+        { name: "🧾 Outros canais", value: lines.filter((_, i) => !["welcomeChannelId","goodbyeChannelId"].includes(Object.keys(CHANNELS)[i])).join("\n"), inline: false }
+      )],
     components: [
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId("guildcfg:category").setPlaceholder("1/2 • Escolha o tipo de canal").addOptions(
+        new StringSelectMenuBuilder().setCustomId("guildcfg:category").setPlaceholder("Escolha um canal para configurar").addOptions(
           Object.entries(CHANNELS).map(([value, label]) => ({ label, value, description: "Definir canal de " + label.toLowerCase() }))
         )
       ),
       new ActionRowBuilder().addComponents(
-        new ChannelSelectMenuBuilder().setCustomId("guildcfg:channel").setPlaceholder("2/2 • Escolha o canal do servidor").setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        new ChannelSelectMenuBuilder().setCustomId("guildcfg:channel").setPlaceholder("Escolha o canal do servidor").setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
       ),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("guildcfg:edit_welcome").setLabel("Editar mensagem de boas-vindas").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("guildcfg:test_welcome").setLabel("Testar boas-vindas").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("guildcfg:toggle_welcome").setLabel(s.welcomeEnabled ? "Boas-vindas: ON" : "Boas-vindas: OFF").setStyle(s.welcomeEnabled ? ButtonStyle.Success : ButtonStyle.Danger)
-      ),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("guildcfg:edit_goodbye").setLabel("Editar mensagem de saída").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("guildcfg:toggle_goodbye").setLabel(s.goodbyeEnabled ? "Saída: ON" : "Saída: OFF").setStyle(s.goodbyeEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao painel").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saídas").setEmoji("🚪").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
       )
     ]
   };
+}
+function messagePanel(guild, type) {
+  const s = getSettings(guild.id);
+  const welcome = type === "welcome";
+  const prefix = welcome ? "welcome" : "goodbye";
+  const title = welcome ? "BOAS-VINDAS" : "SAÍDAS";
+  const channelId = s[prefix + "ChannelId"];
+  const mode = s[prefix + "Mode"] || "embed";
+  const message = s[prefix + "Message"];
+  const appearance = s[prefix + "Title"] || (welcome ? "**Bem-Vindo a {server}**" : "**Até logo!**");
+  const color = s[prefix + "Color"] || (welcome ? "301934" : "ED4245");
+  const image = s[prefix + "ImageUrl"];
+  const deleteAfter = Number(s[prefix + "DeleteAfter"] || 0);
+  return {
+    embeds: [new EmbedBuilder().setColor(welcome ? 0x57F287 : 0xED4245)
+      .setTitle((welcome ? "👋 " : "🚪 ") + title)
+      .setDescription("**Canal:** " + (channelId ? "<#" + channelId + ">" : "`Não configurado`") +
+        "\n**Status:** " + (s[prefix + "Enabled"] ? "Ativado" : "Desativado") +
+        "\n**Modo atual:** " + (mode === "v2" ? "Container V2" : "Mensagem normal") +
+        "\n**Mensagem:**\n" + safeText(message, 900) +
+        "\n\n**Tempo para apagar:** " + (deleteAfter === 0 ? "Nunca" : deleteAfter + " segundos") +
+        "\n**Título:** " + safeText(appearance, 150) +
+        "\n**Cor:** #" + color +
+        "\n**Imagem/GIF:** " + (image || "Não configurada") +
+        "\n\n**Variáveis:** `{user}`, `{username}`, `{server}`, `{memberCount}`, `{id}`")],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("guildcfg:edit_" + prefix).setLabel("Mensagem & Tempo").setEmoji("✏️").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("guildcfg:appearance_" + prefix).setLabel("Aparência").setEmoji("⚙️").setStyle(ButtonStyle.Primary)
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("guildcfg:toggle_mode_" + prefix).setLabel(mode === "v2" ? "Usar Mensagem" : "Usar Container V2").setEmoji(mode === "v2" ? "👁️" : "📦").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Preview").setEmoji("👁️").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(s[prefix + "Enabled"] ? "Desabilitar" : "Habilitar").setEmoji("🔄").setStyle(s[prefix + "Enabled"] ? ButtonStyle.Danger : ButtonStyle.Success)
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+      )
+    ]
+  };
+}
+function makeWelcomePayload(member, settings, type) {
+  const welcome = type === "welcome";
+  const prefix = welcome ? "welcome" : "goodbye";
+  const text = render(settings[prefix + "Message"], member);
+  const title = render(settings[prefix + "Title"] || (welcome ? "**Bem-Vindo a {server}**" : "**Até logo!**"), member);
+  const image = settings[prefix + "ImageUrl"];
+  const hex = String(settings[prefix + "Color"] || (welcome ? "301934" : "ED4245")).replace(/^#/, "");
+  const color = /^[0-9a-f]{6}$/i.test(hex) ? parseInt(hex, 16) : (welcome ? 0x301934 : 0xED4245);
+  if (settings[prefix + "Mode"] === "v2") {
+    const container = new ContainerBuilder().setAccentColor(color)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(title + "\n\n" + text));
+    if (image) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(image));
+    return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
+  }
+  const embed = new EmbedBuilder().setColor(color).setDescription(safeText(text, 3900));
+  if (title) embed.setTitle(safeText(title, 256));
+  embed.setThumbnail(member.user.displayAvatarURL({ size: 256 }));
+  if (image) embed.setImage(image);
+  return { embeds: [embed], allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
 }
 const selectedCategory = new Map();
 const commands = [];
@@ -193,61 +254,99 @@ async function handleInteraction(interaction) {
     await interaction.update(panel(interaction.guild));
     return true;
   }
-  if (interaction.isButton() && (id === "guildcfg:edit_welcome" || id === "guildcfg:edit_goodbye")) {
-    const welcome = id.endsWith("edit_welcome");
-    const s = getSettings(interaction.guildId);
-    const modal = new ModalBuilder()
-      .setCustomId(welcome ? "guildcfg:modal_welcome" : "guildcfg:modal_goodbye")
-      .setTitle(welcome ? "Editar boas-vindas" : "Editar mensagem de saída")
-      .addComponents(
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("message").setLabel("Mensagem (use as variáveis listadas)").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800).setValue(welcome ? s.welcomeMessage : s.goodbyeMessage)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("image").setLabel("URL HTTPS da imagem (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500).setValue(welcome ? s.welcomeImageUrl : s.goodbyeImageUrl))
-      );
-    await interaction.showModal(modal);
+  if (interaction.isButton() && (id === "guildcfg:open_welcome" || id === "guildcfg:open_goodbye")) {
+    await interaction.update(messagePanel(interaction.guild, id.endsWith("open_welcome") ? "welcome" : "goodbye"));
     return true;
   }
-  if (interaction.isModalSubmit() && (id === "guildcfg:modal_welcome" || id === "guildcfg:modal_goodbye")) {
-    const welcome = id.endsWith("modal_welcome");
-    const message = interaction.fields.getTextInputValue("message");
-    const image = interaction.fields.getTextInputValue("image").trim();
-    if (image && !/^https:\/\//i.test(image)) {
-      await interaction.reply({ content: "A imagem precisa usar um endereço HTTPS.", ephemeral: true });
-      return true;
-    }
-    updateSettings(interaction.guildId, s => {
-      if (welcome) { s.welcomeMessage = message; s.welcomeImageUrl = image; }
-      else { s.goodbyeMessage = message; s.goodbyeImageUrl = image; }
-    });
-    await interaction.reply({ content: "Configuração salva! Volte ao painel Canais do Servidor para conferir.", ephemeral: true });
-    return true;
-  }
-  if (interaction.isButton() && (id === "guildcfg:toggle_welcome" || id === "guildcfg:toggle_goodbye")) {
-    updateSettings(interaction.guildId, settings => {
-      if (id === "guildcfg:toggle_welcome") settings.welcomeEnabled = !settings.welcomeEnabled;
-      else settings.goodbyeEnabled = !settings.goodbyeEnabled;
-    });
+  if (interaction.isButton() && id === "guildcfg:home") {
     await interaction.update(panel(interaction.guild));
     return true;
   }
-  if (interaction.isButton() && id === "guildcfg:test_welcome") {
-    const s = getSettings(interaction.guildId);
-    const channel = s.welcomeChannelId ? await interaction.guild.channels.fetch(s.welcomeChannelId).catch(() => null) : null;
-    if (!channel?.isTextBased?.() || !channel.send) {
-      await interaction.reply({ content: "Configure primeiro um canal de boas-vindas válido.", ephemeral: true });
-      return true;
-    }
-    const preview = s.welcomeMessage
-      .replaceAll("{user}", "<@" + interaction.user.id + ">")
-      .replaceAll("{username}", interaction.user.username)
-      .replaceAll("{server}", interaction.guild.name)
-      .replaceAll("{memberCount}", String(interaction.guild.memberCount))
-      .replaceAll("{id}", interaction.user.id);
-    const embed = new EmbedBuilder().setColor(0x57F287).setDescription(safeText(preview, 3900));
-    if (s.welcomeImageUrl) embed.setImage(s.welcomeImageUrl);
-    await channel.send({ embeds: [embed], allowedMentions: { parse: [], users: [interaction.user.id] } });
-    await interaction.reply({ content: "Prévia enviada para " + channel.toString() + ".", ephemeral: true });
+  if (interaction.isButton() && /^guildcfg:toggle_mode_(welcome|goodbye)$/.test(id)) {
+    const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
+    updateSettings(interaction.guildId, s => { s[prefix + "Mode"] = s[prefix + "Mode"] === "v2" ? "embed" : "v2"; });
+    await interaction.update(messagePanel(interaction.guild, prefix));
     return true;
   }
+  if (interaction.isButton() && /^guildcfg:toggle_(welcome|goodbye)$/.test(id)) {
+    const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
+    updateSettings(interaction.guildId, s => { s[prefix + "Enabled"] = !s[prefix + "Enabled"]; });
+    await interaction.update(messagePanel(interaction.guild, prefix));
+    return true;
+  }
+  if (interaction.isButton() && /^guildcfg:(edit|appearance)_(welcome|goodbye)$/.test(id)) {
+    const parts = id.split("_");
+    const kind = parts[0].split(":")[1];
+    const prefix = parts[1];
+    const s = getSettings(interaction.guildId);
+    const welcome = prefix === "welcome";
+    const modal = new ModalBuilder()
+      .setCustomId("guildcfg:modal_" + kind + "_" + prefix)
+      .setTitle(kind === "edit" ? (welcome ? "Mensagem & Tempo" : "Mensagem & Tempo") : "Aparência da Mensagem");
+    if (kind === "edit") {
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("message").setLabel("Mensagem enviada (use variáveis)").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800).setValue(s[prefix + "Message"])),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("deleteAfter").setLabel("Auto-deletar em segundos (0 = nunca)").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6).setValue(String(s[prefix + "DeleteAfter"] || 0)))
+      );
+    } else {
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Título da mensagem (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(256).setValue(s[prefix + "Title"] || (welcome ? "**Bem-Vindo a {server}**" : "**Até logo!**"))),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("color").setLabel("Cor da embed (hex)").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(7).setValue("#" + (s[prefix + "Color"] || (welcome ? "301934" : "ED4245")))),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("image").setLabel("Imagem/GIF - URL (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500).setValue(s[prefix + "ImageUrl"] || ""))
+      );
+    }
+    await interaction.showModal(modal);
+    return true;
+  }
+  if (interaction.isModalSubmit() && /^guildcfg:modal_(edit|appearance)_(welcome|goodbye)$/.test(id)) {
+    const parts = id.split("_");
+    const kind = parts[1];
+    const prefix = parts[2];
+    if (kind === "edit") {
+      const message = interaction.fields.getTextInputValue("message");
+      const rawSeconds = interaction.fields.getTextInputValue("deleteAfter").trim();
+      const seconds = Number(rawSeconds);
+      if (!Number.isInteger(seconds) || seconds < 0 || seconds > 86400) {
+        await interaction.reply({ content: "O tempo deve ser um número inteiro entre 0 e 86400 segundos.", ephemeral: true });
+        return true;
+      }
+      updateSettings(interaction.guildId, s => { s[prefix + "Message"] = message; s[prefix + "DeleteAfter"] = seconds; });
+    } else {
+      const title = interaction.fields.getTextInputValue("title");
+      const rawColor = interaction.fields.getTextInputValue("color").trim().replace(/^#/, "");
+      const image = interaction.fields.getTextInputValue("image").trim();
+      if (!/^[0-9a-f]{6}$/i.test(rawColor)) {
+        await interaction.reply({ content: "A cor precisa ser HEX, por exemplo #301934.", ephemeral: true });
+        return true;
+      }
+      if (image && !/^https:\/\//i.test(image)) {
+        await interaction.reply({ content: "A imagem precisa usar um endereço HTTPS.", ephemeral: true });
+        return true;
+      }
+      updateSettings(interaction.guildId, s => { s[prefix + "Title"] = title; s[prefix + "Color"] = rawColor.toUpperCase(); s[prefix + "ImageUrl"] = image; });
+    }
+    await interaction.reply({ content: "Configuração salva! Reabra o painel da mensagem para conferir.", ephemeral: true });
+    return true;
+  }
+  if (interaction.isButton() && /^guildcfg:preview_(welcome|goodbye)$/.test(id)) {
+    const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
+    const s = getSettings(interaction.guildId);
+    const channelId = s[prefix + "ChannelId"];
+    const channel = channelId ? await interaction.guild.channels.fetch(channelId).catch(() => null) : null;
+    if (!channel?.isTextBased?.() || !channel.send) {
+      await interaction.reply({ content: "Configure primeiro um canal válido para esta mensagem.", ephemeral: true });
+      return true;
+    }
+    const fakeMember = { id: interaction.user.id, user: interaction.user, guild: interaction.guild };
+    const payload = makeWelcomePayload(fakeMember, s, prefix);
+    const sent = await channel.send(payload);
+    const seconds = Number(s[prefix + "DeleteAfter"] || 0);
+    if (seconds > 0) setTimeout(() => sent.delete().catch(() => {}), seconds * 1000).unref?.();
+    await interaction.reply({ content: "Preview enviada para " + channel.toString() + ".", ephemeral: true });
+    return true;
+  }
+
+
   return false;
 }
 function register(client) {
@@ -256,9 +355,9 @@ function register(client) {
     if (s.welcomeEnabled && s.welcomeChannelId) {
       const channel = await member.guild.channels.fetch(s.welcomeChannelId).catch(() => null);
       if (channel?.isTextBased?.() && channel.send) {
-        const embed = new EmbedBuilder().setColor(0x57F287).setDescription(safeText(render(s.welcomeMessage, member), 3900)).setThumbnail(member.user.displayAvatarURL({ size: 256 }));
-        if (s.welcomeImageUrl) embed.setImage(s.welcomeImageUrl);
-        await channel.send({ embeds: [embed], allowedMentions: { parse: [], users: [member.id] } }).catch(error => console.warn("[WELCOME] Falha:", error?.message || error));
+        const sent = await channel.send(makeWelcomePayload(member, s, "welcome")).catch(error => { console.warn("[WELCOME] Falha:", error?.message || error); return null; });
+        const seconds = Number(s.welcomeDeleteAfter || 0);
+        if (sent && seconds > 0) setTimeout(() => sent.delete().catch(() => {}), seconds * 1000).unref?.();
       }
     }
     await sendLog(member.guild, "memberLogChannelId", makeEmbed("Membro entrou", member.user.tag + " (" + member.id + ")", 0x57F287));
@@ -268,10 +367,9 @@ function register(client) {
     if (s.goodbyeEnabled && s.goodbyeChannelId) {
       const channel = await member.guild.channels.fetch(s.goodbyeChannelId).catch(() => null);
       if (channel?.isTextBased?.() && channel.send) {
-        const text = s.goodbyeMessage.replaceAll("{user}", "<@" + member.id + ">").replaceAll("{username}", member.user.username).replaceAll("{server}", member.guild.name).replaceAll("{memberCount}", String(member.guild.memberCount)).replaceAll("{id}", member.id);
-        const embed = new EmbedBuilder().setColor(0xED4245).setDescription(safeText(text, 3900)).setThumbnail(member.user.displayAvatarURL({ size: 256 }));
-        if (s.goodbyeImageUrl) embed.setImage(s.goodbyeImageUrl);
-        await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(error => console.warn("[GOODBYE] Falha:", error?.message || error));
+        const sent = await channel.send(makeWelcomePayload(member, s, "goodbye")).catch(error => { console.warn("[GOODBYE] Falha:", error?.message || error); return null; });
+        const seconds = Number(s.goodbyeDeleteAfter || 0);
+        if (sent && seconds > 0) setTimeout(() => sent.delete().catch(() => {}), seconds * 1000).unref?.();
       }
     }
     await sendLog(member.guild, "memberLogChannelId", makeEmbed("Membro saiu", member.user.tag + " (" + member.id + ")", 0xED4245));
