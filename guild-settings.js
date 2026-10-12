@@ -162,7 +162,7 @@ function panel(guild) {
         new ChannelSelectMenuBuilder()
           .setCustomId("guildcfg:channel")
           .setPlaceholder("② Selecione o canal do servidor")
-          .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+          .setChannelTypes(ChannelType.GuildText)
       ),
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
