@@ -3300,7 +3300,7 @@ function buildConfigPanel(guildId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("panel:servers").setLabel("Servidores autorizados").setEmoji({ name: "60581", id: "1557204878001176586" }).setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId("panel:fruit_roles").setLabel("Cargos das frutas").setEmoji(fruitEmojiObject("Dragon")).setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("panel:server_channels").setLabel("Canais, boas-vindas e logs").setEmoji("🧾").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("panel:server_channels").setLabel("Canais, boas-vindas e logs").setEmoji({ name: "62604", id: "1559349840184344757" }).setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "60578", id: "1557204872648982579" }).setStyle(ButtonStyle.Secondary)
       )
     );
