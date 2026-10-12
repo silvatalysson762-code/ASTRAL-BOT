@@ -6260,15 +6260,21 @@ client.on("interactionCreate", async interaction => {
 });
 guildSettings.register(client);
 client.once("ready", () => {
-  console.log("[STOCK CACHE] Atualização automática da API própria a cada 30 segundos iniciada.");
-  getStock(true).catch(error => {
-    console.error("[STOCK CACHE] Primeira atualização falhou; mantendo último stock válido quando disponível:", error.message || error);
-  });
-  setInterval(() => {
-    getStock(true).catch(error => {
-      console.error("[STOCK CACHE] Atualização automática falhou; mantendo último stock válido quando disponível:", error.message || error);
-    });
-  }, STOCK_API_CACHE_MS);
+  console.log("[STOCK CACHE] Verificação da API própria a cada 30 segundos; publicando somente quando um stock novo for identificado.");
+
+  const refreshAndPublishIfChanged = async () => {
+    try {
+      const stock = await getStock(true);
+      // Atualiza o estado e publica somente grupos cuja assinatura realmente mudou.
+      // Se a API falhar ou devolver dados inválidos, getStock lança erro e o estado publicado é preservado.
+      await checkStock(false, ["normal", "mirage"], false, stock);
+    } catch (error) {
+      console.error("[STOCK CACHE] Consulta automática falhou; o último stock válido/publicado será preservado:", error.message || error);
+    }
+  };
+
+  refreshAndPublishIfChanged();
+  setInterval(refreshAndPublishIfChanged, STOCK_API_CACHE_MS);
 });
 
 client.login(process.env.DISCORD_TOKEN);
