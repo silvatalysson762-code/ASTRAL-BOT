@@ -6073,7 +6073,7 @@ client.on("interactionCreate", async interaction => {
     await interaction.deferReply({ ephemeral: true });
     try {
       const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim()
-        .replace(/\\/stock\\/?$/, "/stock/refresh");
+        .replace(/\/stock\/?$/, "/stock/refresh");
       const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
       const headers = { "Accept": "application/json" };
       if (apiKey) headers["x-api-key"] = apiKey;
@@ -6089,11 +6089,11 @@ client.on("interactionCreate", async interaction => {
       lastSuccessfulStock = null;
       lastSuccessfulStockAt = 0;
       await interaction.editReply(
-        uiEmoji("success", "✅") + " **Consulta da API concluída!**\\n" +
+        uiEmoji("success", "✅") + " **Consulta da API concluída!**\n" +
         "Normal: **" + (payload.normal_count ?? "?") + "** frutas\\n" +
         "Mirage: **" + (payload.mirage_count ?? "?") + "** frutas\\n" +
         (payload.updatedAt ? "Atualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
-        (payload.error ? "\\nAviso: " + payload.error : "")
+        (payload.error ? "\nAviso: " + payload.error : "")
       );
     } catch (e) {
       await interaction.editReply(
