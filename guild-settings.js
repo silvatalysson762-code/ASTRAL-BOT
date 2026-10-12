@@ -242,16 +242,18 @@ function messageEditorPanel(guild, type, userId) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# " + (welcome ? "<:62565:1559293995840970764> EDITAR BOAS-VINDAS" : "<:62548:1559294145737138218> EDITAR SAÍDA"),
       "> Edite os campos pelo botão abaixo. A prévia usa o rascunho atual.",
-      "> **Título**",
-      safeText(draft.title || "`Não configurado`", 180),
-      "> **Descrição**",
-      safeText(draft.message || "`Não configurada`", 500),
-      "> **Thumbnail:** " + (draft.thumbnail ? "Configurada" : "Avatar do membro"),
-      "> **Banner:** " + (draft.banner ? "Configurado" : "Não configurado"),
+      "> **Mídia**",
+      "> Thumbnail: " + (draft.thumbnail ? "Configurada" : "Avatar do membro"),
+      "> Banner: " + (draft.banner ? "Configurado" : "Não configurado"),
       "> **Variáveis disponíveis**",
-      "> `{member}` • `{username}` • `{displayname}`",
-      "> `{server}` • `{membercount}` • `{createdat}`",
-      "> `{accountage}` • `{id}`"
+      "> `{member}` • Menção ao membro",
+      "> `{username}` • Nome de usuário",
+      "> `{displayname}` • Nome de exibição",
+      "> `{server}` • Nome do servidor",
+      "> `{membercount}` • Quantidade de membros",
+      "> `{createdat}` • Quando a conta foi criada",
+      "> `{accountage}` • Idade da conta em dias",
+      "> `{id}` • ID do usuário"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar campos").setEmoji("✏️").setStyle(ButtonStyle.Primary),
