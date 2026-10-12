@@ -2022,9 +2022,14 @@ function buildRolesPanel(guildId) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
-function buildBotControlPanel() {
+function buildBotControlPanel(userId = "") {
   const botUser = client.user;
   const botSettings = getBotSettings();
+  const pending = pendingBotCustomizations.get(String(userId)) || {};
+  const hasPendingChanges = Object.entries(pending).some(([key, value]) => {
+    const current = key === "nickname" ? (botUser?.username || "") : String(botSettings[key] ?? "");
+    return String(value ?? "") !== current;
+  });
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
@@ -2098,18 +2103,23 @@ function buildBotControlPanel() {
       )
     )
     .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("panel:main")
-          .setLabel("Voltar")
-          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("panel:bot_save")
-          .setLabel("Salvar")
-          .setEmoji({ name: "save", id: "1557205052974960780" })
-          .setStyle(ButtonStyle.Success)
-      )
+      (() => {
+        const buttons = [
+          new ButtonBuilder()
+            .setCustomId("panel:main")
+            .setLabel("Voltar")
+            .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+            .setStyle(ButtonStyle.Secondary)
+        ];
+        if (hasPendingChanges) {
+          buttons.push(new ButtonBuilder()
+            .setCustomId("panel:bot_save")
+            .setLabel("Salvar")
+            .setEmoji({ name: "save", id: "1557205052974960780" })
+            .setStyle(ButtonStyle.Success));
+        }
+        return new ActionRowBuilder().addComponents(...buttons);
+      })()
     );
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -4092,7 +4102,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: "<:offline:1557204568432185454> Apenas o dono da aplicação pode acessar o controle do bot.", ephemeral: true });
       return;
     }
-    await interaction.update(buildBotControlPanel());
+    await interaction.update(buildBotControlPanel(interaction.user.id));
     return;
   }
 
@@ -5199,6 +5209,7 @@ client.on("interactionCreate", async interaction => {
 
       saveConfig(config);
       pendingBotCustomizations.delete(userKey);
+      await interaction.message?.edit(buildBotControlPanel(userKey)).catch(() => {});
       rotatingStatusIndex = 0;
       applyRotatingBotStatus();
 
