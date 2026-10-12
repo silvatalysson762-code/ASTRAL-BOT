@@ -156,7 +156,7 @@ function panel(guild) {
   const s = getSettings(guild.id);
   const channelValue = key => s[key] ? "<#" + s[key] + ">" : "`Não configurado`";
   const description = [
-    "# 📡 CANAIS DO SERVIDOR",
+    "# <:62604:1559349840184344757> CANAIS DO SERVIDOR",
     "> Lista de todos os canais padrão usados pelo ASTRAL BOT.",
     "> Selecione uma configuração na lista e depois escolha o canal.",
     "",
