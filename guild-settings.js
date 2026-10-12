@@ -20,17 +20,18 @@ const {
 
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const CHANNELS = {
-  welcomeChannelId: "Canal de boas-vindas",
-  goodbyeChannelId: "Canal de saída de membros",
-  memberLogChannelId: "Logs de membros",
-  messageLogChannelId: "Logs de mensagens",
-  moderationLogChannelId: "Logs de moderação",
-  serverLogChannelId: "Logs do servidor",
-  ticketLogChannelId: "Logs de tickets",
-  announcementChannelId: "Anúncios",
-  suggestionChannelId: "Sugestões",
-  stockChannelId: "Stock Blox Fruits (Normal/Mirage)",
-  stockAlertChannelId: "Alertas do Stock Blox Fruits"
+  welcomeChannelId: "Boas-vindas",
+  goodbyeChannelId: "Saídas",
+  stockChannelId: "Stock Blox Fruits",
+  supportMessageChannelId: "Ticket",
+  reviewChannelId: "Avaliações"
+};
+const CHANNEL_EMOJIS = {
+  welcomeChannelId: { name: "62565", id: "1559293995840970764" },
+  goodbyeChannelId: { name: "62548", id: "1559294145737138218" },
+  stockChannelId: { name: "chart", id: "1557204890474909799" },
+  supportMessageChannelId: { name: "ticket_plus", id: "1557205110847701052" },
+  reviewChannelId: { name: "estrela", id: "1559282428621623427" }
 };
 const DEFAULTS = {
   welcomeEnabled: true,
@@ -73,7 +74,9 @@ function getSettings(guildId) {
     ...DEFAULTS,
     ...(guildConfig.serverSettings || {}),
     stockChannelId: guildConfig.channelId || guildConfig.serverSettings?.stockChannelId || null,
-    stockAlertChannelId: guildConfig.stockAlertChannelId || guildConfig.serverSettings?.stockAlertChannelId || null
+    stockAlertChannelId: guildConfig.stockAlertChannelId || guildConfig.serverSettings?.stockAlertChannelId || null,
+    supportMessageChannelId: guildConfig.supportMessageChannelId || guildConfig.serverSettings?.supportMessageChannelId || null,
+    reviewChannelId: guildConfig.reviewChannelId || guildConfig.serverSettings?.reviewChannelId || null
   };
 }
 function updateSettings(guildId, updater) {
@@ -89,13 +92,19 @@ function updateSettings(guildId, updater) {
   updater(settings);
   const stockChannelId = settings.stockChannelId;
   const stockAlertChannelId = settings.stockAlertChannelId;
+  const supportMessageChannelId = settings.supportMessageChannelId;
+  const reviewChannelId = settings.reviewChannelId;
   delete settings.stockChannelId;
   delete settings.stockAlertChannelId;
+  delete settings.supportMessageChannelId;
+  delete settings.reviewChannelId;
   guildConfig.serverSettings = settings;
   if (stockChannelId !== undefined) guildConfig.channelId = stockChannelId;
   if (stockAlertChannelId !== undefined) guildConfig.stockAlertChannelId = stockAlertChannelId;
+  if (supportMessageChannelId !== undefined) guildConfig.supportMessageChannelId = supportMessageChannelId;
+  if (reviewChannelId !== undefined) guildConfig.reviewChannelId = reviewChannelId;
   saveConfig(root);
-  return { ...settings, stockChannelId, stockAlertChannelId };
+  return { ...settings, stockChannelId, stockAlertChannelId, supportMessageChannelId, reviewChannelId };
 }
 function render(template, member) {
   const createdAt = Number(member.user?.createdTimestamp || member.user?.createdAt?.getTime?.() || Date.now());
@@ -144,7 +153,7 @@ function panel(guild) {
     "> Lista de todos os canais padrão usados pelo ASTRAL BOT.",
     "> Selecione uma configuração na lista e depois escolha o canal.",
     "",
-    ...Object.entries(CHANNELS).map(([key, label]) => "> **" + label + ":** " + channelValue(key)),
+    ...Object.entries(CHANNELS).map(([key, label]) => (CHANNEL_EMOJIS[key] ? "<:" + CHANNEL_EMOJIS[key].name + ":" + CHANNEL_EMOJIS[key].id + "> " : "") + "**" + label + ":** " + channelValue(key)),
     "",
     "-# ASTRAL STORE • Configuração de canais"
   ].join("\n");
@@ -155,6 +164,7 @@ function panel(guild) {
       .addOptions(Object.entries(CHANNELS).map(([value, label]) => ({
         label,
         value,
+        ...(CHANNEL_EMOJIS[value] ? { emoji: CHANNEL_EMOJIS[value] } : {}),
         description: getSettings(guild.id)[value] ? "Canal já configurado" : "Canal ainda não configurado"
       })))
   );
