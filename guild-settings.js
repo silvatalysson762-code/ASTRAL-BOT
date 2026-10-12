@@ -177,12 +177,10 @@ function buildWelcomeLandingPanel(guild) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
-      "Configure separadamente as mensagens de entrada e saída do servidor.",
-      "",
+      "> Configure separadamente as mensagens de entrada e saída do servidor.",
       "<:62565:1559293995840970764> **Boas-vindas**",
       "> Canal: " + welcomeChannel,
       "> Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
-      "",
       "<:62548:1559294145737138218> **Saída**",
       "> Canal: " + goodbyeChannel,
       "> Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
