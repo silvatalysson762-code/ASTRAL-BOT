@@ -2587,7 +2587,9 @@ const ticketOpeningModeDrafts = new Map();
 function buildTicketOpeningModePanel(guildId, userId) {
   const config = getGuildConfig(guildId);
   const draftKey = String(guildId) + ":" + String(userId || "");
-  const mode = ticketOpeningModeDrafts.get(draftKey) || config.ticketOpeningMode || "channel";
+  const savedMode = config.ticketOpeningMode || "channel";
+  const mode = ticketOpeningModeDrafts.get(draftKey) || savedMode;
+  const hasUnsavedChanges = ticketOpeningModeDrafts.has(draftKey) && mode !== savedMode;
   const channelSelected = mode === "channel";
   const threadSelected = mode === "thread";
 
@@ -2630,11 +2632,11 @@ function buildTicketOpeningModePanel(guildId, userId) {
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
+        ...(hasUnsavedChanges ? [new ButtonBuilder()
           .setCustomId("ticket:opening_mode_save")
           .setLabel("Salvar")
-          .setEmoji({ name: "settings_button", id: "1557204872648982579" })
-          .setStyle(ButtonStyle.Success)
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)] : [])
       )
     );
 
