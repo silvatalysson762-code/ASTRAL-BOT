@@ -152,42 +152,52 @@ async function logTicket(guild, title, description, color = 0x5865F2) {
 function makeEmbed(title, description, color = 0x5865F2) {
   return new EmbedBuilder().setColor(color).setTitle(title).setDescription(safeText(description, 3900)).setTimestamp();
 }
-function panel(guild) {
+function panel(guild, selectedKey = null) {
   const s = getSettings(guild.id);
   const channelValue = key => s[key] ? "<#" + s[key] + ">" : "`Não configurado`";
+  const selected = selectedKey && Object.hasOwn(CHANNELS, selectedKey) ? selectedKey : null;
   const description = [
     "# <:62604:1559349840184344757> CANAIS DO SERVIDOR",
-    "> Lista de todos os canais padrão usados pelo ASTRAL BOT.",
-    "> Selecione uma configuração na lista e depois escolha o canal.",
+    selected
+      ? "> Configure o canal de **" + CHANNELS[selected] + "** usando o seletor abaixo."
+      : "> Selecione uma opção para configurar o canal correspondente.",
     "",
     ...Object.entries(CHANNELS).map(([key, label]) => (CHANNEL_EMOJIS[key] ? "<:" + CHANNEL_EMOJIS[key].name + ":" + CHANNEL_EMOJIS[key].id + "> " : "") + "**" + label + ":** " + channelValue(key)),
     "",
     "-# ASTRAL STORE • Configuração de canais"
   ].join("\n");
-  const categoryRow = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId("guildcfg:category")
-      .setPlaceholder("① Escolha o canal que deseja configurar")
-      .addOptions(Object.entries(CHANNELS).map(([value, label]) => ({
-        label,
-        value,
-        ...(CHANNEL_EMOJIS[value] ? { emoji: CHANNEL_EMOJIS[value] } : {}),
-        description: getSettings(guild.id)[value] ? "Canal já configurado" : "Canal ainda não configurado"
-      })))
-  );
-  const channelRow = new ActionRowBuilder().addComponents(
-    new ChannelSelectMenuBuilder()
-      .setCustomId("guildcfg:channel")
-      .setPlaceholder("② Selecione o canal do servidor")
-      .setChannelTypes(ChannelType.GuildText)
-  );
   const buttonsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder()
+      .setCustomId(selected ? "guildcfg:back_categories" : "panel:main")
+      .setLabel(selected ? "Voltar às opções" : "Voltar")
+      .setEmoji("<:arrow_left:1557204764834537534>")
+      .setStyle(ButtonStyle.Secondary)
   );
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(description))
-    .addActionRowComponents(categoryRow, channelRow, buttonsRow);
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(description));
+  if (selected) {
+    const channelRow = new ActionRowBuilder().addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId("guildcfg:channel")
+        .setPlaceholder("Selecione o canal do servidor")
+        .setChannelTypes(ChannelType.GuildText)
+    );
+    container.addActionRowComponents(channelRow, buttonsRow);
+  } else {
+    const categoryRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("guildcfg:category")
+        .setPlaceholder("Escolha o canal que deseja configurar")
+        .addOptions(Object.entries(CHANNELS).map(([value, label]) => ({
+          label,
+          value,
+          ...(CHANNEL_EMOJIS[value] ? { emoji: CHANNEL_EMOJIS[value] } : {}),
+          description: s[value] ? "Canal já configurado" : "Canal ainda não configurado"
+        })))
+    );
+    container.addActionRowComponents(categoryRow, buttonsRow);
+  }
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 function buildWelcomeLandingPanel(guild) {
@@ -353,6 +363,11 @@ async function handleInteraction(interaction) {
   const id = interaction.customId;
   if (interaction.isStringSelectMenu() && id === "guildcfg:category") {
     selectedCategory.set(interaction.guildId + ":" + interaction.user.id, interaction.values[0]);
+    await interaction.update(panel(interaction.guild, interaction.values[0]));
+    return true;
+  }
+  if (interaction.isButton() && id === "guildcfg:back_categories") {
+    selectedCategory.delete(interaction.guildId + ":" + interaction.user.id);
     await interaction.update(panel(interaction.guild));
     return true;
   }
