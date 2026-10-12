@@ -4607,8 +4607,11 @@ client.on("interactionCreate", async interaction => {
       }
 
       if (interaction.customId === "ticket:sync_message") {
-        // Confirma a interação imediatamente para o Discord não marcar o botão como expirado.
-        await interaction.deferReply({ ephemeral: true });
+        // Mostra o carregamento personalizado em vez do indicador "o bot está pensando".
+        await interaction.reply({
+          content: "<a:refresh_alt:1557205141051019274> carregando...",
+          ephemeral: true
+        });
         const config = getGuildConfig(guild.id);
         let channel = config.supportMessageChannelId
           ? await guild.channels.fetch(config.supportMessageChannelId).catch(() => null)
