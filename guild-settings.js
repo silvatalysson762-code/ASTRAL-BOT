@@ -23,6 +23,7 @@ const CHANNELS = {
   welcomeChannelId: "Boas-vindas",
   goodbyeChannelId: "Saídas",
   stockChannelId: "Stock Blox Fruits",
+  stockRequestChannelId: "Pedir Stock",
   supportMessageChannelId: "Ticket",
   reviewChannelId: "Avaliações"
 };
@@ -30,6 +31,7 @@ const CHANNEL_EMOJIS = {
   welcomeChannelId: { name: "62565", id: "1559293995840970764" },
   goodbyeChannelId: { name: "62548", id: "1559294145737138218" },
   stockChannelId: { name: "62586", id: "1559331004366200933" },
+  stockRequestChannelId: { name: "62601", id: "1559346945636442203" },
   supportMessageChannelId: { name: "ticket_plus", id: "1557205110847701052" },
   reviewChannelId: { name: "estrela", id: "1559282428621623427" }
 };
@@ -74,6 +76,7 @@ function getSettings(guildId) {
     ...DEFAULTS,
     ...(guildConfig.serverSettings || {}),
     stockChannelId: guildConfig.channelId || guildConfig.serverSettings?.stockChannelId || null,
+    stockRequestChannelId: guildConfig.stockRequestChannelId || guildConfig.serverSettings?.stockRequestChannelId || null,
     stockAlertChannelId: guildConfig.stockAlertChannelId || guildConfig.serverSettings?.stockAlertChannelId || null,
     supportMessageChannelId: guildConfig.supportMessageChannelId || guildConfig.serverSettings?.supportMessageChannelId || null,
     reviewChannelId: guildConfig.reviewChannelId || guildConfig.serverSettings?.reviewChannelId || null
@@ -87,24 +90,28 @@ function updateSettings(guildId, updater) {
     ...DEFAULTS,
     ...(guildConfig.serverSettings || {}),
     stockChannelId: guildConfig.channelId || guildConfig.serverSettings?.stockChannelId || null,
+    stockRequestChannelId: guildConfig.stockRequestChannelId || guildConfig.serverSettings?.stockRequestChannelId || null,
     stockAlertChannelId: guildConfig.stockAlertChannelId || guildConfig.serverSettings?.stockAlertChannelId || null
   };
   updater(settings);
   const stockChannelId = settings.stockChannelId;
+  const stockRequestChannelId = settings.stockRequestChannelId;
   const stockAlertChannelId = settings.stockAlertChannelId;
   const supportMessageChannelId = settings.supportMessageChannelId;
   const reviewChannelId = settings.reviewChannelId;
   delete settings.stockChannelId;
+  delete settings.stockRequestChannelId;
   delete settings.stockAlertChannelId;
   delete settings.supportMessageChannelId;
   delete settings.reviewChannelId;
   guildConfig.serverSettings = settings;
   if (stockChannelId !== undefined) guildConfig.channelId = stockChannelId;
+  if (stockRequestChannelId !== undefined) guildConfig.stockRequestChannelId = stockRequestChannelId;
   if (stockAlertChannelId !== undefined) guildConfig.stockAlertChannelId = stockAlertChannelId;
   if (supportMessageChannelId !== undefined) guildConfig.supportMessageChannelId = supportMessageChannelId;
   if (reviewChannelId !== undefined) guildConfig.reviewChannelId = reviewChannelId;
   saveConfig(root);
-  return { ...settings, stockChannelId, stockAlertChannelId, supportMessageChannelId, reviewChannelId };
+  return { ...settings, stockChannelId, stockRequestChannelId, stockAlertChannelId, supportMessageChannelId, reviewChannelId };
 }
 function render(template, member) {
   const createdAt = Number(member.user?.createdTimestamp || member.user?.createdAt?.getTime?.() || Date.now());
