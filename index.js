@@ -22,7 +22,7 @@ let checking = false;
 let apiCooldownUntil = 0;
 let lastSuccessfulStock = null;
 let lastSuccessfulStockAt = 0;
-const STOCK_API_CACHE_MS = 90 * 1000;
+const STOCK_API_CACHE_MS = 30 * 1000;
 const apiKeyCooldownUntil = new Map();
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
@@ -755,8 +755,8 @@ function parseFruityBloxStock(html) {
   return [...normal, ...mirage];
 }
 
-async function getStock() {
-  if (lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
+async function getStock(forceRefresh = false) {
+  if (!forceRefresh && lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
     console.log("[STOCK] Usando resposta válida em cache.");
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
@@ -6259,4 +6259,16 @@ client.on("interactionCreate", async interaction => {
   }
 });
 guildSettings.register(client);
+client.once("ready", () => {
+  console.log("[STOCK CACHE] Atualização automática da API própria a cada 30 segundos iniciada.");
+  getStock(true).catch(error => {
+    console.error("[STOCK CACHE] Primeira atualização falhou; mantendo último stock válido quando disponível:", error.message || error);
+  });
+  setInterval(() => {
+    getStock(true).catch(error => {
+      console.error("[STOCK CACHE] Atualização automática falhou; mantendo último stock válido quando disponível:", error.message || error);
+    });
+  }, STOCK_API_CACHE_MS);
+});
+
 client.login(process.env.DISCORD_TOKEN);
