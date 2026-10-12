@@ -127,50 +127,49 @@ function makeEmbed(title, description, color = 0x5865F2) {
 function panel(guild) {
   const s = getSettings(guild.id);
   const channelValue = key => s[key] ? "<#" + s[key] + ">" : "`Não configurado`";
-  return {
-    embeds: [new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setTitle("┃ 📡 CANAIS DO SERVIDOR")
-      .setDescription([
-        "┃ Selecione uma categoria e depois escolha o canal.",
-        "┃",
-        "┃ **👋 Boas-vindas:** " + channelValue("welcomeChannelId"),
-        "┃ **🚪 Saídas:** " + channelValue("goodbyeChannelId"),
-        "┃ **🧾 Logs de membros:** " + channelValue("memberLogChannelId"),
-        "┃ **💬 Logs de mensagens:** " + channelValue("messageLogChannelId"),
-        "┃ **🛡️ Logs de moderação:** " + channelValue("moderationLogChannelId"),
-        "┃ **🗂️ Logs do servidor:** " + channelValue("serverLogChannelId"),
-        "┃ **🎫 Logs de tickets:** " + channelValue("ticketLogChannelId"),
-        "┃ **📢 Anúncios:** " + channelValue("announcementChannelId"),
-        "┃ **💡 Sugestões:** " + channelValue("suggestionChannelId"),
-        "┃ **🍈 Stock:** " + channelValue("stockChannelId"),
-        "┃ **🔔 Alertas de stock:** " + channelValue("stockAlertChannelId")
-      ].join("\n"))
-      .setFooter({ text: "ASTRAL STORE • Configuração de canais" })],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("guildcfg:category")
-          .setPlaceholder("① Escolha o tipo de canal")
-          .addOptions(Object.entries(CHANNELS).map(([value, label]) => ({
-            label,
-            value,
-            description: "Configurar " + label.toLowerCase()
-          })))
-      ),
-      new ActionRowBuilder().addComponents(
-        new ChannelSelectMenuBuilder()
-          .setCustomId("guildcfg:channel")
-          .setPlaceholder("② Selecione o canal do servidor")
-          .setChannelTypes(ChannelType.GuildText)
-      ),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saídas").setEmoji("🚪").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
-      )
-    ]
-  };
+  const description = [
+    "# 📡 CANAIS DO SERVIDOR",
+    "┃ Selecione uma categoria e depois escolha o canal.",
+    "┃",
+    "┃ **👋 Boas-vindas:** " + channelValue("welcomeChannelId"),
+    "┃ **🚪 Saídas:** " + channelValue("goodbyeChannelId"),
+    "┃ **🧾 Logs de membros:** " + channelValue("memberLogChannelId"),
+    "┃ **💬 Logs de mensagens:** " + channelValue("messageLogChannelId"),
+    "┃ **🛡️ Logs de moderação:** " + channelValue("moderationLogChannelId"),
+    "┃ **🗂️ Logs do servidor:** " + channelValue("serverLogChannelId"),
+    "┃ **🎫 Logs de tickets:** " + channelValue("ticketLogChannelId"),
+    "┃ **📢 Anúncios:** " + channelValue("announcementChannelId"),
+    "┃ **💡 Sugestões:** " + channelValue("suggestionChannelId"),
+    "┃ **🍈 Stock:** " + channelValue("stockChannelId"),
+    "┃ **🔔 Alertas de stock:** " + channelValue("stockAlertChannelId"),
+    "-# ASTRAL STORE • Configuração de canais"
+  ].join("\n");
+  const categoryRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("guildcfg:category")
+      .setPlaceholder("① Escolha o tipo de canal")
+      .addOptions(Object.entries(CHANNELS).map(([value, label]) => ({
+        label,
+        value,
+        description: "Configurar " + label.toLowerCase()
+      })))
+  );
+  const channelRow = new ActionRowBuilder().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId("guildcfg:channel")
+      .setPlaceholder("② Selecione o canal do servidor")
+      .setChannelTypes(ChannelType.GuildText)
+  );
+  const buttonsRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("guildcfg:open_welcome").setLabel("Boas-vindas").setEmoji("👋").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saídas").setEmoji("🚪").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+  );
+  const container = new ContainerBuilder()
+    .setAccentColor(0x5865F2)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(description))
+    .addActionRowComponents(categoryRow, channelRow, buttonsRow);
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 function messagePanel(guild, type) {
   const s = getSettings(guild.id);
