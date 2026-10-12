@@ -161,7 +161,7 @@ function panel(guild) {
       .setChannelTypes(ChannelType.GuildText)
   );
   const buttonsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
   );
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
@@ -193,7 +193,7 @@ function buildWelcomeLandingPanel(guild) {
       new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saída").setEmoji("<:62548:1559294145737138218>").setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
