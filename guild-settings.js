@@ -190,11 +190,9 @@ function buildWelcomeLandingPanel(guild) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
       "┃ Configure as mensagens de entrada e saída separadamente.",
-      "",
       "<:62565:1559293995840970764> **Boas-vindas**",
       "┃ Canal: " + welcomeChannel,
       "┃ Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
-      "",
       "<:62548:1559294145737138218> **Saída**",
       "┃ Canal: " + goodbyeChannel,
       "┃ Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
@@ -244,16 +242,12 @@ function messageEditorPanel(guild, type, userId) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# " + (welcome ? "<:62565:1559293995840970764> EDITAR BOAS-VINDAS" : "<:62548:1559294145737138218> EDITAR SAÍDA"),
       "┃ Edite os campos pelo botão abaixo. A prévia usa o rascunho atual.",
-      "",
       "┃ **Título**",
       safeText(draft.title || "`Não configurado`", 180),
-      "",
       "┃ **Descrição**",
       safeText(draft.message || "`Não configurada`", 500),
-      "",
       "┃ **Thumbnail:** " + (draft.thumbnail ? "Configurada" : "Avatar do membro"),
       "┃ **Banner:** " + (draft.banner ? "Configurado" : "Não configurado"),
-      "",
       "┃ **Variáveis**",
       "┃ `{member}` • `{username}` • `{displayname}` • `{server}`",
       "┃ `{membercount}` • `{createdat}` • `{accountage}`"
@@ -284,7 +278,6 @@ function messagePanel(guild, type, userId) {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# " + (welcome ? "<:62565:1559293995840970764> BOAS-VINDAS" : "<:62548:1559294145737138218> SAÍDA"),
       "┃ Configure o canal, a mensagem e quando ela será enviada.",
-      "",
       "┃ **Canal:** " + (channelId ? "<#" + channelId + ">" : "`Não configurado`"),
       "┃ **Status:** " + (enabled ? "Ativado" : "Desativado"),
       "┃ **Mensagem:** " + ((s[prefix + "Message"] || "").trim() ? "Personalizada" : "Padrão")
