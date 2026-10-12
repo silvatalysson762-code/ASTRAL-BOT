@@ -4498,7 +4498,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
       schedule.enabled = !schedule.enabled;
-      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao alternar sistema:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui alterar o status do sistema.", ephemeral: true }).catch(() => {});
@@ -4510,7 +4510,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
       schedule.allowOutsideHours = !schedule.allowOutsideHours;
-      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao alternar abertura fora do horário:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui alterar essa opção.", ephemeral: true }).catch(() => {});
@@ -4522,7 +4522,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
       for (const day of TICKET_SCHEDULE_DAYS) schedule.days[day.key].active = true;
-      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao ativar todos os dias:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui ativar todos os dias.", ephemeral: true }).catch(() => {});
@@ -4534,7 +4534,7 @@ client.on("interactionCreate", async interaction => {
     try {
       const schedule = getTicketScheduleDraft(interaction.guildId, interaction.user.id);
       for (const day of TICKET_SCHEDULE_DAYS) schedule.days[day.key].active = false;
-      await interaction.update(buildTicketSchedulePanel(interaction.guildId));
+      await interaction.update(buildTicketSchedulePanel(interaction.guildId, interaction.user.id));
     } catch (error) {
       console.error("[TICKET SCHEDULE] Erro ao desativar todos os dias:", error);
       await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui desativar todos os dias.", ephemeral: true }).catch(() => {});
