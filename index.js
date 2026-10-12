@@ -4249,15 +4249,17 @@ client.on("interactionCreate", async interaction => {
       try { await previous.promptInteraction.deleteReply(); } catch {}
     }
     const isAdd = interaction.customId === "ticket:blacklist:add";
-    await interaction.reply(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
-    const promptInteraction = interaction;
-    ticketBlacklistPromptSessions.set(sessionKey, { promptInteraction, mainMessage: interaction.message || null, channelId: interaction.channelId, messageId: interaction.message?.id, guildId: interaction.guildId, action: isAdd ? "add" : "remove" });
+    // Atualiza a própria mensagem do painel para o seletor. Assim, o próximo passo
+    // continua ligado à mensagem original, inclusive quando ela é efêmera.
+    await interaction.update(isAdd ? buildTicketBlacklistAddSelectPanel() : buildTicketBlacklistRemoveSelectPanel(interaction.guildId));
+    ticketBlacklistPromptSessions.set(sessionKey, { panelInteraction: interaction, mainMessage: interaction.message || null, channelId: interaction.channelId, messageId: interaction.message?.id, guildId: interaction.guildId, action: isAdd ? "add" : "remove" });
     return;
   }
   if (interaction.isUserSelectMenu() && interaction.customId === "ticket:blacklist:select-add") {
     const selectedUserId = interaction.values[0];
     const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
     const session = ticketBlacklistPromptSessions.get(sessionKey);
+    if (session) session.panelInteraction = interaction;
     await interaction.showModal(buildTicketBlacklistModal("add", selectedUserId, session?.channelId || interaction.channelId, session?.messageId || null));
     return;
   }
@@ -4305,7 +4307,11 @@ client.on("interactionCreate", async interaction => {
         let panelUpdated = false;
         // Tenta a mensagem original guardada na sessão e, se isso falhar, usa os IDs
         // incorporados ao modal para encontrar o painel correto mesmo sem sessão em memória.
-        if (session?.mainMessage) {
+        if (session?.panelInteraction) {
+          try { await session.panelInteraction.editReply(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+          catch (err) { console.error("Atualização da mensagem original da blacklist falhou:", err?.message || err); }
+        }
+        if (!panelUpdated && session?.mainMessage) {
           try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
           catch (err) { console.error("Edição direta do painel da blacklist falhou:", err?.message || err); }
         }
