@@ -3363,8 +3363,8 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         "## <:62586:1559331004366200933>CARGOS DE FRUTAS\n\n" +
-        "Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
-        "> Página **" + (page + 1) + "** de **" + totalPages + "**\n\n" +
+        "> Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
+        "(Página **" + (page + 1) + "** de **" + totalPages + "**)\n\n" +
         (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + uiEmoji("users","👥") + " Cargo atual: " + currentRole : "<:62586:1559331004366200933> Escolha uma fruta abaixo.")
       )
     )
