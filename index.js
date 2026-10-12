@@ -6097,7 +6097,8 @@ client.on("interactionCreate", async interaction => {
         throw new Error("A API não retornou listas completas de Normal e Mirage.");
       }
 
-      await checkStock(true, ["normal", "mirage"], true, refreshedStock);
+      const synchronized = await checkStock(true, ["normal", "mirage"], true, refreshedStock);
+      if (!synchronized) throw new Error("Já existe uma verificação de stock em andamento. Tente novamente em alguns segundos.");
       await interaction.editReply(
         uiEmoji("success", "✅") + " **API consultada e estoque sincronizado!**\n" +
         "Normal: **" + normalCount + "** frutas\n" +
