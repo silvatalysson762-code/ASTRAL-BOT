@@ -5046,7 +5046,7 @@ client.on("interactionCreate", async interaction => {
 
       let panel;
       if (action === "config" || action === "stock" || action === "settings" || action === "prices") panel = buildConfigPanel(interaction.guildId);
-      else if (action === "server_settings") panel = guildSettings.buildPanel(interaction.guild);
+      else if (action === "server_settings" || action === "server_channels") panel = guildSettings.buildPanel(interaction.guild);
       else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
       else if (action === "servers") panel = buildServerAdminPanel();
       else panel = buildMainPanel(interaction.guildId, interaction.user.id);
