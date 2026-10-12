@@ -444,6 +444,7 @@ async function handleInteraction(interaction) {
   }
   if (interaction.isButton() && /^guildcfg:back_editor_(welcome|goodbye)$/.test(id)) {
     const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
+    messageDrafts.delete(draftKey(interaction.guildId, interaction.user.id, prefix));
     await interaction.update(messagePanel(interaction.guild, prefix, interaction.user.id));
     return true;
   }
