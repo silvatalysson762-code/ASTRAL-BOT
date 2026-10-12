@@ -289,11 +289,11 @@ function messagePanel(guild, type, userId) {
       new ButtonBuilder().setCustomId("guildcfg:editor_" + prefix).setLabel("Editar mensagem").setEmoji("✏️").setStyle(ButtonStyle.Primary)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(enabled ? "Desabilitar" : "Usar mensagem").setEmoji(enabled ? "🔕" : "🔔").setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(enabled ? "Desabilitar" : "Usar mensagem").setEmoji(enabled ? "🔕" : "🔔").setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
