@@ -2004,7 +2004,7 @@ function buildRolesPanel(guildId) {
               label: "Stock Blox Fruits",
               description: "Configure os cargos das notificações de stock",
               value: "stock_blox_fruits",
-              emoji: fruitEmojiObject("Dragon")
+              emoji: { name: "62586", id: "1559331004366200933" }
             }
           )
       )
