@@ -3322,26 +3322,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
   const totalPages = Math.max(1, Math.ceil(fruits.length / pageSize));
   const selectedIndex = selectedFruit ? adminFruitOrder.findIndex(fruit => fruitKey(fruit) === fruitKey(selectedFruit)) : -1;
   const page = selectedIndex >= 0 ? Math.floor(selectedIndex / pageSize) : Math.max(0, Math.min(totalPages - 1, Number(requestedPage) || 0));
-  const pageFruits = fruits.slice(page * pageSize, (page + 1) * pageSize);
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId("admin_fruit_select:" + page)
-    .setPlaceholder("🍈 Selecione uma fruta para configurar")
-    .setMinValues(1).setMaxValues(1)
-    .addOptions(pageFruits);
-  const rows = [new ActionRowBuilder().addComponents(menu)];
-
-  rows.push(new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("admin_fruit_page:" + Math.max(0, page - 1))
-      .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(page === 0),
-    new ButtonBuilder()
-      .setCustomId("admin_fruit_page:" + Math.min(totalPages - 1, page + 1))
-      .setEmoji({ name: "arrow_right", id: "1557204771864313889" })
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(page >= totalPages - 1)
-  ));
+  const rows = [];
 
   if (selectedFruit) {
     const roleMenu = new RoleSelectMenuBuilder()
@@ -3349,11 +3330,40 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
       .setPlaceholder("Escolha o cargo para " + selectedFruit)
       .setMinValues(1).setMaxValues(1);
     rows.push(new ActionRowBuilder().addComponents(roleMenu));
-    rows.push(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit)).setLabel("Remover cargo").setEmoji(uiEmoji("trash", "🗑️")).setStyle(ButtonStyle.Danger),
+
+    const actionButtons = [
       new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
-    ));
+    ];
+    if (current) {
+      actionButtons.push(
+        new ButtonBuilder()
+          .setCustomId("admin_fruit_remove:" + fruitKey(selectedFruit))
+          .setLabel("Remover cargo")
+          .setEmoji({ name: "offline", id: "1557204568432185454" })
+          .setStyle(ButtonStyle.Danger)
+      );
+    }
+    rows.push(new ActionRowBuilder().addComponents(...actionButtons));
   } else {
+    const pageFruits = fruits.slice(page * pageSize, (page + 1) * pageSize);
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId("admin_fruit_select:" + page)
+      .setPlaceholder("Selecione uma fruta para configurar")
+      .setMinValues(1).setMaxValues(1)
+      .addOptions(pageFruits);
+    rows.push(new ActionRowBuilder().addComponents(menu));
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("admin_fruit_page:" + Math.max(0, page - 1))
+        .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(page === 0),
+      new ButtonBuilder()
+        .setCustomId("admin_fruit_page:" + Math.min(totalPages - 1, page + 1))
+        .setEmoji({ name: "arrow_right", id: "1557204771864313889" })
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(page >= totalPages - 1)
+    ));
     rows.push(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("panel:main").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ));
@@ -3365,7 +3375,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null, requestedPage = 0) 
         "## <:62586:1559331004366200933>CARGOS DE FRUTAS\n\n" +
         "> Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n" +
         "(Página **" + (page + 1) + "** de **" + totalPages + "**)\n\n" +
-        (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + uiEmoji("users","👥") + " Cargo atual: " + currentRole : "<:62586:1559331004366200933> Escolha uma fruta abaixo.")
+        (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + "<:cargo:1559282427132645426> Cargo atual: " + currentRole : "<:62587:1559333297518153780>Escolha uma fruta abaixo.")
       )
     )
     .addActionRowComponents(...rows);
