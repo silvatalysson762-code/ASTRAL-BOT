@@ -152,8 +152,25 @@ async function logTicket(guild, title, description, color = 0x5865F2) {
 function makeEmbed(title, description, color = 0x5865F2) {
   return new EmbedBuilder().setColor(color).setTitle(title).setDescription(safeText(description, 3900)).setTimestamp();
 }
-function panel(guild, selectedKey = null) {
-  const s = getSettings(guild.id);
+const channelDrafts = new Map();
+function channelDraftKey(guildId, userId) { return String(guildId) + ":" + String(userId || ""); }
+function getChannelDraft(guildId, userId) {
+  const key = channelDraftKey(guildId, userId);
+  if (!channelDrafts.has(key)) {
+    const saved = getSettings(guildId);
+    channelDrafts.set(key, Object.fromEntries(Object.keys(CHANNELS).map(k => [k, saved[k] || null])));
+  }
+  return channelDrafts.get(key);
+}
+function hasChannelChanges(guildId, userId) {
+  const draft = channelDrafts.get(channelDraftKey(guildId, userId));
+  if (!draft) return false;
+  const saved = getSettings(guildId);
+  return Object.keys(CHANNELS).some(k => (draft[k] || null) !== (saved[k] || null));
+}
+function panel(guild, selectedKey = null, userId = null) {
+  const saved = getSettings(guild.id);
+  const s = userId ? { ...saved, ...getChannelDraft(guild.id, userId) } : saved;
   const channelValue = key => s[key] ? "<#" + s[key] + ">" : "`Não configurado`";
   const selected = selectedKey && Object.hasOwn(CHANNELS, selectedKey) ? selectedKey : null;
   const description = [
@@ -168,11 +185,14 @@ function panel(guild, selectedKey = null) {
   ].join("\n");
   const buttonsRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(selected ? "guildcfg:back_categories" : "panel:main")
+      .setCustomId(selected ? "guildcfg:back_categories" : (userId && hasChannelChanges(guild.id, userId) ? "guildcfg:cancel_channels" : "panel:main"))
       .setLabel(selected ? "Voltar às opções" : "Voltar")
       .setEmoji("<:arrow_left:1557204764834537534>")
       .setStyle(ButtonStyle.Secondary)
   );
+  if (userId && hasChannelChanges(guild.id, userId)) {
+    buttonsRow.addComponents(new ButtonBuilder().setCustomId("guildcfg:save_channels").setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success));
+  }
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(description));
@@ -363,12 +383,28 @@ async function handleInteraction(interaction) {
   const id = interaction.customId;
   if (interaction.isStringSelectMenu() && id === "guildcfg:category") {
     selectedCategory.set(interaction.guildId + ":" + interaction.user.id, interaction.values[0]);
-    await interaction.update(panel(interaction.guild, interaction.values[0]));
+    await interaction.update(panel(interaction.guild, interaction.values[0], interaction.user.id));
     return true;
   }
   if (interaction.isButton() && id === "guildcfg:back_categories") {
     selectedCategory.delete(interaction.guildId + ":" + interaction.user.id);
-    await interaction.update(panel(interaction.guild));
+    await interaction.update(panel(interaction.guild, null, interaction.user.id));
+    return true;
+  }
+  if (interaction.isButton() && id === "guildcfg:cancel_channels") {
+    channelDrafts.delete(channelDraftKey(interaction.guildId, interaction.user.id));
+    selectedCategory.delete(interaction.guildId + ":" + interaction.user.id);
+    await interaction.update({ content: "Voltando ao painel...", components: [] });
+    return true;
+  }
+  if (interaction.isButton() && id === "guildcfg:save_channels") {
+    const key = channelDraftKey(interaction.guildId, interaction.user.id);
+    const draft = channelDrafts.get(key);
+    if (draft && hasChannelChanges(interaction.guildId, interaction.user.id)) {
+      updateSettings(interaction.guildId, s => { for (const channelKey of Object.keys(CHANNELS)) s[channelKey] = draft[channelKey] || null; });
+    }
+    channelDrafts.delete(key);
+    await interaction.update(panel(interaction.guild, null, interaction.user.id));
     return true;
   }
   if (interaction.isChannelSelectMenu() && id === "guildcfg:channel") {
@@ -378,8 +414,8 @@ async function handleInteraction(interaction) {
       return true;
     }
     const channelId = interaction.values[0];
-    updateSettings(interaction.guildId, s => { s[key] = channelId; });
-    await interaction.update(panel(interaction.guild));
+    getChannelDraft(interaction.guildId, interaction.user.id)[key] = channelId;
+    await interaction.update(panel(interaction.guild, key, interaction.user.id));
     return true;
   }
   if (interaction.isButton() && (id === "guildcfg:open_welcome" || id === "guildcfg:open_goodbye")) {
