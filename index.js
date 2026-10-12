@@ -761,75 +761,38 @@ async function getStock() {
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
 
-  // API principal: Parse.bot. A API 1 é sempre tentada primeiro;
-  // API 2/3 só entram como contingência, respeitando cooldowns de rate limit.
-  const endpoint = "https://api.parse.bot/scraper/e534d388-6640-4c19-b9b6-b2ba12930793/get_stock";
-  const configuredKeys = [
-    { name: "API 1", value: String(process.env.STOCK_API_KEY_1 || "").trim() },
-    { name: "API 2", value: String(process.env.STOCK_API_KEY_2 || "").trim() },
-    { name: "API 3", value: String(process.env.STOCK_API_KEY_3 || "").trim() }
-  ].filter(entry => entry.value);
-
-  const failures = [];
-  if (configuredKeys.length) {
-    for (const entry of configuredKeys) {
-      const cooldownUntil = apiKeyCooldownUntil.get(entry.name) || 0;
-      if (Date.now() < cooldownUntil) {
-        console.log("[STOCK] " + entry.name + " em cooldown por rate limit; pulando temporariamente.");
-        continue;
-      }
-
-      try {
-        console.log("[STOCK] Consultando Parse.bot pela " + entry.name + ".");
-        const response = await fetch(endpoint, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "x-api-key": entry.value,
-            "Authorization": "Bearer " + entry.value
-          },
-          signal: AbortSignal.timeout(20000)
-        });
-
-        if (response.status === 429) {
-          const retryAfter = Number(response.headers.get("retry-after"));
-          const cooldownMs = Number.isFinite(retryAfter) && retryAfter > 0
-            ? retryAfter * 1000
-            : 60 * 1000;
-          apiKeyCooldownUntil.set(entry.name, Date.now() + cooldownMs);
-          const detail = entry.name + " recebeu HTTP 429; cooldown de " + Math.ceil(cooldownMs / 1000) + "s.";
-          failures.push(detail);
-          console.warn("[STOCK] " + detail);
-          continue;
-        }
-
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          const detail = payload?.message || payload?.error || ("HTTP " + response.status);
-          throw new Error(String(detail));
-        }
-
-        const validStock = applySavedFruitPrices(normalizeStock(payload));
-        const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-        const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-        if (!normalStock.length || !mirageStock.length) {
-          throw new Error("A API não retornou stock Normal e Mirage válidos.");
-        }
-
-        apiKeyCooldownUntil.delete(entry.name);
-        lastSuccessfulStock = validStock.map(item => ({ ...item }));
-        lastSuccessfulStockAt = Date.now();
-        console.log("[STOCK] Parse.bot OK pela " + entry.name + " | Normal: " + normalStock.length + " | Mirage: " + mirageStock.length);
-        return validStock.map(item => ({ ...item }));
-      } catch (error) {
-        const detail = entry.name + ": " + (error.message || String(error));
-        failures.push(detail);
-        console.warn("[STOCK] Falha na " + entry.name + ":", error.message || error);
-      }
+  // API própria do ASTRAL, hospedada na Discloud. Não usa Parse.bot.
+  const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim();
+  const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
+  try {
+    console.log("[STOCK] Consultando a API própria do ASTRAL.");
+    const headers = { "Accept": "application/json" };
+    if (apiKey) headers["x-api-key"] = apiKey;
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(25000)
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.message || payload?.error || ("HTTP " + response.status));
     }
-  } else {
-    failures.push("Nenhuma chave STOCK_API_KEY_1/2/3 configurada.");
-    console.warn("[STOCK] Nenhuma chave Parse.bot configurada; tentando as fontes públicas.");
+    if (!payload || payload.status !== true) {
+      throw new Error(payload?.message || payload?.error || "A API própria ainda não tem estoque válido.");
+    }
+    const validStock = applySavedFruitPrices(normalizeStock(payload));
+    const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
+    const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+    if (!normalStock.length || !mirageStock.length) {
+      throw new Error("A API própria não retornou listas Normal e Mirage válidas.");
+    }
+    lastSuccessfulStock = validStock.map(item => ({ ...item }));
+    lastSuccessfulStockAt = Date.now();
+    console.log("[STOCK] API própria OK | Normal: " + normalStock.length + " | Mirage: " + mirageStock.length);
+    return validStock.map(item => ({ ...item }));
+  } catch (error) {
+    console.warn("[STOCK] API própria indisponível; tentando fontes públicas: " + (error.message || error));
+    failures.push("API própria: " + (error.message || error));
   }
 
   // Mantém a contingência pública para não parar o bot se todas as chaves falharem.
