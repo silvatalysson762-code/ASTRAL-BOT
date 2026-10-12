@@ -340,8 +340,9 @@ async function handleInteraction(interaction) {
     return true;
   }
   if (!interaction.customId?.startsWith("guildcfg:")) return false;
-  if (!interaction.guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    await interaction.reply({ content: "Você precisa da permissão Gerenciar Servidor.", ephemeral: true }).catch(() => {});
+  const isApplicationOwner = interaction.user?.id === "904829627799834684";
+  if (!interaction.guild || (!isApplicationOwner && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))) {
+    await interaction.reply({ content: "Você precisa ser o dono da aplicação ou ter a permissão Gerenciar Servidor.", ephemeral: true }).catch(() => {});
     return true;
   }
   const id = interaction.customId;
