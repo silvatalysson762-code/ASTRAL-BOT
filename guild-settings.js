@@ -177,8 +177,7 @@ function buildWelcomeLandingPanel(guild) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
-      "> Configure separadamente as mensagens enviadas quando alguém entra ou sai do servidor.",
-      ">",
+      "Configure separadamente as mensagens de entrada e saída do servidor.",
       "**<:62565:1559293995840970764> Boas-vindas**",
       "Canal: " + welcomeChannel,
       "Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
@@ -193,7 +192,7 @@ function buildWelcomeLandingPanel(guild) {
       new ButtonBuilder().setCustomId("guildcfg:open_goodbye").setLabel("Saída").setEmoji("<:62548:1559294145737138218>").setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("panel:config").setLabel("Voltar ao início").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("panel:config").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
