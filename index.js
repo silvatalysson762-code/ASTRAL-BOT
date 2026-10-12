@@ -3350,7 +3350,7 @@ function buildFruitAdminPanel(guildId, selectedFruit = null) {
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "# <:60581:1557204878001176586> CARGOS DAS FRUTAS\n\n" +
+        "## <:62586:1559331004366200933>CARGOS DE FRUTAS\n\n" +
         "Selecione uma fruta para **adicionar, trocar ou remover** o cargo.\n\n" +
         (selectedFruit ? fruitEmoji({name:selectedFruit}) + " **" + selectedFruit + "**\n" + uiEmoji("users","👥") + " Cargo atual: " + currentRole : uiEmoji("list","📋") + " Escolha uma fruta abaixo.")
       )
