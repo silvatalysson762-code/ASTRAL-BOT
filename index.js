@@ -5414,7 +5414,7 @@ client.on("interactionCreate", async interaction => {
         return;
       }
       if (!role.editable) {
-        await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consigo gerenciar esse cargo. Ele precisa estar abaixo do meu cargo mais alto.", ephemeral: true });
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consigo gerenciar esse cargo. Ele precisa estar abaixo do meu cargo mais alto.", ephemeral: true });
         return;
       }
 
