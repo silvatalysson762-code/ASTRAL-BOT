@@ -183,19 +183,21 @@ function panel(guild) {
 }
 function buildWelcomeLandingPanel(guild) {
   const s = getSettings(guild.id);
-  const welcomeChannel = s.welcomeChannelId ? "<#" + s.welcomeChannelId + ">" : "Não configurado";
-  const goodbyeChannel = s.goodbyeChannelId ? "<#" + s.goodbyeChannelId + ">" : "Não configurado";
+  const welcomeChannel = s.welcomeChannelId ? "<#" + s.welcomeChannelId + ">" : "`Não configurado`";
+  const goodbyeChannel = s.goodbyeChannelId ? "<#" + s.goodbyeChannelId + ">" : "`Não configurado`";
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# <:entrada:1559285231301951569> BOAS-VINDAS / SAÍDAS",
-      "> Configure separadamente as mensagens de entrada e saída do servidor.",
+      "┃ Configure as mensagens de entrada e saída separadamente.",
+      "",
       "<:62565:1559293995840970764> **Boas-vindas**",
-      "> Canal: " + welcomeChannel,
-      "> Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
+      "┃ Canal: " + welcomeChannel,
+      "┃ Status: " + (s.welcomeEnabled ? "Ativado" : "Desativado"),
+      "",
       "<:62548:1559294145737138218> **Saída**",
-      "> Canal: " + goodbyeChannel,
-      "> Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
+      "┃ Canal: " + goodbyeChannel,
+      "┃ Status: " + (s.goodbyeEnabled ? "Ativado" : "Desativado"),
       "-# ASTRAL STORE • Mensagens de membros"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
@@ -241,24 +243,23 @@ function messageEditorPanel(guild, type, userId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# " + (welcome ? "<:62565:1559293995840970764> EDITAR BOAS-VINDAS" : "<:62548:1559294145737138218> EDITAR SAÍDA"),
-      "> Personalize o título, a descrição, a thumbnail e o banner.",
+      "┃ Edite os campos pelo botão abaixo. A prévia usa o rascunho atual.",
       "",
       "┃ **Título**",
-      safeText(draft.title || "Não configurado", 300),
-      "┃ **Descrição**",
-      safeText(draft.message || "Não configurada", 900),
-      "┃ **Thumbnail**",
-      draft.thumbnail || "Automática (avatar do membro)",
-      "┃ **Banner**",
-      draft.banner || "Não configurado",
+      safeText(draft.title || "`Não configurado`", 180),
       "",
-      "┃ **Placeholders disponíveis**",
+      "┃ **Descrição**",
+      safeText(draft.message || "`Não configurada`", 500),
+      "",
+      "┃ **Thumbnail:** " + (draft.thumbnail ? "Configurada" : "Avatar do membro"),
+      "┃ **Banner:** " + (draft.banner ? "Configurado" : "Não configurado"),
+      "",
+      "┃ **Variáveis**",
       "┃ `{member}` • `{username}` • `{displayname}` • `{server}`",
-      "┃ `{membercount}` • `{createdat}` • `{accountage}`",
-      "-# Use os placeholders no título ou na descrição."
+      "┃ `{membercount}` • `{createdat}` • `{accountage}`"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar mensagem").setEmoji("✏️").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar campos").setEmoji("✏️").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
     ));
   if (dirty) {
@@ -282,12 +283,11 @@ function messagePanel(guild, type, userId) {
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
       "# " + (welcome ? "<:62565:1559293995840970764> BOAS-VINDAS" : "<:62548:1559294145737138218> SAÍDA"),
-      "> Configure o envio da mensagem e personalize seu conteúdo.",
+      "┃ Configure o canal, a mensagem e quando ela será enviada.",
       "",
-      "┃ **Canal:** " + (channelId ? "<#" + channelId + ">" : "Não configurado"),
+      "┃ **Canal:** " + (channelId ? "<#" + channelId + ">" : "`Não configurado`"),
       "┃ **Status:** " + (enabled ? "Ativado" : "Desativado"),
-      "",
-      "┃ A edição do conteúdo fica separada e só é salva quando você clicar em Salvar."
+      "┃ **Mensagem:** " + ((s[prefix + "Message"] || "").trim() ? "Personalizada" : "Padrão")
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:editor_" + prefix).setLabel("Editar mensagem").setEmoji("✏️").setStyle(ButtonStyle.Primary)
@@ -415,10 +415,7 @@ async function handleInteraction(interaction) {
       }
     }
     messageDrafts.set(draftKey(interaction.guildId, interaction.user.id, prefix), { title, message, thumbnail, banner });
-    await interaction.reply({
-      ...messageEditorPanel(interaction.guild, prefix, interaction.user.id),
-      ephemeral: true
-    });
+    await interaction.update(messageEditorPanel(interaction.guild, prefix, interaction.user.id));
     return true;
   }
   if (interaction.isButton() && /^guildcfg:save_(welcome|goodbye)$/.test(id)) {
