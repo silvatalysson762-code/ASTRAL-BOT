@@ -394,7 +394,7 @@ async function handleInteraction(interaction) {
   if (interaction.isButton() && id === "guildcfg:cancel_channels") {
     channelDrafts.delete(channelDraftKey(interaction.guildId, interaction.user.id));
     selectedCategory.delete(interaction.guildId + ":" + interaction.user.id);
-    await interaction.update({ content: "Voltando ao painel...", components: [] });
+    await interaction.update(panel(interaction.guild));
     return true;
   }
   if (interaction.isButton() && id === "guildcfg:save_channels") {
