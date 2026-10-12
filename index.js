@@ -2498,8 +2498,7 @@ function buildTicketManageFunctionsPanel(guildId) {
 const ticketReorderSelections = new Map();
 
 function buildTicketFunctionReorderPanel(guildId, userId) {
-  const config = getGuildConfig(guildId);
-  const functions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
+  const functions = getTicketFunctionDraft(guildId, userId);
   const selectedId = ticketReorderSelections.get(String(guildId) + ":" + String(userId)) || null;
   const selectedIndex = functions.findIndex(fn => fn.id === selectedId);
   const container = new ContainerBuilder()
@@ -5717,12 +5716,7 @@ client.on("interactionCreate", async interaction => {
           .setCustomId("ticket:manage_function_select_back")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("ticket:function_save:" + fn.id)
-          .setLabel("Salvar")
-          .setEmoji(applicationEmojiObject("save", "💾"))
-          .setStyle(ButtonStyle.Success)
+          .setStyle(ButtonStyle.Secondary)
       ));
     await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
     return;
@@ -5850,7 +5844,7 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton() && interaction.customId === "ticket:manage_function_select_back") {
-    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId, interaction.user.id));
     return;
   }
 
@@ -5861,7 +5855,7 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton() && interaction.customId === "ticket:reorder_back") {
     ticketReorderSelections.delete(String(interaction.guildId) + ":" + String(interaction.user.id));
-    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+    await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId, interaction.user.id));
     return;
   }
 
