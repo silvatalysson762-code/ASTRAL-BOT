@@ -2277,6 +2277,8 @@ function buildTicketAppearancePanel(guildId, userId) {
   const saved = config.ticketAppearance || {};
   const key = String(guildId) + ":" + String(userId);
   const draft = ticketAppearanceDrafts.get(key) || saved;
+  const hasDraft = ticketAppearanceDrafts.has(key);
+  const hasUnsavedChanges = hasDraft && ["title", "description", "thumbnail", "banner", "color"].some(field => (draft[field] ?? null) !== (saved[field] ?? null));
   const title = draft.title || "ASTRAL SUPORTE";
   const description = draft.description || "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.";
   const thumbnail = draft.thumbnail || "Automática (ícone do servidor)";
@@ -2313,11 +2315,11 @@ function buildTicketAppearancePanel(guildId, userId) {
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
           .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
+        ...(hasUnsavedChanges ? [new ButtonBuilder()
           .setCustomId("ticket:appearance_save")
           .setLabel("Salvar")
-          .setEmoji({ name: "settings_button", id: "1557204872648982579" })
-          .setStyle(ButtonStyle.Success)
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)] : [])
       )
     );
 
@@ -2542,8 +2544,11 @@ const ticketInterfaceModeDrafts = new Map();
 
 function buildTicketInterfaceModePanel(guildId, userId) {
   const config = getGuildConfig(guildId);
-  const mode = ticketInterfaceModeDrafts.get(String(guildId) + ":" + String(userId || "")) || config.ticketInterfaceMode || "v2";
+  const key = String(guildId) + ":" + String(userId || "");
+  const savedMode = config.ticketInterfaceMode || "v2";
+  const mode = ticketInterfaceModeDrafts.get(key) || savedMode;
   const isEmbed = mode === "embed";
+  const hasUnsavedChanges = ticketInterfaceModeDrafts.has(key) && mode !== savedMode;
 
   const container = new ContainerBuilder()
     .setAccentColor(getBotPanelAccentColor())
@@ -2566,7 +2571,12 @@ function buildTicketInterfaceModePanel(guildId, userId) {
           .setCustomId("ticket:interface_mode_back")
           .setLabel("Voltar")
           .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        ...(hasUnsavedChanges ? [new ButtonBuilder()
+          .setCustomId("ticket:interface_mode_save")
+          .setLabel("Salvar")
+          .setEmoji({ name: "save", id: "1557205052974960780" })
+          .setStyle(ButtonStyle.Success)] : [])
       )
     );
 
@@ -4412,9 +4422,17 @@ client.on("interactionCreate", async interaction => {
     const key = String(interaction.guildId) + ":" + String(interaction.user.id);
     const current = ticketInterfaceModeDrafts.get(key) || getGuildConfig(interaction.guildId).ticketInterfaceMode || "v2";
     const nextMode = current === "embed" ? "v2" : "embed";
-    updateGuildConfig(interaction.guildId, config => {
-      config.ticketInterfaceMode = nextMode;
-    });
+    ticketInterfaceModeDrafts.set(key, nextMode);
+    await interaction.update(buildTicketInterfaceModePanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:interface_mode_save") {
+    const key = String(interaction.guildId) + ":" + String(interaction.user.id);
+    const mode = ticketInterfaceModeDrafts.get(key);
+    if (mode && mode !== (getGuildConfig(interaction.guildId).ticketInterfaceMode || "v2")) {
+      updateGuildConfig(interaction.guildId, config => { config.ticketInterfaceMode = mode; });
+    }
     ticketInterfaceModeDrafts.delete(key);
     await interaction.update(buildTicketInterfaceModePanel(interaction.guildId, interaction.user.id));
     return;
@@ -5865,6 +5883,7 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton() && interaction.customId === "ticket:appearance_back") {
+    ticketAppearanceDrafts.delete(String(interaction.guildId) + ":" + String(interaction.user.id));
     await interaction.update(buildTicketConfigPanel(interaction.guildId));
     return;
   }
