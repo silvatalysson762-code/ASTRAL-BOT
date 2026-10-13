@@ -4620,14 +4620,15 @@ client.on("interactionCreate", async interaction => {
         config.ticketOpeningMode = mode;
       });
       ticketOpeningModeDrafts.delete(key);
-      await interaction.reply({
+      await interaction.update(buildTicketOpeningModePanel(interaction.guildId, interaction.user.id));
+      await interaction.followUp({
         content: "<:online:1557204563675848814> **Salvo**",
         ephemeral: true
-      });
+      }).catch(() => {});
     } catch (error) {
       console.error("[TICKET] Erro ao salvar modo de abertura:", error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "<:60698:1557204568432185454> Não consegui salvar o modo de abertura.", ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui salvar o modo de abertura.", ephemeral: true }).catch(() => {});
       }
     }
     return;
