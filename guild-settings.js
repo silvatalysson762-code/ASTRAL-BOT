@@ -72,15 +72,24 @@ function getSettings(guildId) {
   const root = readConfig();
   root.guilds[guildId] = root.guilds[guildId] || {};
   const guildConfig = root.guilds[guildId];
-  return {
+  const saved = guildConfig.serverSettings || {};
+  const settings = {
     ...DEFAULTS,
-    ...(guildConfig.serverSettings || {}),
-    stockChannelId: guildConfig.channelId || guildConfig.serverSettings?.stockChannelId || null,
-    stockRequestChannelId: guildConfig.stockRequestChannelId || guildConfig.serverSettings?.stockRequestChannelId || null,
-    stockAlertChannelId: guildConfig.stockAlertChannelId || guildConfig.serverSettings?.stockAlertChannelId || null,
-    supportMessageChannelId: guildConfig.supportMessageChannelId || guildConfig.serverSettings?.supportMessageChannelId || null,
-    reviewChannelId: guildConfig.reviewChannelId || guildConfig.serverSettings?.reviewChannelId || null
+    ...saved,
+    stockChannelId: guildConfig.channelId || saved.stockChannelId || null,
+    stockRequestChannelId: guildConfig.stockRequestChannelId || saved.stockRequestChannelId || null,
+    stockAlertChannelId: guildConfig.stockAlertChannelId || saved.stockAlertChannelId || null,
+    supportMessageChannelId: guildConfig.supportMessageChannelId || saved.supportMessageChannelId || null,
+    reviewChannelId: guildConfig.reviewChannelId || saved.reviewChannelId || null
   };
+  // Migra somente os padrões antigos; mensagens personalizadas são preservadas.
+  if (!saved.welcomeMessage || saved.welcomeMessage === "👋 Bem-vindo(a) {user} ao **{server}**! Você é o membro **#{memberCount}**.") {
+    settings.welcomeMessage = DEFAULTS.welcomeMessage;
+  }
+  if (!saved.welcomeTitle || saved.welcomeTitle === "**Bem-Vindo a {server}**") {
+    settings.welcomeTitle = DEFAULTS.welcomeTitle;
+  }
+  return settings;
 }
 function updateSettings(guildId, updater) {
   const root = readConfig();
