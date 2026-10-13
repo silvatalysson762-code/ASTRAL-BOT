@@ -5813,8 +5813,7 @@ client.on("interactionCreate", async interaction => {
           new ButtonBuilder().setCustomId("ticket:function_delete:" + savedFn.id).setLabel("Excluir").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
         ))
         .addActionRowComponents(new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId("ticket:function_save:" + savedFn.id).setLabel("Salvar").setEmoji(applicationEmojiObject("save", "💾")).setStyle(ButtonStyle.Success)
+          new ButtonBuilder().setCustomId("ticket:manage_function_select_back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
         ));
 
       await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
