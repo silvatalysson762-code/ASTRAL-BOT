@@ -362,13 +362,17 @@ function makeWelcomePayload(member, settings, type) {
   const banner = settings[prefix + "BannerUrl"] || settings[prefix + "ImageUrl"];
   const hex = String(settings[prefix + "Color"] || (welcome ? "301934" : "ED4245")).replace(/^#/, "");
   const color = /^[0-9a-f]{6}$/i.test(hex) ? parseInt(hex, 16) : (welcome ? 0x301934 : 0xED4245);
+  // Mensagens V2 de boas-vindas usam a mesma cor da barra lateral configurada para o bot.
+  const rootConfig = readConfig();
+  const botAccent = String(rootConfig.botSettings?.accentColor || "00FFFF").replace(/^#/, "");
+  const welcomeAccentColor = /^[0-9a-f]{6}$/i.test(botAccent) ? parseInt(botAccent, 16) : 0x00FFFF;
   if (settings[prefix + "Mode"] === "v2") {
     const { MediaGalleryBuilder, MediaGalleryItemBuilder } = require("discord.js");
     // Preserve exatamente a formatação salva. Linhas iniciadas com > viram citações do Discord;
     // não prefixe de novo, pois isso cria citações aninhadas e deixa a barra diferente dos painéis.
     const welcomeText = new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + String(text || ""));
     const avatarUrl = thumbnail || member.user.displayAvatarURL({ size: 256 });
-    const container = new ContainerBuilder().setAccentColor(color)
+    const container = new ContainerBuilder().setAccentColor(welcome ? welcomeAccentColor : color)
       .addSectionComponents(
         new SectionBuilder()
           .addTextDisplayComponents(welcomeText)
