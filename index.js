@@ -2034,7 +2034,7 @@ function buildBotControlPanel(userId = "") {
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## <:discord:1557204573817405440> CONTROLE DO BOT\n" +
+        "## <:bot:1559282581176848465> CONTROLE DO BOT\n" +
         "> Gerencie o Astral Stock e personalize a identidade do bot.\n" +
         "### <:online:1557204563675848814> Status\n" +
         "> **Bot:** " + (botUser ? botUser.tag : "Astral BOT") + "\n" +
