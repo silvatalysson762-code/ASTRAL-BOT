@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   Client, GatewayIntentBits, MessageFlags, MessageType, ContainerBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, SeparatorBuilder, SeparatorSpacingSize, REST,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, SeparatorBuilder, SeparatorSpacingSize, REST,
   SlashCommandBuilder, PermissionFlagsBits, Routes
 } = require("discord.js");
 
@@ -266,7 +266,7 @@ function splitDiscordText(text, maxLength = 1900) {
 
 
 function defaultGuildConfig() {
-  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketBlacklist: [], ticketOpeningMode: "channel", ticketInterfaceMode: "v2", ticketFunctions: [], ticketSchedule: { enabled: false, allowOutsideHours: false, days: { sunday: { active: false, start: "09:00", end: "18:00" }, monday: { active: false, start: "09:00", end: "18:00" }, tuesday: { active: false, start: "09:00", end: "18:00" }, wednesday: { active: false, start: "09:00", end: "18:00" }, thursday: { active: false, start: "09:00", end: "18:00" }, friday: { active: false, start: "09:00", end: "18:00" }, saturday: { active: false, start: "09:00", end: "18:00" } } } };
+  return { channelId: null, roles: {}, emojis: {}, aliases: {}, titles: {}, stockAlertChannelId: null, stockAlerts: {}, supportMessageChannelId: null, supportMessageId: null, ticketAppearance: { title: "ASTRAL SUPORTE", description: "Precisa de ajuda? Abra um ticket e nossa equipe entrará em contato.", thumbnail: null, banner: null, color: "00FFFF" }, ticketFeedback: { enabled: true, channelId: null, ratings: [] }, ticketBlacklist: [], ticketOpeningMode: "channel", ticketInterfaceMode: "v2", ticketFunctions: [], ticketSchedule: { enabled: false, allowOutsideHours: false, days: { sunday: { active: false, start: "09:00", end: "18:00" }, monday: { active: false, start: "09:00", end: "18:00" }, tuesday: { active: false, start: "09:00", end: "18:00" }, wednesday: { active: false, start: "09:00", end: "18:00" }, thursday: { active: false, start: "09:00", end: "18:00" }, friday: { active: false, start: "09:00", end: "18:00" }, saturday: { active: false, start: "09:00", end: "18:00" } } } };
 }
 function readConfig() {
   try {
@@ -3149,6 +3149,125 @@ function buildTicketBlacklistModal(action, selectedUserId = null, panelChannelId
   }
   return modal;
 }
+function getTicketFeedbackConfig(guildId) {
+  const config = getGuildConfig(guildId);
+  const feedback = config.ticketFeedback && typeof config.ticketFeedback === "object" ? config.ticketFeedback : {};
+  return {
+    enabled: feedback.enabled !== false,
+    channelId: /^\\d{17,20}$/.test(String(feedback.channelId || "")) ? String(feedback.channelId) : null,
+    ratings: Array.isArray(feedback.ratings) ? feedback.ratings : []
+  };
+}
+
+function ticketFeedbackStats(guildId) {
+  const ratings = getTicketFeedbackConfig(guildId).ratings;
+  const valid = ratings.filter(item => Number.isInteger(Number(item.rating)) && Number(item.rating) >= 1 && Number(item.rating) <= 5);
+  const average = valid.length ? valid.reduce((sum, item) => sum + Number(item.rating), 0) / valid.length : null;
+  return { count: valid.length, average };
+}
+
+function buildTicketFeedbackPanel(guildId) {
+  const feedback = getTicketFeedbackConfig(guildId);
+  const stats = ticketFeedbackStats(guildId);
+  const channelText = feedback.channelId ? "<#" + feedback.channelId + ">" : "`Não configurado`";
+  const averageText = stats.count
+    ? "`" + stats.average.toFixed(1) + "/5 (" + stats.count + " " + (stats.count === 1 ? "avaliação" : "avaliações") + ")`"
+    : "`Sem avaliações`";
+  const statusEmoji = feedback.enabled ? "<:online:1557204563675848814>" : "<:offline:1557204568432185454>";
+  const statusText = feedback.enabled ? "Ativado" : "Desativado";
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:estrela:1559282428621623427> AVALIAÇÕES DE ATENDIMENTO\n" +
+        "> Configure o pedido de avaliação enviado na DM quando um ticket for fechado.\n" +
+        "> <:setaAnimada:1550534481809645588> **Status:** " + statusEmoji + " `" + statusText + "`\n" +
+        "> <:setaAnimada:1550534481809645588> **Canal das avaliações:** " + channelText + "\n" +
+        "> <:setaAnimada:1550534481809645588> **Média geral:** " + averageText + "\n" +
+        "-# <:infogenesiss:1550534477011353742> Use **Testar** para receber o pedido de avaliação na sua DM."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId("ticket:feedback:channel")
+          .setPlaceholder("Selecione o canal das avaliações")
+          .setChannelTypes(ChannelType.GuildText)
+          .setMinValues(1)
+          .setMaxValues(1)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:feedback:toggle")
+          .setLabel(feedback.enabled ? "Desativar" : "Ativar")
+          .setEmoji(feedback.enabled
+            ? { name: "offline", id: "1557204568432185454" }
+            : { name: "online", id: "1557204563675848814" })
+          .setStyle(feedback.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("ticket:feedback:test")
+          .setLabel("Testar")
+          .setEmoji({ name: "estrela", id: "1559282428621623427" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:feedback:back")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildTicketFeedbackRequest(guildId, ownerId, isTest = false) {
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:estrela:1559282428621623427> Avalie nosso atendimento\n" +
+        (isTest
+          ? "> Esta é uma prévia de teste do sistema de avaliações da loja.\n"
+          : "> Seu ticket foi fechado. Queremos saber como foi sua experiência.\n") +
+        "> Escolha de **1 a 5 estrelas**. Se quiser, depois você poderá deixar um comentário."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        ...[1, 2, 3, 4, 5].map(value =>
+          new ButtonBuilder()
+            .setCustomId("ticket:feedback:rate:" + guildId + ":" + ownerId + ":" + value + ":" + (isTest ? "1" : "0"))
+            .setLabel(String(value))
+            .setEmoji({ name: "estrela", id: "1559282428621623427" })
+            .setStyle(ButtonStyle.Secondary)
+        )
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildTicketFeedbackCommentModal(guildId, ratingId, isTest = false, rating = 5) {
+  return new ModalBuilder()
+    .setCustomId("ticket:feedback:comment_modal:" + guildId + ":" + ratingId + ":" + (isTest ? "1" : "0") + ":" + rating)
+    .setTitle("Comentário da avaliação")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("ticket_feedback_comment")
+          .setLabel("Comentário (opcional)")
+          .setPlaceholder("Conte como foi seu atendimento")
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(false)
+          .setMaxLength(800)
+      )
+    );
+}
+
 function buildTicketConfigPanel(guildId) {
   const ticketEmoji = { name: "ticket_plus", id: "1557205110847701052" };
 
@@ -3219,7 +3338,7 @@ function buildTicketConfigPanel(guildId) {
             },
             {
               label: "Avaliações",
-              description: "Avaliação de atendimento ao fechar o ticket (Ativado)",
+              description: "Configure o pedido por DM, o canal e consulte a média geral",
               value: "feedback",
               emoji: { name: "estrela", id: "1559282428621623427" }
             }
@@ -4033,6 +4152,165 @@ client.on("interactionCreate", async interaction => {
     return;
   }
 
+  if (interaction.isChannelSelectMenu() && interaction.customId === "ticket:feedback:channel") {
+    try {
+      const channelId = interaction.values[0];
+      const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
+      if (!channel || !channel.isTextBased() || typeof channel.send !== "function") {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Selecione um canal de texto válido.", ephemeral: true });
+        return;
+      }
+      updateGuildConfig(interaction.guildId, config => {
+        const current = config.ticketFeedback || {};
+        config.ticketFeedback = { enabled: current.enabled !== false, channelId, ratings: Array.isArray(current.ratings) ? current.ratings : [] };
+      });
+      await interaction.update(buildTicketFeedbackPanel(interaction.guildId));
+    } catch (error) {
+      console.error("[TICKET FEEDBACK] Erro ao configurar canal:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui configurar o canal das avaliações.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:feedback:toggle") {
+    updateGuildConfig(interaction.guildId, config => {
+      const saved = config.ticketFeedback || {};
+      config.ticketFeedback = { enabled: saved.enabled === false, channelId: saved.channelId || null, ratings: Array.isArray(saved.ratings) ? saved.ratings : [] };
+    });
+    await interaction.update(buildTicketFeedbackPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:feedback:test") {
+    try {
+      await interaction.user.send(buildTicketFeedbackRequest(interaction.guildId, interaction.user.id, true));
+      await interaction.reply({ content: "<:online:1557204563675848814> Pedido de teste enviado para sua DM. Essa avaliação não entra na média nem é publicada no canal.", ephemeral: true });
+    } catch (error) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não consegui enviar a DM. Ative as mensagens diretas deste servidor e tente novamente.", ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket:feedback:back") {
+    await interaction.update(buildTicketConfigPanel(interaction.guildId));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("ticket:feedback:rate:")) {
+    try {
+      const [, , , guildId, ownerId, ratingRaw, testRaw] = interaction.customId.split(":");
+      const rating = Number(ratingRaw);
+      const isTest = testRaw === "1";
+      if (interaction.user.id !== ownerId || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+        await interaction.reply({ content: "<:offline:1557204568432185454> Este pedido de avaliação não pertence a você ou a nota é inválida.", ephemeral: true });
+        return;
+      }
+      if (isTest) {
+        await interaction.update({
+          content: "<:online:1557204563675848814> Teste concluído: você selecionou **" + rating + "/5**. Se quiser, adicione um comentário abaixo.",
+          components: [new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("ticket:feedback:test_comment:" + guildId + ":" + rating)
+              .setLabel("Adicionar comentário")
+              .setEmoji({ name: "estrela", id: "1559282428621623427" })
+              .setStyle(ButtonStyle.Secondary)
+          )]
+        });
+        return;
+      }
+
+      const config = getTicketFeedbackConfig(guildId);
+      if (!config.enabled) throw new Error("O sistema de avaliações está desativado.");
+      if (!config.channelId) throw new Error("O canal das avaliações ainda não foi configurado.");
+      const channel = await client.channels.fetch(config.channelId).catch(() => null);
+      if (!channel || !channel.isTextBased() || typeof channel.send !== "function") throw new Error("O canal das avaliações não está disponível.");
+
+      const ratingId = interaction.id;
+      const sent = await channel.send({
+        content: "<:estrela:1559282428621623427> **Nova avaliação de atendimento**
+> **Nota:** " + "⭐".repeat(rating) + " (" + rating + "/5)
+> **Cliente:** <@" + ownerId + ">
+> **Comentário:** `Nenhum comentário`",
+        allowedMentions: { parse: [] }
+      });
+      updateGuildConfig(guildId, saved => {
+        const feedback = saved.ticketFeedback || {};
+        const ratings = Array.isArray(feedback.ratings) ? feedback.ratings : [];
+        ratings.push({ id: ratingId, userId: ownerId, rating, comment: null, createdAt: Date.now(), channelId: channel.id, messageId: sent.id });
+        saved.ticketFeedback = { enabled: feedback.enabled !== false, channelId: feedback.channelId || channel.id, ratings: ratings.slice(-500) };
+      });
+      await interaction.update({
+        content: "<:online:1557204563675848814> Obrigado por avaliar nosso atendimento com **" + rating + "/5**! Seu feedback foi enviado.",
+        components: [new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("ticket:feedback:add_comment:" + guildId + ":" + ratingId)
+            .setLabel("Adicionar comentário")
+            .setEmoji({ name: "estrela", id: "1559282428621623427" })
+            .setStyle(ButtonStyle.Secondary)
+        )]
+      });
+    } catch (error) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui registrar sua avaliação."), ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("ticket:feedback:add_comment:")) {
+    const [, , , guildId, ratingId] = interaction.customId.split(":");
+    const ratings = getTicketFeedbackConfig(guildId).ratings;
+    const rating = ratings.find(item => String(item.id) === String(ratingId));
+    if (!rating || String(rating.userId) !== String(interaction.user.id)) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Não encontrei essa avaliação.", ephemeral: true });
+      return;
+    }
+    await interaction.showModal(buildTicketFeedbackCommentModal(guildId, ratingId, false, Number(rating.rating)));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith("ticket:feedback:test_comment:")) {
+    const [, , , guildId, ratingRaw] = interaction.customId.split(":");
+    await interaction.showModal(buildTicketFeedbackCommentModal(guildId, "test", true, Number(ratingRaw)));
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:feedback:comment_modal:")) {
+    try {
+      const [, , , guildId, ratingId, testRaw, ratingRaw] = interaction.customId.split(":");
+      const comment = interaction.fields.getTextInputValue("ticket_feedback_comment").trim().slice(0, 800);
+      if (testRaw === "1") {
+        await interaction.reply({ content: "<:online:1557204563675848814> Comentário de teste recebido. Ele não foi salvo nem publicado.", ephemeral: true });
+        return;
+      }
+      const feedback = getTicketFeedbackConfig(guildId);
+      const item = feedback.ratings.find(entry => String(entry.id) === String(ratingId) && String(entry.userId) === String(interaction.user.id));
+      if (!item) throw new Error("Não encontrei essa avaliação ou ela não pertence a você.");
+      item.comment = comment || null;
+      updateGuildConfig(guildId, saved => {
+        const current = saved.ticketFeedback || {};
+        const ratings = Array.isArray(current.ratings) ? current.ratings : [];
+        const index = ratings.findIndex(entry => String(entry.id) === String(ratingId) && String(entry.userId) === String(interaction.user.id));
+        if (index >= 0) ratings[index] = { ...ratings[index], comment: comment || null };
+        saved.ticketFeedback = { enabled: current.enabled !== false, channelId: current.channelId || null, ratings };
+      });
+      const channel = await client.channels.fetch(item.channelId).catch(() => null);
+      const message = channel?.messages ? await channel.messages.fetch(item.messageId).catch(() => null) : null;
+      if (message) {
+        await message.edit({
+          content: "<:estrela:1559282428621623427> **Nova avaliação de atendimento**
+> **Nota:** " + "⭐".repeat(Number(item.rating)) + " (" + item.rating + "/5)
+> **Cliente:** <@" + item.userId + ">
+> **Comentário:** " + (comment ? comment.replace(/
+/g, " ").slice(0, 800) : "`Nenhum comentário`"),
+          allowedMentions: { parse: [] }
+        }).catch(error => console.warn("[TICKET FEEDBACK] Não consegui atualizar comentário na mensagem:", error?.message || error));
+      }
+      await interaction.reply({ content: "<:online:1557204563675848814> Obrigado! Seu comentário foi salvo.", ephemeral: true });
+    } catch (error) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui salvar o comentário."), ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
   if (interaction.isButton() && /^ticket:close:\d{17,20}$/.test(interaction.customId)) {
     try {
       const ownerId = interaction.customId.split(":")[2];
@@ -4044,6 +4322,18 @@ client.on("interactionCreate", async interaction => {
       }
       const target = interaction.channel;
       if (!target) throw new Error("Não encontrei o canal deste ticket.");
+      const feedbackConfig = getTicketFeedbackConfig(interaction.guildId);
+      if (feedbackConfig.enabled && feedbackConfig.channelId) {
+        try {
+          const feedbackChannel = await client.channels.fetch(feedbackConfig.channelId).catch(() => null);
+          if (feedbackChannel && feedbackChannel.isTextBased() && typeof feedbackChannel.send === "function") {
+            const ticketOwner = await client.users.fetch(ownerId).catch(() => null);
+            if (ticketOwner) await ticketOwner.send(buildTicketFeedbackRequest(interaction.guildId, ownerId, false));
+          }
+        } catch (feedbackError) {
+          console.warn("[TICKET FEEDBACK] Não consegui enviar pedido de avaliação por DM:", feedbackError?.message || feedbackError);
+        }
+      }
       if (target.isThread?.()) {
         // Fechar é definitivo: exclui a thread, em vez de apenas arquivar/bloquear.
         await interaction.reply({
@@ -4281,6 +4571,11 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
     const selected = interaction.values[0];
+    if (selected === "feedback") {
+      await interaction.update(buildTicketFeedbackPanel(interaction.guildId));
+      return;
+    }
+
     if (selected === "blacklist") {
       await interaction.update(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id));
       return;
@@ -4340,7 +4635,7 @@ client.on("interactionCreate", async interaction => {
       statistics: "Estatísticas",
       blacklist: "Blacklist",
       interface_mode: "Modo de Interface",
-      feedback: "Feedback"
+      feedback: "Avaliações"
     };
     await interaction.reply({
       content: "<:ticket_plus:1557205110847701052> **" + (configLabels[selected] || "Configuração") + "** selecionada. Esta área ficará responsável por essa configuração do sistema de tickets.",
