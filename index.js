@@ -4425,11 +4425,11 @@ client.on("interactionCreate", async interaction => {
         // Tenta a mensagem original guardada na sessão e, se isso falhar, usa os IDs
         // incorporados ao modal para encontrar o painel correto mesmo sem sessão em memória.
         if (session?.panelInteraction) {
-          try { await session.panelInteraction.editReply(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+          try { await session.panelInteraction.editReply(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id)); panelUpdated = true; }
           catch (err) { console.error("Atualização da mensagem original da blacklist falhou:", err?.message || err); }
         }
         if (!panelUpdated && session?.mainMessage) {
-          try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+          try { await session.mainMessage.edit(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id)); panelUpdated = true; }
           catch (err) { console.error("Edição direta do painel da blacklist falhou:", err?.message || err); }
         }
         const panelChannelId = panelChannelIdFromModal || session?.channelId;
@@ -4438,7 +4438,7 @@ client.on("interactionCreate", async interaction => {
           try {
             const panelChannel = await client.channels.fetch(panelChannelId);
             const panelMessage = await panelChannel?.messages.fetch(panelMessageId);
-            if (panelMessage) { await panelMessage.edit(buildTicketBlacklistPanel(interaction.guildId)); panelUpdated = true; }
+            if (panelMessage) { await panelMessage.edit(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id)); panelUpdated = true; }
             else console.error("Painel da blacklist não encontrado no canal/mensagem guardados.");
           } catch (err) { console.error("Falha ao buscar painel da blacklist para atualizar:", err?.message || err); }
         }
