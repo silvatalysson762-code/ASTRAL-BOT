@@ -3218,10 +3218,10 @@ function buildTicketConfigPanel(guildId) {
               emoji: { name: "briefcase", id: "1557205067910742057" }
             },
             {
-              label: "Feedback",
+              label: "Avaliações",
               description: "Avaliação de atendimento ao fechar o ticket (Ativado)",
               value: "feedback",
-              emoji: { name: "like", id: "1557204899064848524" }
+              emoji: { name: "estrela", id: "1559282428621623427" }
             }
           )
       )
