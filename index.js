@@ -3069,9 +3069,19 @@ function getActiveTicketBlacklist(guildId) {
 }
 
 const ticketBlacklistPromptSessions = new Map();
-
-function buildTicketBlacklistPanel(guildId) {
-  const entries = getActiveTicketBlacklist(guildId).slice().sort((a, b) => Number(b.addedAt || 0) - Number(a.addedAt || 0));
+const ticketBlacklistDrafts = new Map();
+function ticketBlacklistDraftKey(guildId, userId) { return String(guildId) + ":" + String(userId); }
+function getTicketBlacklistDraft(guildId, userId) {
+  const key = ticketBlacklistDraftKey(guildId, userId);
+  if (!ticketBlacklistDrafts.has(key)) ticketBlacklistDrafts.set(key, (getGuildConfig(guildId).ticketBlacklist || []).map(entry => ({ ...entry })));
+  return ticketBlacklistDrafts.get(key);
+}
+function ticketBlacklistIsDirty(guildId, userId) {
+  const key = ticketBlacklistDraftKey(guildId, userId);
+  return ticketBlacklistDrafts.has(key) && JSON.stringify(ticketBlacklistDrafts.get(key)) !== JSON.stringify(getGuildConfig(guildId).ticketBlacklist || []);
+}
+function buildTicketBlacklistPanel(guildId, userId = null) {
+  const entries = (userId ? getTicketBlacklistDraft(guildId, userId) : getActiveTicketBlacklist(guildId)).filter(entry => !entry.expiresAt || Number(entry.expiresAt) > Date.now()).slice().sort((a, b) => Number(b.addedAt || 0) - Number(a.addedAt || 0));
   const lines = entries.length
     ? entries.slice(0, 10).map(entry => {
         const addedBy = entry.addedBy ? " · adicionado por <@" + entry.addedBy + ">" : "";
@@ -3093,6 +3103,7 @@ function buildTicketBlacklistPanel(guildId) {
       new ButtonBuilder().setCustomId("ticket:blacklist:remove").setLabel("Remover").setEmoji(applicationEmojiObject("trash", "🗑️")).setStyle(ButtonStyle.Danger)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
+      ...(userId && ticketBlacklistIsDirty(guildId, userId) ? [new ButtonBuilder().setCustomId("ticket:blacklist:save").setLabel("Salvar").setEmoji({ name: "save", id: "1557205052974960780" }).setStyle(ButtonStyle.Success)] : []),
       new ButtonBuilder().setCustomId("ticket:blacklist:back").setLabel("Voltar").setEmoji({ name: "arrow_left", id: "1557204764834537534" }).setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
@@ -4365,20 +4376,27 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: "A blacklist está vazia.", ephemeral: true });
       return;
     }
-    const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
-    if (!found) {
-      await interaction.reply({ content: "<:offline:1557204568432185454> Esse usuário não está mais na blacklist.", ephemeral: true });
-      return;
-    }
-    updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
+    const draftEntries = getTicketBlacklistDraft(interaction.guildId, interaction.user.id);
+    const found = draftEntries.some(entry => String(entry.userId) === userId);
+    if (!found) { await interaction.reply({ content: "<:offline:1557204568432185454> Esse usuário não está mais na blacklist.", ephemeral: true }); return; }
+    const draftIndex = draftEntries.findIndex(entry => String(entry.userId) === userId);
+    if (draftIndex >= 0) draftEntries.splice(draftIndex, 1);
     const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
     // O seletor está na própria mensagem efêmera do painel. Restaure o painel
     // nessa mesma mensagem em vez de substituí-lo por uma confirmação separada.
-    await interaction.update(buildTicketBlacklistPanel(interaction.guildId));
+    await interaction.update(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id));
     ticketBlacklistPromptSessions.delete(sessionKey);
     return;
   }
-  if (interaction.isButton() && interaction.customId === "ticket:blacklist:back") { await interaction.update(buildTicketConfigPanel(interaction.guildId)); return; }
+  if (interaction.isButton() && interaction.customId === "ticket:blacklist:save") {
+    const key = ticketBlacklistDraftKey(interaction.guildId, interaction.user.id);
+    const draft = ticketBlacklistDrafts.get(key);
+    if (draft && ticketBlacklistIsDirty(interaction.guildId, interaction.user.id)) updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = draft.map(entry => ({ ...entry })); });
+    ticketBlacklistDrafts.delete(key);
+    await interaction.update(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+  if (interaction.isButton() && interaction.customId === "ticket:blacklist:back") { ticketBlacklistDrafts.delete(ticketBlacklistDraftKey(interaction.guildId, interaction.user.id)); await interaction.update(buildTicketConfigPanel(interaction.guildId)); return; }
 
   if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket:blacklist:modal:")) {
     const parts = interaction.customId.split(":");
@@ -4395,7 +4413,10 @@ client.on("interactionCreate", async interaction => {
         if (!Number.isInteger(minutes) || minutes < 0 || minutes > 52560000) throw new Error("A duração deve ser 0 ou um número inteiro de minutos até 52560000.");
         const reason = interaction.fields.getTextInputValue("blacklist_reason").trim();
         const expiresAt = minutes > 0 ? Date.now() + minutes * 60000 : null;
-        updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []; cfg.ticketBlacklist = cfg.ticketBlacklist.filter(entry => String(entry.userId) !== userId); cfg.ticketBlacklist.push({ userId, expiresAt, reason: reason || null, addedBy: interaction.user.id, addedAt: Date.now() }); });
+        const draftEntries = getTicketBlacklistDraft(interaction.guildId, interaction.user.id);
+        const existingIndex = draftEntries.findIndex(entry => String(entry.userId) === userId);
+        if (existingIndex >= 0) draftEntries.splice(existingIndex, 1);
+        draftEntries.push({ userId, expiresAt, reason: reason || null, addedBy: interaction.user.id, addedAt: Date.now() });
         const sessionKey = String(interaction.guildId) + ":" + String(interaction.user.id);
         const session = ticketBlacklistPromptSessions.get(sessionKey);
         await interaction.reply({ content: "<:user_add:1557205138689495101> <@" + userId + "> foi adicionado à blacklist " + (expiresAt ? "por " + minutes + " minuto(s)." : "permanentemente."), ephemeral: true });
