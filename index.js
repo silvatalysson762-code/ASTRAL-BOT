@@ -3891,7 +3891,7 @@ client.once("clientReady", async () => {
   } else {
     console.log("[STOCK] Stock salvo encontrado; pulando consulta inicial para economizar créditos.");
   }
-  startStockScheduler();
+  console.log("[STOCK SCHEDULER] Agendador por reset desativado; o monitor único detecta mudanças pela API.");
   await enforceGuildWhitelist();
   startBotStatusRotation();
 });
