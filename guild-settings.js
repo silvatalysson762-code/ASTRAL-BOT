@@ -346,20 +346,20 @@ function makeWelcomePayload(member, settings, type) {
   const banner = settings[prefix + "BannerUrl"] || settings[prefix + "ImageUrl"];
   const hex = String(settings[prefix + "Color"] || (welcome ? "301934" : "ED4245")).replace(/^#/, "");
   const color = /^[0-9a-f]{6}$/i.test(hex) ? parseInt(hex, 16) : (welcome ? 0x301934 : 0xED4245);
-  // Formata cada linha da descrição como bloco de citação, criando as barras laterais no Discord.
-  const descriptionWithBars = String(text || "").split("\n").map(line => line.trim() ? "> " + line : ">").join("\n");
-  const embed = new EmbedBuilder().setColor(color).setDescription(safeText(descriptionWithBars, 3900));
+  if (settings[prefix + "Mode"] === "v2") {
+    const { MediaGalleryBuilder, MediaGalleryItemBuilder } = require("discord.js");
+    // No Container V2, cada linha recebe a barra lateral do Discord.
+    const textWithBars = String(text || "").split("\n").map(line => line.trim() ? "> " + line : ">").join("\n");
+    const container = new ContainerBuilder().setAccentColor(color)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + textWithBars));
+    if (banner) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(banner)));
+    return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
+  }
+  const embed = new EmbedBuilder().setColor(color).setDescription(safeText(text, 3900));
   if (title) embed.setTitle(safeText(title, 256));
   if (thumbnail) embed.setThumbnail(thumbnail);
   else embed.setThumbnail(member.user.displayAvatarURL({ size: 256 }));
   if (banner) embed.setImage(banner);
-  if (settings[prefix + "Mode"] === "v2") {
-    const { MediaGalleryBuilder, MediaGalleryItemBuilder } = require("discord.js");
-    const container = new ContainerBuilder().setAccentColor(color)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + text));
-    if (banner) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(banner)));
-    return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
-  }
   return { embeds: [embed], allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
 }
 const selectedCategory = new Map();
