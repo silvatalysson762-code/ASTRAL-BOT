@@ -15,6 +15,8 @@ const {
   TextInputStyle,
   ContainerBuilder,
   TextDisplayBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
   MessageFlags
 } = require("discord.js");
 
@@ -364,8 +366,14 @@ function makeWelcomePayload(member, settings, type) {
     const { MediaGalleryBuilder, MediaGalleryItemBuilder } = require("discord.js");
     // Preserve exatamente a formatação salva. Linhas iniciadas com > viram citações do Discord;
     // não prefixe de novo, pois isso cria citações aninhadas e deixa a barra diferente dos painéis.
+    const welcomeText = new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + String(text || ""));
+    const avatarUrl = thumbnail || member.user.displayAvatarURL({ size: 256 });
     const container = new ContainerBuilder().setAccentColor(color)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + String(text || "")));
+      .addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(welcomeText)
+          .setThumbnailAccessory(new ThumbnailBuilder().setURL(avatarUrl))
+      );
     if (banner) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(banner)));
     return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
   }
