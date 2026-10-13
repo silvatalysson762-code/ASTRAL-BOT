@@ -1557,17 +1557,13 @@ async function runScheduledStockCycle(groupKey, resetAt) {
   const baseline = state.stockSignatures?.[groupKey] || null;
   console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento após o reset ${new Date(resetAt).toISOString()}.`);
 
-  // Limite rígido de consultas por rotação para proteger os créditos:
-  // tentativa 1 após 1 min; tentativa 2 após mais 5 min; tentativa 3 após mais 10 min.
-  // Se o stock ainda não tiver mudado, paramos até o próximo reset.
-  // Quando os dois estoques viram no mesmo horário, dá prioridade ao Normal.
-  // A primeira consulta da Mirage fica alguns segundos depois para evitar que
-  // as duas publicações disputem a ordem no Discord.
-  const retryDelays = groupKey === "mirage"
-    ? [75000, 5 * 60000, 10 * 60000]
-    : [60000, 5 * 60000, 10 * 60000];
+  // Consulta imediatamente no horário previsto do reset e faz no máximo
+  // duas novas tentativas (+3 min e +7 min) caso a fonte ainda não tenha atualizado.
+  // Mantém o limite de três consultas por rotação para proteger os créditos.
+  // Quando os dois estoques viram no mesmo horário, o Normal segue tendo prioridade.
+  const retryDelays = [0, 3 * 60000, 4 * 60000];
   for (let attempt = 0; attempt < retryDelays.length; attempt++) {
-    await wait(retryDelays[attempt]);
+    if (retryDelays[attempt] > 0) await wait(retryDelays[attempt]);
     try {
       const stock = await getStock();
       const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
