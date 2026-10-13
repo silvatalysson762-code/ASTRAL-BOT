@@ -4282,7 +4282,7 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:config") {
     const selected = interaction.values[0];
     if (selected === "blacklist") {
-      await interaction.update(buildTicketBlacklistPanel(interaction.guildId));
+      await interaction.update(buildTicketBlacklistPanel(interaction.guildId, interaction.user.id));
       return;
     }
 
@@ -4304,7 +4304,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (selected === "manage_functions") {
-      await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId));
+      await interaction.update(buildTicketManageFunctionsPanel(interaction.guildId, interaction.user.id));
       return;
     }
 
@@ -4445,8 +4445,10 @@ client.on("interactionCreate", async interaction => {
         if (!panelUpdated) console.error("Painel da blacklist não foi atualizado: IDs da mensagem principal indisponíveis.");
         ticketBlacklistPromptSessions.delete(sessionKey);
       } else if (action === "remove") {
-        const found = getActiveTicketBlacklist(interaction.guildId).some(entry => String(entry.userId) === userId);
-        updateGuildConfig(interaction.guildId, cfg => { cfg.ticketBlacklist = (Array.isArray(cfg.ticketBlacklist) ? cfg.ticketBlacklist : []).filter(entry => String(entry.userId) !== userId); });
+        const draftEntries = getTicketBlacklistDraft(interaction.guildId, interaction.user.id);
+        const found = draftEntries.some(entry => String(entry.userId) === userId);
+        const draftIndex = draftEntries.findIndex(entry => String(entry.userId) === userId);
+        if (draftIndex >= 0) draftEntries.splice(draftIndex, 1);
         await interaction.reply({ content: found ? "<:online:1557204563675848814> <@" + userId + "> foi removido da blacklist." : "<:offline:1557204568432185454> Esse usuário não está na blacklist.", ephemeral: true });
       } else {
         throw new Error("Ação da blacklist inválida.");
