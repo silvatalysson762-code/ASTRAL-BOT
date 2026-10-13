@@ -5030,7 +5030,8 @@ client.on("interactionCreate", async interaction => {
           if (!candidate || candidate.author?.id !== client.user?.id) return false;
           const containsOpenButton = components => {
             for (const component of (components || [])) {
-              if (component.customId === "ticket:open") return true;
+              // O painel atual usa o seletor ticket:select; versões antigas usavam ticket:open.
+              if (["ticket:select", "ticket:open"].includes(component.customId || component.custom_id)) return true;
               if (component.components && containsOpenButton(component.components)) return true;
             }
             return false;
@@ -5080,8 +5081,11 @@ client.on("interactionCreate", async interaction => {
       }
     } catch (error) {
       console.error("[TICKET] Erro nas ações da mensagem de suporte:", error);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "<:offline:1557204568432185454> Não foi possível concluir essa ação.", ephemeral: true }).catch(() => {});
+      const errorMessage = "<:offline:1557204568432185454> Não foi possível concluir a sincronização do painel de suporte.";
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: errorMessage }).catch(() => {});
+      } else {
+        await interaction.reply({ content: errorMessage, ephemeral: true }).catch(() => {});
       }
       return;
     }
