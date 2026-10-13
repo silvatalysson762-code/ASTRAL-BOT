@@ -4693,10 +4693,9 @@ client.on("interactionCreate", async interaction => {
       }
 
       if (interaction.customId === "ticket:preview") {
-        await interaction.reply({
-          ...buildSupportPreviewPanel(guild),
-          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-        });
+        // Troca a mensagem atual de configuração pela prévia do painel de abertura.
+        // O botão Voltar restaura a configuração na mesma mensagem.
+        await interaction.update(buildSupportPreviewPanel(guild));
         return;
       }
 
