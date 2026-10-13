@@ -52,7 +52,7 @@ const DEFAULTS = {
   goodbyeColor: "ED4245",
   welcomeDeleteAfter: 0,
   goodbyeDeleteAfter: 0,
-  welcomeMode: "embed",
+  welcomeMode: "v2",
   goodbyeMode: "embed"
 };
 
@@ -88,6 +88,11 @@ function getSettings(guildId) {
   }
   if (!saved.welcomeTitle || saved.welcomeTitle === "**Bem-Vindo a {server}**") {
     settings.welcomeTitle = DEFAULTS.welcomeTitle;
+  }
+  // O modelo antigo usava embed; migra esse padrão para Container V2,
+  // mas preserva modos personalizados que já estejam configurados.
+  if (!saved.welcomeMode || saved.welcomeMode === "embed") {
+    settings.welcomeMode = "v2";
   }
   return settings;
 }
