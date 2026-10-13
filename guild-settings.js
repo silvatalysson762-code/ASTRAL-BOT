@@ -38,7 +38,7 @@ const CHANNEL_EMOJIS = {
 const DEFAULTS = {
   welcomeEnabled: true,
   goodbyeEnabled: true,
-  welcomeMessage: "👋 Bem-vindo(a) {user} ao **{server}**! Você é o membro **#{memberCount}**.",
+  welcomeMessage: "🌌 **BEM-VINDO À ASTRAL STORE!**\n> 🚀 Sua jornada de compras começa aqui!\n\n🛒 **NOSSOS SERVIÇOS**\n> ・ Ofertas especiais e atendimento.\n> ・ Suporte para tirar suas dúvidas.\n\n🔒 **COMPRE COM SEGURANÇA**\n> 📌 Leia as regras e abra um ticket se precisar de ajuda.\n\n💙 Obrigado por escolher a **ASTRAL STORE**!",
   goodbyeMessage: "👋 **{username}** saiu do servidor **{server}**.",
   welcomeImageUrl: "",
   goodbyeImageUrl: "",
@@ -46,7 +46,7 @@ const DEFAULTS = {
   goodbyeThumbnailUrl: "",
   welcomeBannerUrl: "",
   goodbyeBannerUrl: "",
-  welcomeTitle: "**Bem-Vindo a {server}**",
+  welcomeTitle: "✨ Bem-vindo à ASTRAL STORE | FORN",
   goodbyeTitle: "**Até logo!**",
   welcomeColor: "301934",
   goodbyeColor: "ED4245",
