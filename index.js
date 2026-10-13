@@ -3251,6 +3251,32 @@ function buildTicketFeedbackRequest(guildId, ownerId, isTest = false) {
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
+function buildTicketFeedbackResultPanel(guildId, ownerId, rating, isTest, ratingId = null) {
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:online:1557204563675848814> Avaliação recebida\n" +
+        (isTest
+          ? "> Teste concluído: você selecionou **" + rating + "/5**.\n> O teste não será salvo nem publicado."
+          : "> Obrigado por avaliar nosso atendimento com **" + rating + "/5**! Seu feedback foi enviado.") +
+        "\n> Se quiser, você também pode deixar um comentário opcional."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(isTest
+            ? "ticket:feedback:test_comment:" + guildId + ":" + rating
+            : "ticket:feedback:add_comment:" + guildId + ":" + ratingId)
+          .setLabel("Adicionar comentário")
+          .setEmoji({ name: "estrela", id: "1559282428621623427" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 function buildTicketFeedbackCommentModal(guildId, ratingId, isTest = false, rating = 5) {
   return new ModalBuilder()
     .setCustomId("ticket:feedback:comment_modal:" + guildId + ":" + ratingId + ":" + (isTest ? "1" : "0") + ":" + rating)
@@ -4206,16 +4232,7 @@ client.on("interactionCreate", async interaction => {
         return;
       }
       if (isTest) {
-        await interaction.update({
-          content: "<:online:1557204563675848814> Teste concluído: você selecionou **" + rating + "/5**. Se quiser, adicione um comentário abaixo.",
-          components: [new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("ticket:feedback:test_comment:" + guildId + ":" + rating)
-              .setLabel("Adicionar comentário")
-              .setEmoji({ name: "estrela", id: "1559282428621623427" })
-              .setStyle(ButtonStyle.Secondary)
-          )]
-        });
+        await interaction.update(buildTicketFeedbackResultPanel(guildId, ownerId, rating, true));
         return;
       }
 
@@ -4239,16 +4256,7 @@ client.on("interactionCreate", async interaction => {
         ratings.push({ id: ratingId, userId: ownerId, rating, comment: null, createdAt: Date.now(), channelId: channel.id, messageId: sent.id });
         saved.ticketFeedback = { enabled: feedback.enabled !== false, channelId: feedback.channelId || channel.id, ratings: ratings.slice(-500) };
       });
-      await interaction.update({
-        content: "<:online:1557204563675848814> Obrigado por avaliar nosso atendimento com **" + rating + "/5**! Seu feedback foi enviado.",
-        components: [new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("ticket:feedback:add_comment:" + guildId + ":" + ratingId)
-            .setLabel("Adicionar comentário")
-            .setEmoji({ name: "estrela", id: "1559282428621623427" })
-            .setStyle(ButtonStyle.Secondary)
-        )]
-      });
+      await interaction.update(buildTicketFeedbackResultPanel(guildId, ownerId, rating, false, ratingId));
     } catch (error) {
       await interaction.reply({ content: "<:offline:1557204568432185454> " + (error.message || "Não consegui registrar sua avaliação."), ephemeral: true }).catch(() => {});
     }
