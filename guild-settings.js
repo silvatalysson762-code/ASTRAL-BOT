@@ -186,7 +186,7 @@ function panel(guild, selectedKey = null, userId = null) {
   const buttonsRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(selected ? "guildcfg:back_categories" : (userId && hasChannelChanges(guild.id, userId) ? "guildcfg:cancel_channels" : "panel:main"))
-      .setLabel(selected ? "Voltar às opções" : "Voltar")
+      .setLabel("Voltar")
       .setEmoji("<:arrow_left:1557204764834537534>")
       .setStyle(ButtonStyle.Secondary)
   );
