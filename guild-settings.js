@@ -328,15 +328,13 @@ function messagePanel(guild, type, userId) {
       "> **Mensagem:** " + ((s[prefix + "Message"] || "").trim() ? "Personalizada" : "Padrão")
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:editor_" + prefix).setLabel("Editar msg").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary)
-    ))
-    .addActionRowComponents(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("guildcfg:editor_" + prefix).setLabel("Editar msg").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(enabled ? "Desabilitar" : "Usar msg").setEmoji(enabled ? { name: "offline", id: "1557204568432185454" } : { name: "online", id: "1557204563675848814" }).setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary),
-      ...(enabledIsDirty(guild.id, userId, prefix) ? [new ButtonBuilder().setCustomId("guildcfg:save_enabled_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : [])
+      ...(enabledIsDirty(guild.id, userId, prefix) ? [new ButtonBuilder().setCustomId("guildcfg:save_enabled_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : []),
+      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
