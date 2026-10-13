@@ -346,7 +346,9 @@ function makeWelcomePayload(member, settings, type) {
   const banner = settings[prefix + "BannerUrl"] || settings[prefix + "ImageUrl"];
   const hex = String(settings[prefix + "Color"] || (welcome ? "301934" : "ED4245")).replace(/^#/, "");
   const color = /^[0-9a-f]{6}$/i.test(hex) ? parseInt(hex, 16) : (welcome ? 0x301934 : 0xED4245);
-  const embed = new EmbedBuilder().setColor(color).setDescription(safeText(text, 3900));
+  // Formata cada linha da descrição como bloco de citação, criando as barras laterais no Discord.
+  const descriptionWithBars = String(text || "").split("\n").map(line => line.trim() ? "> " + line : ">").join("\n");
+  const embed = new EmbedBuilder().setColor(color).setDescription(safeText(descriptionWithBars, 3900));
   if (title) embed.setTitle(safeText(title, 256));
   if (thumbnail) embed.setThumbnail(thumbnail);
   else embed.setThumbnail(member.user.displayAvatarURL({ size: 256 }));
