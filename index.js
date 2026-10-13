@@ -1527,14 +1527,23 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
       const items = applySavedFruitPrices(stock.filter(item => String(item.type || "").toLowerCase() === group.type.toLowerCase()));
       const sig = signature(items);
 
-      if (items.length && (force || !state.stockSignatures[group.key] || sig !== state.stockSignatures[group.key])) {
-        await postStock(items, true, group.title, group.key);
+      const needsPublish = items.length && (force || !state.stockSignatures[group.key] || sig !== state.stockSignatures[group.key]);
+      if (needsPublish) {
+        const delivered = await postStock(items, true, group.title, group.key);
+        // Nunca marque uma rotação como processada se nenhuma publicação chegou a um canal.
+        // Isso permite que a próxima verificação tente novamente sem duplicar o stock entregue.
+        if (!delivered) {
+          console.warn("[STOCK] " + group.type + " não foi confirmado em nenhum canal; assinatura não será avançada.");
+          continue;
+        }
         state.latestStock[group.key] = items;
         state.history = Array.isArray(state.history) ? state.history : [];
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
         state.history = state.history.slice(0, Math.max(500, Number(readConfig().historyLimit || 500)));
       }
-      state.stockSignatures[group.key] = sig;
+      if (!needsPublish || state.stockSignatures[group.key] === sig || items.length) {
+        state.stockSignatures[group.key] = sig;
+      }
     }
 
     saveState(state);
@@ -6756,21 +6765,27 @@ client.on("interactionCreate", async interaction => {
 });
 guildSettings.register(client);
 client.once("ready", () => {
-  console.log("[STOCK CACHE] Verificação da API própria a cada 30 segundos; publicando somente quando um stock novo for identificado.");
+  // Um único monitor publica mudanças. O agendador paralelo foi desativado
+  // para evitar corridas com o verificador periódico e reduzir duplicações.
+  const pollIntervalMs = 15 * 1000;
+  console.log("[STOCK MONITOR] Monitor único ativo: consulta à API própria a cada 15 segundos; a API controla o cache das fontes.");
 
+  let pollInFlight = false;
   const refreshAndPublishIfChanged = async () => {
+    if (pollInFlight) return;
+    pollInFlight = true;
     try {
       const stock = await getStock(true);
-      // Atualiza o estado e publica somente grupos cuja assinatura realmente mudou.
-      // Se a API falhar ou devolver dados inválidos, getStock lança erro e o estado publicado é preservado.
       await checkStock(false, ["normal", "mirage"], false, stock);
     } catch (error) {
-      console.error("[STOCK CACHE] Consulta automática falhou; o último stock válido/publicado será preservado:", error.message || error);
+      console.error("[STOCK MONITOR] Consulta falhou; o último stock publicado foi preservado:", error.message || error);
+    } finally {
+      pollInFlight = false;
     }
   };
 
-  refreshAndPublishIfChanged();
-  setInterval(refreshAndPublishIfChanged, STOCK_API_CACHE_MS);
+  void refreshAndPublishIfChanged();
+  setInterval(refreshAndPublishIfChanged, pollIntervalMs);
 });
 
 client.login(process.env.DISCORD_TOKEN);
