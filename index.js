@@ -1433,6 +1433,42 @@ function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuil
     .setAccentColor(getBotPanelAccentColor())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
+async function refreshPublishedStockCountdowns(channel, groupKey) {
+  if (!channel?.messages?.fetch || !groupKey) return;
+  const label = groupKey === "mirage" ? "Próximo Stock da Mirage" : "Próximo Stock normal";
+  const currentCountdown = stockCountdown(groupKey);
+  try {
+    const messages = await channel.messages.fetch({ limit: 50 });
+    for (const message of messages.values()) {
+      if (message.author?.id !== client.user.id || !Array.isArray(message.components) || !message.components.length) continue;
+      const rawComponents = message.components.map(component => component.toJSON());
+      let changed = false;
+      const visit = components => {
+        for (const component of components || []) {
+          if (component.type === 10 && typeof component.content === "string" && component.content.includes(label)) {
+            const lines = component.content.split("\n");
+            const index = lines.findIndex(line => line.includes(label));
+            if (index >= 0 && lines[index] !== currentCountdown) {
+              lines[index] = currentCountdown;
+              component.content = lines.join("\n");
+              changed = true;
+            }
+          }
+          if (Array.isArray(component.components)) visit(component.components);
+        }
+      };
+      visit(rawComponents);
+      if (changed) {
+        await message.edit({ components: rawComponents, flags: MessageFlags.IsComponentsV2 }).catch(error => {
+          console.warn("[STOCK] Não consegui atualizar o contador de uma mensagem antiga:", error?.message || error);
+        });
+      }
+    }
+  } catch (error) {
+    console.warn("[STOCK] Não consegui procurar mensagens antigas para atualizar o contador:", error?.message || error);
+  }
+}
+
 async function postStock(stock, announce, title, groupKey = null) {
   const config = readConfig();
   const entries = Object.entries(config.guilds || {}).filter(([, guildConfig]) => guildConfig?.channelId);
@@ -1449,6 +1485,7 @@ async function postStock(stock, announce, title, groupKey = null) {
         console.warn("[STOCK] Canal do servidor " + guildId + " não está acessível.");
         continue;
       }
+      if (groupKey) await refreshPublishedStockCountdowns(channel, groupKey);
       await channel.send({
         components: [stockContainer(stock, stockTitle(groupKey, guildConfig), groupKey, guildConfig)],
         flags: MessageFlags.IsComponentsV2,
