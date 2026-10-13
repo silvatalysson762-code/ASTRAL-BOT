@@ -3154,7 +3154,7 @@ function getTicketFeedbackConfig(guildId) {
   const feedback = config.ticketFeedback && typeof config.ticketFeedback === "object" ? config.ticketFeedback : {};
   return {
     enabled: feedback.enabled !== false,
-    channelId: /^\\d{17,20}$/.test(String(feedback.channelId || "")) ? String(feedback.channelId) : null,
+    channelId: /^\d{17,20}$/.test(String(feedback.channelId || "")) ? String(feedback.channelId) : null,
     ratings: Array.isArray(feedback.ratings) ? feedback.ratings : []
   };
 }
@@ -4244,10 +4244,7 @@ client.on("interactionCreate", async interaction => {
 
       const ratingId = interaction.id;
       const sent = await channel.send({
-        content: "<:estrela:1559282428621623427> **Nova avaliação de atendimento**
-> **Nota:** " + "⭐".repeat(rating) + " (" + rating + "/5)
-> **Cliente:** <@" + ownerId + ">
-> **Comentário:** `Nenhum comentário`",
+        content: "<:estrela:1559282428621623427> **Nova avaliação de atendimento**\n> **Nota:** " + "⭐".repeat(rating) + " (" + rating + "/5)\n> **Cliente:** <@" + ownerId + ">\n> **Comentário:** \`Nenhum comentário\`",
         allowedMentions: { parse: [] }
       });
       updateGuildConfig(guildId, saved => {
@@ -4304,11 +4301,7 @@ client.on("interactionCreate", async interaction => {
       const message = channel?.messages ? await channel.messages.fetch(item.messageId).catch(() => null) : null;
       if (message) {
         await message.edit({
-          content: "<:estrela:1559282428621623427> **Nova avaliação de atendimento**
-> **Nota:** " + "⭐".repeat(Number(item.rating)) + " (" + item.rating + "/5)
-> **Cliente:** <@" + item.userId + ">
-> **Comentário:** " + (comment ? comment.replace(/
-/g, " ").slice(0, 800) : "`Nenhum comentário`"),
+          content: "<:estrela:1559282428621623427> **Nova avaliação de atendimento**\n> **Nota:** " + "⭐".repeat(Number(item.rating)) + " (" + item.rating + "/5)\n> **Cliente:** <@" + item.userId + ">\n> **Comentário:** " + (comment ? comment.replace(/\n/g, " ").slice(0, 800) : "\`Nenhum comentário\`"),
           allowedMentions: { parse: [] }
         }).catch(error => console.warn("[TICKET FEEDBACK] Não consegui atualizar comentário na mensagem:", error?.message || error));
       }
