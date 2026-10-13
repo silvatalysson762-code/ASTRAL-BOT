@@ -1557,13 +1557,14 @@ async function runScheduledStockCycle(groupKey, resetAt) {
   const baseline = state.stockSignatures?.[groupKey] || null;
   console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento após o reset ${new Date(resetAt).toISOString()}.`);
 
-  // Consulta imediatamente no horário previsto do reset e faz no máximo
-  // duas novas tentativas (+3 min e +7 min) caso a fonte ainda não tenha atualizado.
-  // Mantém o limite de três consultas por rotação para proteger os créditos.
+  // Consulta no horário previsto e repete a cada 30 segundos até detectar
+  // a nova rotação. Mantém intervalo fixo para não esperar vários minutos entre tentativas.
   // Quando os dois estoques viram no mesmo horário, o Normal segue tendo prioridade.
-  const retryDelays = [0, 3 * 60000, 4 * 60000];
-  for (let attempt = 0; attempt < retryDelays.length; attempt++) {
-    if (retryDelays[attempt] > 0) await wait(retryDelays[attempt]);
+  const retryInterval = 30 * 1000;
+  let attempt = 0;
+  while (true) {
+    if (attempt > 0) await wait(retryInterval);
+    attempt++;
     try {
       const stock = await getStock();
       const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
@@ -1585,14 +1586,14 @@ async function runScheduledStockCycle(groupKey, resetAt) {
           return;
         }
       } else {
-        console.log(`[SCHEDULER] ${groupKey} ainda não mudou (tentativa ${attempt + 1}/${retryDelays.length}).`);
+        console.log(`[SCHEDULER] ${groupKey} ainda não mudou (tentativa ${attempt}); nova consulta em 30 segundos.`);
       }
     } catch (error) {
       console.warn(`[SCHEDULER] Falha na tentativa ${attempt + 1}/${retryDelays.length} de ${groupKey}: ${error.message}.`);
     }
   }
 
-  console.warn(`[SCHEDULER] Limite de ${retryDelays.length} consultas atingido para ${groupKey}; aguardando o próximo reset para evitar consumir créditos.`);
+  // O loop só termina quando a rotação nova é detectada e publicada.
 }
 const activeStockCycles = new Set();
 let schedulerTimer = null;
