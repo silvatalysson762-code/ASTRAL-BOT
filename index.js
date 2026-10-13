@@ -4643,21 +4643,12 @@ client.on("interactionCreate", async interaction => {
         }
       }
 
-      updateGuildConfig(guild.id, config => {
-        config.ticketFunctions = Array.isArray(config.ticketFunctions) ? config.ticketFunctions : [];
-        if (config.ticketFunctions.length >= 25) throw new Error("Você já atingiu o limite de 25 funções de atendimento.");
-        config.ticketFunctions.push({
-          id: "ticket_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8),
-          name,
-          preDescription,
-          description: description || null,
-          banner: banner || null,
-          emoji
-        });
-      });
+      const functionsDraft = getTicketFunctionDraft(guild.id, interaction.user.id);
+      if (functionsDraft.length >= 25) throw new Error("Você já atingiu o limite de 25 funções de atendimento.");
+      functionsDraft.push({ id: "ticket_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8), name, preDescription, description: description || null, banner: banner || null, emoji });
 
       await interaction.reply({
-        ...buildTicketConfigPanel(guild.id),
+        ...buildTicketManageFunctionsPanel(guild.id, interaction.user.id),
         flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
       });
     } catch (error) {
@@ -5689,14 +5680,14 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton() && interaction.customId === "ticket:manage_functions_back") {
+    ticketFunctionDrafts.delete(ticketFunctionDraftKey(interaction.guildId, interaction.user.id));
     await interaction.update(buildTicketConfigPanel(interaction.guildId));
     return;
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket:manage_function_select") {
     const id = interaction.values[0];
-    const config = getGuildConfig(interaction.guildId);
-    const fn = (config.ticketFunctions || []).find(item => item.id === id);
+    const fn = getTicketFunctionDraft(interaction.guildId, interaction.user.id).find(item => item.id === id);
     if (!fn) {
       await interaction.reply({ content: "<:offline:1557204568432185454> Essa função não existe mais. Atualize a tela.", ephemeral: true });
       return;
