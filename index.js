@@ -1589,7 +1589,7 @@ async function runScheduledStockCycle(groupKey, resetAt) {
         console.log(`[SCHEDULER] ${groupKey} ainda não mudou (tentativa ${attempt}); nova consulta em 30 segundos.`);
       }
     } catch (error) {
-      console.warn(`[SCHEDULER] Falha na tentativa ${attempt + 1}/${retryDelays.length} de ${groupKey}: ${error.message}.`);
+      console.warn(`[SCHEDULER] Falha na tentativa ${attempt} de ${groupKey}: ${error.message || error}. Nova consulta em 30 segundos.`);
     }
   }
 
