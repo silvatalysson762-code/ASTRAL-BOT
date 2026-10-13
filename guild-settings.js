@@ -317,12 +317,12 @@ function messageEditorPanel(guild, type, userId) {
       "`{id}` • ID do usuário"
     ].join("\n")))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar campos").setEmoji("✏️").setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId("guildcfg:fields_" + prefix).setLabel("Editar campos").setEmoji({ name: "compass", id: "1557204910578335844" }).setStyle(ButtonStyle.Primary)
     ));
   container.addActionRowComponents(new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("guildcfg:back_editor_" + prefix).setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary),
     ...(dirty ? [new ButtonBuilder().setCustomId("guildcfg:save_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : []),
-    new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji({ name: "eye", id: "1557204822569259091" }).setStyle(ButtonStyle.Secondary)
   ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
