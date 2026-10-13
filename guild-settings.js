@@ -55,7 +55,7 @@ const DEFAULTS = {
   welcomeDeleteAfter: 0,
   goodbyeDeleteAfter: 0,
   welcomeMode: "v2",
-  goodbyeMode: "embed"
+  goodbyeMode: "v2"
 };
 
 function readConfig() {
@@ -95,6 +95,9 @@ function getSettings(guildId) {
   // mas preserva modos personalizados que já estejam configurados.
   if (!saved.welcomeMode || saved.welcomeMode === "embed") {
     settings.welcomeMode = "v2";
+  }
+  if (!saved.goodbyeMode || saved.goodbyeMode === "embed") {
+    settings.goodbyeMode = "v2";
   }
   return settings;
 }
@@ -337,7 +340,7 @@ function messagePanel(guild, type, userId) {
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
-      "# " + (welcome ? "<:62565:1559293995840970764> BOAS-VINDAS" : "<:62548:1559294145737138218> SAÍDA"),
+      "# " + (welcome ? "<:62565:1559293995840970764> BOAS-VINDAS" : "<:62548:1559294145737138218> SAÍDAS"),
       "> Configure o canal, a mensagem e quando ela será enviada.",
       "> **Canal:** " + (channelId ? "<#" + channelId + ">" : "`Não configurado`"),
       "> **Status:** " + (enabled ? "Ativado" : "Desativado"),
@@ -372,7 +375,7 @@ function makeWelcomePayload(member, settings, type) {
     // não prefixe de novo, pois isso cria citações aninhadas e deixa a barra diferente dos painéis.
     const welcomeText = new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + String(text || ""));
     const avatarUrl = thumbnail || member.user.displayAvatarURL({ size: 256 });
-    const container = new ContainerBuilder().setAccentColor(welcome ? welcomeAccentColor : color)
+    const container = new ContainerBuilder().setAccentColor(welcomeAccentColor)
       .addSectionComponents(
         new SectionBuilder()
           .addTextDisplayComponents(welcomeText)
