@@ -335,8 +335,7 @@ function messagePanel(guild, type, userId) {
   const welcome = type === "welcome";
   const prefix = welcome ? "welcome" : "goodbye";
   const channelId = s[prefix + "ChannelId"];
-  const enabledKey = enabledDraftKey(guild.id, userId, prefix);
-  const enabled = enabledDrafts.has(enabledKey) ? enabledDrafts.get(enabledKey) : Boolean(s[prefix + "Enabled"]);
+  const enabled = Boolean(s[prefix + "Enabled"]);
   const container = new ContainerBuilder()
     .setAccentColor(0x00FFFF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent([
@@ -351,8 +350,7 @@ function messagePanel(guild, type, userId) {
       new ButtonBuilder().setCustomId("guildcfg:toggle_" + prefix).setLabel(enabled ? "Desabilitar" : "Usar").setEmoji(enabled ? { name: "offline", id: "1557204568432185454" } : { name: "online", id: "1557204563675848814" }).setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success)
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary),
-      ...(enabledIsDirty(guild.id, userId, prefix) ? [new ButtonBuilder().setCustomId("guildcfg:save_enabled_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : [])
+      new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary)
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -475,9 +473,9 @@ async function handleInteraction(interaction) {
   }
   if (interaction.isButton() && /^guildcfg:toggle_(welcome|goodbye)$/.test(id)) {
     const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
-    const key = enabledDraftKey(interaction.guildId, interaction.user.id, prefix);
-    const current = enabledDrafts.has(key) ? enabledDrafts.get(key) : Boolean(getSettings(interaction.guildId)[prefix + "Enabled"]);
-    enabledDrafts.set(key, !current);
+    const current = Boolean(getSettings(interaction.guildId)[prefix + "Enabled"]);
+    updateSettings(interaction.guildId, settings => { settings[prefix + "Enabled"] = !current; });
+    enabledDrafts.delete(enabledDraftKey(interaction.guildId, interaction.user.id, prefix));
     await interaction.update(messagePanel(interaction.guild, prefix, interaction.user.id));
     return true;
   }
