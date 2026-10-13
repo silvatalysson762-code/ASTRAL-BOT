@@ -437,6 +437,7 @@ async function handleInteraction(interaction) {
     }
     channelDrafts.delete(key);
     await interaction.update(panel(interaction.guild, null, interaction.user.id));
+    await interaction.followUp({ content: "<:online:1557204563675848814> **Canais padrão salvos com sucesso.**", ephemeral: true }).catch(() => {});
     return true;
   }
   if (interaction.isChannelSelectMenu() && id === "guildcfg:channel") {
@@ -489,6 +490,7 @@ async function handleInteraction(interaction) {
       enabledDrafts.delete(key);
     }
     await interaction.update(messagePanel(interaction.guild, prefix, interaction.user.id));
+    await interaction.followUp({ content: "<:online:1557204563675848814> **Mensagem de " + (prefix === "welcome" ? "boas-vindas" : "saída") + " salva com sucesso.**", ephemeral: true }).catch(() => {});
     return true;
   }
   if (interaction.isButton() && /^guildcfg:fields_(welcome|goodbye)$/.test(id)) {
@@ -532,6 +534,7 @@ async function handleInteraction(interaction) {
     });
     messageDrafts.delete(key);
     await interaction.update(messageEditorPanel(interaction.guild, prefix, interaction.user.id));
+    await interaction.followUp({ content: "<:online:1557204563675848814> **" + (prefix === "welcome" ? "Boas-vindas" : "Saídas") + " salvo com sucesso.**", ephemeral: true }).catch(() => {});
     return true;
   }
   if (interaction.isButton() && /^guildcfg:preview_(welcome|goodbye)$/.test(id)) {
