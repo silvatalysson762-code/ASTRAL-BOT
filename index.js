@@ -771,7 +771,7 @@ async function getStock(forceRefresh = false) {
     const response = await fetch(endpoint, {
       method: "GET",
       headers,
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(70000)
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw new Error(payload?.message || payload?.error || ("HTTP " + response.status));
