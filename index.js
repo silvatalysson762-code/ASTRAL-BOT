@@ -1393,14 +1393,9 @@ function brasilTime(timestamp) {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: BRASIL_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(timestamp));
 }
 function stockCountdown(groupKey) {
-  // Usa o mesmo timestamp que o agendador já calculou para o próximo reset.
-  let timestamp = nextStockAt[groupKey];
-  const now = Date.now();
-
-  if (!Number.isFinite(timestamp) || timestamp <= now) {
-    timestamp = nextGlobalReset(groupKey).getTime();
-  }
-
+  // Calcula o próximo horário global no momento em que a mensagem é montada.
+  // Não reutiliza nextStockAt, que o agendador pode já ter avançado para o ciclo seguinte.
+  const timestamp = nextGlobalReset(groupKey, new Date()).getTime();
   const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock normal";
   return `${APPLICATION_UI_EMOJIS.clock} **Próximo ${label}:** <t:${Math.floor(timestamp / 1000)}:R> • **${brasilTime(timestamp)} (Brasília)**`;
 }
