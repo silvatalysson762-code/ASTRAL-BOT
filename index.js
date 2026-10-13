@@ -2818,11 +2818,10 @@ async function interactionHasTicketStaffRole(interaction) {
 }
 
 function buildTicketControlPanel(ownerId, assumedBy = null) {
-  // Só adiciona um espaço invisível depois de "Assumir/Assumido".
   const labels = {
     add: "Add",
     remove: "Remove",
-    assume: (assumedBy ? "Assumido" : "Assumir") + String.fromCharCode(0x3164),
+    assume: assumedBy ? "Assumido" : "Assumir",
     assign: "Atribuir"
   };
 
