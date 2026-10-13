@@ -357,10 +357,10 @@ function makeWelcomePayload(member, settings, type) {
   const color = /^[0-9a-f]{6}$/i.test(hex) ? parseInt(hex, 16) : (welcome ? 0x301934 : 0xED4245);
   if (settings[prefix + "Mode"] === "v2") {
     const { MediaGalleryBuilder, MediaGalleryItemBuilder } = require("discord.js");
-    // No Container V2, cada linha recebe a barra lateral do Discord.
-    const textWithBars = String(text || "").split("\n").map(line => line.trim() ? "> " + line : ">").join("\n");
+    // Preserve exatamente a formatação salva. Linhas iniciadas com > viram citações do Discord;
+    // não prefixe de novo, pois isso cria citações aninhadas e deixa a barra diferente dos painéis.
     const container = new ContainerBuilder().setAccentColor(color)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + textWithBars));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent((title ? "## " + title + "\n\n" : "") + String(text || "")));
     if (banner) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(banner)));
     return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], users: welcome ? [member.id] : [] } };
   }
