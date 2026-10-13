@@ -333,8 +333,7 @@ function messagePanel(guild, type, userId) {
     ))
     .addActionRowComponents(new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("guildcfg:home").setLabel("Voltar").setEmoji("<:arrow_left:1557204764834537534>").setStyle(ButtonStyle.Secondary),
-      ...(enabledIsDirty(guild.id, userId, prefix) ? [new ButtonBuilder().setCustomId("guildcfg:save_enabled_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : []),
-      new ButtonBuilder().setCustomId("guildcfg:preview_" + prefix).setLabel("Prévia").setEmoji("👁️").setStyle(ButtonStyle.Secondary)
+      ...(enabledIsDirty(guild.id, userId, prefix) ? [new ButtonBuilder().setCustomId("guildcfg:save_enabled_" + prefix).setLabel("Salvar").setEmoji("<:save:1557205052974960780>").setStyle(ButtonStyle.Success)] : [])
     ));
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -468,10 +467,8 @@ async function handleInteraction(interaction) {
       .setCustomId("guildcfg:modal_fields_" + prefix)
       .setTitle(prefix === "welcome" ? "Editar Boas-vindas" : "Editar mensagem de saída")
       .addComponents(
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Título").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(256).setValue(draft.title || "")),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("message").setLabel("Descrição da mensagem").setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1800).setValue(draft.message || "")),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("thumbnail").setLabel("Thumbnail URL HTTPS (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500).setValue(draft.thumbnail || "")),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("banner").setLabel("Banner URL HTTPS (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(500).setValue(draft.banner || ""))
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Título (Markdown: **negrito**)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(256).setValue(draft.title || "")),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("message").setLabel("Descrição (**negrito**, *itálico*)").setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1800).setValue(draft.message || ""))
       );
     await interaction.showModal(modal);
     return true;
@@ -480,14 +477,9 @@ async function handleInteraction(interaction) {
     const prefix = id.endsWith("_welcome") ? "welcome" : "goodbye";
     const title = interaction.fields.getTextInputValue("title");
     const message = interaction.fields.getTextInputValue("message");
-    const thumbnail = interaction.fields.getTextInputValue("thumbnail").trim();
-    const banner = interaction.fields.getTextInputValue("banner").trim();
-    for (const [label, url] of [["Thumbnail", thumbnail], ["Banner", banner]]) {
-      if (url && !/^https:\/\//i.test(url)) {
-        await interaction.reply({ content: label + " precisa ser uma URL HTTPS direta para uma imagem.", ephemeral: true });
-        return true;
-      }
-    }
+    const previousDraft = editableMessageSettings(interaction.guildId, interaction.user.id, prefix);
+    const thumbnail = previousDraft.thumbnail || "";
+    const banner = previousDraft.banner || "";
     messageDrafts.set(draftKey(interaction.guildId, interaction.user.id, prefix), { title, message, thumbnail, banner });
     await interaction.update(messageEditorPanel(interaction.guild, prefix, interaction.user.id));
     return true;
