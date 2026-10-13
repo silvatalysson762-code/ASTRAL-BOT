@@ -2954,21 +2954,29 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       reason: "Astral Support Ticket"
     });
 
-    // Adiciona de verdade o solicitante e a equipe à thread privada.
-    // Mensagens com menções não garantem que alguém vire membro da thread.
+    // O Discord cria avisos de sistema ao adicionar membros à thread privada.
+    // Mantemos a rotina para o solicitante, mas fazemos isso só depois das mensagens do ticket.
     const addThreadMembers = async ids => {
       const uniqueIds = [...new Set(ids)].filter(id => id && id !== client.user.id);
       for (const id of uniqueIds) {
         try {
           await thread.members.add(id);
+          // Limpa apenas o aviso automático de entrada, nunca mensagens normais.
+          await new Promise(resolve => setTimeout(resolve, 350));
+          const recentMessages = await thread.messages.fetch({ limit: 10 }).catch(() => null);
+          if (recentMessages) {
+            for (const systemMessage of recentMessages.values()) {
+              if (systemMessage.type === MessageType.ThreadMemberJoin) {
+                await systemMessage.delete().catch(() => {});
+              }
+            }
+          }
         } catch (error) {
           console.warn("[TICKET] Não consegui adicionar " + id + " à thread privada:", error?.message || error);
         }
       }
     };
 
-    // O solicitante precisa ser membro explícito da thread privada.
-    await addThreadMembers([interaction.user.id, ...memberIds]);
     // Remove o aviso de criação, se o Discord permitir.
     try {
       const starterNotice = await parent.messages.fetch(thread.id).catch(() => null);
@@ -2977,15 +2985,13 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       console.warn("[TICKET] Não consegui apagar aviso de criação do tópico:", error?.message || error);
     }
 
-    // Ordem do ticket: painel primeiro, chamada da equipe depois e motivo/título por último.
+    // Primeiro o painel de controle.
     await sendTicketControlPanel(thread, interaction.user.id);
 
     const staffRoleMentions = ["administrator", "moderator", "staff"]
       .map(key => String(config?.adminRoles?.[key] || ""))
       .filter((id, index, all) => /^\d{17,20}$/.test(id) && all.indexOf(id) === index)
       .map(id => `<@&${id}>`);
-    // Na mensagem de aviso, mencionar somente os cargos configurados.
-    // Os usuários necessários continuam sendo adicionados à thread sem serem marcados no texto.
     if (staffRoleMentions.length) {
       await thread.send({
         content: staffRoleMentions.join(" "),
@@ -2997,31 +3003,15 @@ async function createAstralTicket(interaction, selectedFunction = null) {
       }).catch(error => console.warn("[TICKET] Não consegui enviar o aviso dos cargos:", error?.message || error));
     }
 
+    // Depois, a mensagem inicial do atendimento e o banner opcional.
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
       : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
     await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
 
-    // Completa a busca da equipe em segundo plano para não atrasar a abertura.
-    // Os avisos de entrada continuam sendo tratados pelo listener de limpeza.
-    if (staffRoleIds.length) {
-      void (async () => {
-        try {
-          const allMembers = await guild.members.fetch();
-          const missingIds = new Set();
-          for (const member of allMembers.values()) {
-            if (staffRoleIds.some(roleId => member.roles.cache.has(roleId)) && !memberIds.has(member.id)) {
-              missingIds.add(member.id);
-            }
-          }
-          // Adiciona os membros da equipe que não estavam no cache inicial.
-          await addThreadMembers([...missingIds]);
-        } catch (error) {
-          console.warn("[TICKET] Falha ao completar equipe em segundo plano:", error?.message || error);
-        }
-      })();
-    }
+    // Só então adiciona quem abriu o ticket. A menção sozinha não dá acesso à thread privada.
+    await addThreadMembers([interaction.user.id]);
 
     return { mode, target: thread, alreadyOpen: false };
   }
