@@ -634,8 +634,8 @@ function normalizeStock(payload) {
 
   const normalizeItem = (item, type) => {
     const value = typeof item === "string" ? { name: item } : { ...(item || {}) };
-    const robux = value.robux_price ?? value.robuxPrice ?? value.robux ?? value.permanent_price ?? value.permanentPrice ?? value.permanent_robux;
-    const beli = value.money_price ?? value.price_beli ?? value.beli_price ?? value.beliPrice ?? value.price;
+    const robux = value.robux_price ?? value.price_robux ?? value.robuxPrice ?? value.priceRobux ?? value.robux ?? value.permanent_price ?? value.permanentPrice ?? value.permanent_robux;
+    const beli = value.money_price ?? value.price_beli ?? value.priceBeli ?? value.beli_price ?? value.beliPrice ?? value.price;
     return {
       ...value,
       type,
