@@ -780,9 +780,11 @@ async function fetchHtmlStock(url) {
     console.warn("[BROWSER CHECK] Navegador falhou para " + new URL(url).hostname +
       ": " + String(browserError?.message || browserError).slice(0, 500) +
       ". Tentando HTML direto como alternativa.");
-    const response = await fetchWithRetry(url, {
-      headers: { accept: "text/html", "user-agent": "Mozilla/5.0 (compatible; ASTRAL-Stock-Service/1.0)" }
-    }, "Fonte HTML");
+    const response = await fetch(url, {
+      headers: { accept: "text/html", "user-agent": "Mozilla/5.0 (compatible; ASTRAL-Stock-Service/1.0)" },
+      signal: AbortSignal.timeout(20_000)
+    });
+    if (!response.ok) throw new Error("Fonte HTML respondeu HTTP " + response.status);
     html = await response.text();
   }
 
@@ -795,14 +797,28 @@ async function fetchHtmlStock(url) {
     "Spirit", "Dragon", "Leopard", "Kitsune", "Yeti", "Gas", "Lightning",
     "Tiger", "West Dragon", "East Dragon", "Mochi", "Magnet",
   ];
-  const cleanText = value => decodeHtmlEntities(String(value)
+  const decodeStockHtml = value => String(value)
+    .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'").replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">").replace(/&nbsp;|&#160;/gi, " ");
+  const cleanText = value => decodeStockHtml(String(value)
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
     .replace(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/section|\/article|\/tr|\/main|\/ul|\/ol)\b[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
     .replace(/[\t\f\v ]+/g, " ")
     .replace(/ *\n */g, "\n")).trim();
+  const normalizeFruits = list => {
+    const seen = new Set();
+    return list.map(item => ({ name: String(item?.name ?? item?.fruit ?? item?.title ?? "").trim() }))
+      .filter(item => {
+        if (!item.name) return false;
+        const key = item.name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
   // Preferir o texto visível real do navegador: vários sites montam cards com divs,
   // não com tags h1-h6, então procurar apenas headings HTML perdia o estoque.
   const sourceText = (visibleText || cleanText(html))
