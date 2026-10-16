@@ -997,7 +997,7 @@ async function getStock(forceRefresh = false) {
     return normalized.map(item => ({ ...item }));
   } catch (error) {
     console.error("[STOCK] Falha na consulta direta pelo Chromium:", error.message || error);
-    if (lastSuccessfulStock?.length && Date.now() - lastSuccessfulStockAt < 6 * 60 * 60 * 1000) {
+    if (!forceRefresh && lastSuccessfulStock?.length && Date.now() - lastSuccessfulStockAt < 6 * 60 * 60 * 1000) {
       console.warn("[STOCK] Mantendo o último stock válido em memória.");
       return lastSuccessfulStock.map(item => ({ ...item }));
     }
@@ -1054,7 +1054,7 @@ async function sendStockAlerts(stock, groupKey, guildConfig) {
   const label = groupKey === "mirage" ? "Stock da Mirage" : "Stock Normal";
   const names = stock.map(item => `${fruitEmoji(item)} **${safeName(item)}**`).join(", ");
   await channel.send({
-    content: `🔔 **Alerta de ${label}!**\\n${names}\\n\\n${roleIds.map(id => `<@&${id}>`).join(" ")}`,
+    content: `🔔 **Alerta de ${label}!**\n${names}\n\n${roleIds.map(id => `<@&${id}>`).join(" ")}`,
     allowedMentions: { roles: roleIds }
   });
 }
@@ -3100,7 +3100,7 @@ async function sendTicketOpeningMessage(target, config, selectedFunction, ticket
   const title = String(selectedFunction?.name || "Atendimento");
   // Compacta linhas vazias repetidas para a mensagem de cada função não ficar alta demais.
   const description = String(ticketText || "")
-    .replace(/\\n/g, "\n")
+    .replace(/\n/g, "\n")
     .split("\n")
     .map(line => line.trim())
     .filter(Boolean)
@@ -3245,7 +3245,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
     // Depois, a mensagem inicial do atendimento e o banner opcional.
     const ticketText = selectedFunction?.description
       ? selectedFunction.description
-      : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
+      : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\n\nExplique sua dúvida e aguarde nossa equipe.\n\n-# Um membro da equipe responderá o mais rápido possível.";
     await sendTicketOpeningMessage(thread, config, selectedFunction, ticketText);
     if (selectedFunction?.banner) await thread.send({ content: selectedFunction.banner });
 
@@ -3275,7 +3275,7 @@ async function createAstralTicket(interaction, selectedFunction = null) {
 
   const ticketText = selectedFunction?.description
     ? selectedFunction.description
-    : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\\n\\nExplique sua dúvida e aguarde nossa equipe.\\n\\n-# Um membro da equipe responderá o mais rápido possível.";
+    : "Olá, <@" + interaction.user.id + ">! Seu atendimento foi aberto.\n\nExplique sua dúvida e aguarde nossa equipe.\n\n-# Um membro da equipe responderá o mais rápido possível.";
 
   // O painel de controle fica antes da mensagem de abertura também nos canais privados.
   await sendTicketControlPanel(channel, interaction.user.id);
@@ -4309,7 +4309,7 @@ client.on("interactionCreate", async interaction => {
       if (!member) throw new Error("Não encontrei esse membro neste servidor.");
       const target = interaction.channel;
       if (!target) throw new Error("Não encontrei o canal deste ticket.");
-      await guildSettings.logTicket(interaction.guild, "Ticket fechado", "Canal: " + target.name + " (" + target.id + ")\\nFechado por: <@" + interaction.user.id + ">\\nSolicitante: <@" + ownerId + ">", 0xED4245);
+      await guildSettings.logTicket(interaction.guild, "Ticket fechado", "Canal: " + target.name + " (" + target.id + ")\nFechado por: <@" + interaction.user.id + ">\nSolicitante: <@" + ownerId + ">", 0xED4245);
       if (target.isThread?.()) {
         if (action === "add") {
           await target.members.add(memberId);
@@ -4598,7 +4598,7 @@ client.on("interactionCreate", async interaction => {
       const result = await createAstralTicket(interaction, selectedFunction);
       const target = result.target;
       if (!result.alreadyOpen) {
-        await guildSettings.logTicket(guild, "Ticket criado", "Solicitante: <@" + interaction.user.id + ">\\nCanal: <#" + target.id + ">\\nAtendimento: " + (selectedFunction?.name || "Atendimento"), 0x57F287);
+        await guildSettings.logTicket(guild, "Ticket criado", "Solicitante: <@" + interaction.user.id + ">\nCanal: <#" + target.id + ">\nAtendimento: " + (selectedFunction?.name || "Atendimento"), 0x57F287);
       }
 
       // Rebuild the original support panel so the selector returns to its placeholder.
@@ -4637,7 +4637,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply({
         content: isBlacklistError
           ? detail
-          : "<:offline:1557204568432185454> Não consegui abrir o atendimento. **Erro:** " + detail + "\\nConfira as permissões do bot para o modo de ticket configurado."
+          : "<:offline:1557204568432185454> Não consegui abrir o atendimento. **Erro:** " + detail + "\nConfira as permissões do bot para o modo de ticket configurado."
       }).catch(() => {});
     }
     return;
@@ -5341,7 +5341,7 @@ client.on("interactionCreate", async interaction => {
       const result = await createAstralTicket(interaction);
       const target = result.target;
       if (!result.alreadyOpen) {
-        await guildSettings.logTicket(guild, "Ticket criado", "Solicitante: <@" + interaction.user.id + ">\\nCanal: <#" + target.id + ">\\nAtendimento: geral", 0x57F287);
+        await guildSettings.logTicket(guild, "Ticket criado", "Solicitante: <@" + interaction.user.id + ">\nCanal: <#" + target.id + ">\nAtendimento: geral", 0x57F287);
       }
       await interaction.reply({
         content: result.alreadyOpen
@@ -6585,7 +6585,7 @@ client.on("interactionCreate", async interaction => {
         return guild ? "• **" + guild.name + "** — \`" + id + "\`" : "• \`" + id + "\` — servidor não encontrado";
       });
       await commandReply(interaction, {
-        content: "🛡️ **Servidores autorizados**\\n\\n" + (entries.join("\\n") || "Nenhum servidor autorizado."),
+        content: "🛡️ **Servidores autorizados**\n\n" + (entries.join("\n") || "Nenhum servidor autorizado."),
         ephemeral: true
       });
       return;
@@ -6784,8 +6784,8 @@ client.on("interactionCreate", async interaction => {
       const synchronized = await checkStock(true, ["normal", "mirage"], true, refreshedStock);
       if (!synchronized) throw new Error("Já existe uma verificação de stock em andamento. Tente novamente em alguns segundos.");
       await interaction.editReply(
-        uiEmoji("success", "✅") + " **Stock atualizado pelo Chromium integrado!**\\n" +
-        "Normal: **" + normalCount + " frutas** | Mirage: **" + mirageCount + " frutas**\\n" +
+        uiEmoji("success", "✅") + " **Stock atualizado pelo Chromium integrado!**\n" +
+        "Normal: **" + normalCount + " frutas** | Mirage: **" + mirageCount + " frutas**\n" +
         "Fonte: bloxfruitsvalues.org"
       );
     } catch (error) {
