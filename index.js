@@ -755,66 +755,263 @@ function parseFruityBloxStock(html) {
   return [...normal, ...mirage];
 }
 
+let browserInstance = null;
+
+async function closeBrowser(reason = "recovery") {
+  const current = browserInstance;
+  browserInstance = null;
+  if (current) {
+    try { await current.close(); }
+    catch (error) {
+      console.warn("[BROWSER] Não foi possível fechar Chromium (" + reason + "): " + String(error?.message || error));
+    }
+  }
+}
+
+async function ensureBrowser() {
+  if (browserInstance && browserInstance.connected) return browserInstance;
+  browserInstance = null;
+  const puppeteer = require("puppeteer");
+  const launched = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+      "--disable-background-networking", "--disable-renderer-backgrounding",
+      "--disable-background-timer-throttling"]
+  });
+  browserInstance = launched;
+  launched.on("disconnected", () => {
+    console.warn("[BROWSER] Chromium desconectou; será reiniciado na próxima consulta.");
+    if (browserInstance === launched) browserInstance = null;
+  });
+  console.log("[BROWSER] Chromium pronto.");
+  return launched;
+}
+
+async function renderPageWithBrowser(url) {
+  const browser = await ensureBrowser();
+  let page;
+  try {
+    page = await browser.newPage();
+    page.setDefaultNavigationTimeout(35_000);
+    page.setDefaultTimeout(20_000);
+
+    // Deixar o Chromium renderizar a página normalmente: JavaScript, imagens,
+    // fontes e demais recursos ficam habilitados, como em uma navegação comum.
+    await page.setViewport({ width: 1365, height: 900, deviceScaleFactor: 1 });
+    await page.setJavaScriptEnabled(true);
+    await page.setCacheEnabled(true);
+    await page.setExtraHTTPHeaders({
+      "accept-language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7"
+    });
+
+    const navigationStartedAt = Date.now();
+
+    // Primeiro aguardar o DOM, depois dar tempo para scripts e conteúdo dinâmico
+    // terminarem de preencher a página. Não tenta contornar proteções do site.
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 35_000 });
+
+    await page.waitForFunction(() => document.readyState === "complete", {
+      timeout: 12_000
+    }).catch(() => {
+      console.warn("[BROWSER] A página não sinalizou readyState=complete; aguardando o conteúdo visível.");
+    });
+
+    // Algumas páginas mantêm conexões abertas. A espera por rede é limitada para
+    // não ficar presa indefinidamente em analytics ou conexões persistentes.
+    await page.waitForNetworkIdle({ idleTime: 1_000, timeout: 5_000 }).catch(() => {
+      console.warn("[BROWSER] A rede não ficou ociosa no prazo; verificando o conteúdo carregado.");
+    });
+
+    await page.waitForFunction(() => {
+      const text = document.body?.innerText || "";
+      return text.length >= 40 && /normal/i.test(text) && /mirage/i.test(text);
+    }, { timeout: 10_000 }).catch(() => {
+      console.warn("[BROWSER] Os marcadores Normal/Mirage não apareceram no prazo.");
+    });
+
+    // Espera o texto visível parar de mudar por 2 segundos, com limite de 10 segundos.
+    // Isso evita ler cards enquanto o JavaScript ainda está atualizando a página.
+    await page.evaluate(async () => {
+      const startedAt = Date.now();
+      let previousText = "";
+      let stableSince = Date.now();
+
+      while (Date.now() - startedAt < 5_000) {
+        const currentText = (document.body?.innerText || "").replace(/\s+/g, " ").trim();
+        if (currentText !== previousText) {
+          previousText = currentText;
+          stableSince = Date.now();
+        }
+        if (currentText.length >= 40 && Date.now() - stableSince >= 1_500) break;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    });
+
+    // Tempo mínimo adicional após o carregamento antes de extrair o HTML final.
+    await new Promise(resolve => setTimeout(resolve, 1_000));
+
+    const result = {
+      title: await page.title().catch(() => ""),
+      html: await page.content(),
+      text: await page.evaluate(() => document.body?.innerText || "")
+    };
+    console.log("[BROWSER] Página processada em " + new URL(url).hostname +
+      " após " + Math.ceil((Date.now() - navigationStartedAt) / 1000) + "s de carregamento/estabilização.");
+    if (!result.text.trim()) throw new Error("A página abriu, mas não apresentou texto visível.");
+    return result;
+  } catch (error) {
+    console.warn("[BROWSER] Falha ao ler " + url + ": " + String(error?.message || error));
+    await closeBrowser("falha na navegação");
+    throw error;
+  } finally {
+    if (page) await page.close().catch(() => {});
+  }
+}
+
+async function fetchHtmlStock(url) {
+  let html = "";
+  let visibleText = "";
+  try {
+    const rendered = await renderPageWithBrowser(url);
+    html = rendered.html;
+    visibleText = rendered.text;
+    const title = String(rendered.title || "");
+    if (/just a moment|attention required|access denied|verify you are human|cloudflare/i.test(title)) {
+      throw new Error("A fonte apresentou uma página de proteção/bloqueio, não o estoque.");
+    }
+  } catch (browserError) {
+    if (/página de proteção\/bloqueio/.test(String(browserError?.message || ""))) throw browserError;
+    console.warn("[BROWSER CHECK] Navegador falhou para " + new URL(url).hostname +
+      ": " + String(browserError?.message || browserError).slice(0, 500) +
+      ". Tentando HTML direto como alternativa.");
+    const response = await fetch(url, { headers: { accept: "text/html", "user-agent": "Mozilla/5.0 (compatible; ASTRAL-BOT/1.0)" }, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error("Fonte HTML HTTP " + response.status);
+    html = await response.text();
+  }
+
+  const fruitNames = [
+    "Rocket", "Spin", "Blade", "Spring", "Bomb", "Smoke", "Spike", "Flame",
+    "Falcon", "Eagle", "Ice", "Sand", "Dark", "Diamond", "Light", "Rubber",
+    "Barrier", "Ghost", "Magma", "Quake", "Buddha", "Love", "Creation",
+    "Spider", "Sound", "Phoenix", "Portal", "Rumble", "Pain", "Blizzard",
+    "Gravity", "Mammoth", "T-Rex", "Dough", "Shadow", "Venom", "Control",
+    "Spirit", "Dragon", "Leopard", "Kitsune", "Yeti", "Gas", "Lightning",
+    "Tiger", "West Dragon", "East Dragon", "Mochi", "Magnet",
+  ];
+  const cleanText = value => decodeHtmlEntities(String(value)
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/section|\/article|\/tr|\/main|\/ul|\/ol)\b[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/[\t\f\v ]+/g, " ")
+    .replace(/ *\n */g, "\n")).trim();
+  // Preferir o texto visível real do navegador: vários sites montam cards com divs,
+  // não com tags h1-h6, então procurar apenas headings HTML perdia o estoque.
+  const sourceText = (visibleText || cleanText(html))
+    .replace(/\u00a0/g, " ")
+    .split(/\r?\n/)
+    .map(line => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  // Extrai apenas o texto entre os títulos do estoque atual; não varre a página inteira.
+  // Assim a tabela histórica nunca pode ser confundida com os cards do dealer.
+  const pageText = sourceText.join(" ").replace(/\s+/g, " ").trim();
+  const findHeading = (patterns, from = 0) => {
+    let best = null;
+    for (const pattern of patterns) {
+      pattern.lastIndex = from;
+      const match = pattern.exec(pageText);
+      if (match && (!best || match.index < best.index)) best = match;
+    }
+    return best;
+  };
+  const normalHeading = findHeading([/\bNormal stock\b/i, /\bEstoque normal\b/i]);
+  const mirageHeading = findHeading([/\bMirage stock\b/i, /\bEstoque da Mirage\b/i]);
+  const historyHeading = findHeading([
+    /\bWhen were Legendary and Mythical fruits last in stock\??/i,
+    /\bStock history\b/i,
+    /\bQuando as frutas Legendary e Mythical estiveram no estoque pela última vez\??/i
+  ]);
+  if (!normalHeading || !mirageHeading || mirageHeading.index <= normalHeading.index) {
+    throw new Error("Não foi possível identificar os títulos exatos de Normal stock e Mirage stock.");
+  }
+  const normalBlock = pageText.slice(normalHeading.index + normalHeading[0].length, mirageHeading.index);
+  const mirageEnd = historyHeading && historyHeading.index > mirageHeading.index
+    ? historyHeading.index
+    : pageText.length;
+  const mirageBlock = pageText.slice(mirageHeading.index + mirageHeading[0].length, mirageEnd);
+  const namesFromBlock = block => {
+    let found = fruitNames.filter(fruit =>
+      new RegExp("(^|[^a-z])" + fruit.replace(/[^a-z0-9 -]/gi, "\\$&") + "([^a-z]|$)", "i").test(block));
+    if (found.some(name => /^(East|West) Dragon$/i.test(name))) {
+      found = found.filter(name => name.toLowerCase() !== "dragon");
+    }
+    return [...new Set(found.map(name => name.toLowerCase()))].map(name => ({
+      name: fruitNames.find(fruit => fruit.toLowerCase() === name)
+    }));
+  };
+  const bestNames = kind => namesFromBlock(kind === "normal" ? normalBlock : mirageBlock);
+  const normal = normalizeFruits(bestNames("normal"));
+  const mirage = normalizeFruits(bestNames("mirage"));
+  if (!normal.length || !mirage.length || normal.length > 10 || mirage.length > 15) {
+    console.warn("[STOCK PARSER] Leitura rejeitada. Normal=" + normal.map(f => f.name).join(", ") + " | Mirage=" + mirage.map(f => f.name).join(", "));
+    throw new Error("Leitura incompleta ou suspeita da página (Normal=" + normal.length + ", Mirage=" + mirage.length + "). O cache anterior será preservado.");
+  }
+  let host = "site";
+  try { host = new URL(url).hostname; } catch {}
+  console.log("[STOCK PARSER] " + host + " | Normal=" + normal.map(f => f.name).join(", ") +
+    " | Mirage=" + mirage.map(f => f.name).join(", "));
+  return { normal, mirage, next_normal: null, next_mirage: null, source: host };
+}
+
+
 async function getStock(forceRefresh = false) {
   if (!forceRefresh && lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
-    console.log("[STOCK] Usando resposta válida em cache.");
+    console.log("[STOCK] Usando stock válido em cache na memória.");
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
 
-  // Única origem de estoque: API própria do ASTRAL hospedada na Discloud.
-  const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim();
-  const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
+  const sourceUrl = "https://bloxfruitsvalues.org/blox-fruits-stock.html";
   try {
-    console.log("[STOCK] Consultando somente a API própria do ASTRAL.");
-    const headers = { "Accept": "application/json" };
-    if (apiKey) headers["x-api-key"] = apiKey;
-    const response = await fetch(endpoint, {
-      method: "GET",
-      headers,
-      signal: AbortSignal.timeout(70000)
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(payload?.message || payload?.error || ("HTTP " + response.status));
-    if (!payload || payload.status !== true) {
-      throw new Error(payload?.message || payload?.error || "A API própria ainda não tem estoque válido.");
+    console.log("[STOCK] Abrindo a fonte diretamente pelo Chromium integrado: " + sourceUrl);
+    const result = await fetchHtmlStock(sourceUrl);
+    if (!result.normal?.length || result.normal.length > 10 ||
+        !result.mirage?.length || result.mirage.length > 15) {
+      throw new Error("A página não retornou listas Normal e Mirage completas.");
     }
-    const validStock = applySavedFruitPrices(normalizeStock(payload));
-    const normalStock = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-    const mirageStock = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+
+    const normalized = applySavedFruitPrices(normalizeStock({
+      normal: result.normal,
+      mirage: result.mirage
+    }));
+    const normalStock = normalized.filter(item => String(item.type || "").toLowerCase() === "normal");
+    const mirageStock = normalized.filter(item => String(item.type || "").toLowerCase() === "mirage");
     if (!normalStock.length || !mirageStock.length) {
-      throw new Error("A API própria não retornou listas Normal e Mirage válidas.");
+      throw new Error("Não foi possível validar as listas Normal e Mirage.");
     }
-    lastSuccessfulStock = validStock.map(item => ({ ...item }));
+
+    lastSuccessfulStock = normalized.map(item => ({ ...item }));
     lastSuccessfulStockAt = Date.now();
-    console.log("[STOCK] API própria OK | Normal: " + normalStock.length + " | Mirage: " + mirageStock.length);
-    return validStock.map(item => ({ ...item }));
+    console.log("[STOCK] Chromium OK | Normal: " + normalStock.map(safeName).join(", ") +
+      " | Mirage: " + mirageStock.map(safeName).join(", "));
+    return normalized.map(item => ({ ...item }));
   } catch (error) {
-    console.error("[STOCK] A API própria falhou. Nenhuma fonte pública será consultada:", error.message || error);
+    console.error("[STOCK] Falha na consulta direta pelo Chromium:", error.message || error);
     if (lastSuccessfulStock?.length && Date.now() - lastSuccessfulStockAt < 6 * 60 * 60 * 1000) {
-      console.warn("[STOCK] Usando o último estoque válido salvo em memória.");
+      console.warn("[STOCK] Mantendo o último stock válido em memória.");
       return lastSuccessfulStock.map(item => ({ ...item }));
     }
-    throw new Error("A API própria do ASTRAL está indisponível. Nenhuma API pública ou Parse.bot foi consultada. " + (error.message || error));
+    throw new Error("Não foi possível ler o stock pelo Chromium. " + (error.message || error));
   }
 }
 
 async function testPublicStockSource() {
-  // Testa exclusivamente a API própria; não consulta sites externos diretamente.
-  const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim();
-  const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
-  const headers = { "Accept": "application/json" };
-  if (apiKey) headers["x-api-key"] = apiKey;
-  const response = await fetch(endpoint, { headers, signal: AbortSignal.timeout(25000) });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload || payload.status !== true) {
-    throw new Error(payload?.message || payload?.error || ("API própria retornou HTTP " + response.status));
-  }
-  const validStock = applySavedFruitPrices(normalizeStock(payload));
-  const normal = validStock.filter(item => String(item.type || "").toLowerCase() === "normal");
-  const mirage = validStock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-  if (!normal.length || !mirage.length) throw new Error("A API própria não retornou listas Normal e Mirage válidas.");
-  console.log("[STOCK TEST] API própria OK | Normal:", normal.length, "| Mirage:", mirage.length);
-  return { sourceUrl: endpoint, normal, mirage };
+  const stock = await getStock(true);
+  const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+  const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+  if (!normal.length || !mirage.length) throw new Error("A página não retornou listas Normal e Mirage válidas.");
+  console.log("[STOCK TEST] Chromium integrado OK | Normal:", normal.length, "| Mirage:", mirage.length);
+  return { sourceUrl: "https://bloxfruitsvalues.org/blox-fruits-stock.html", normal, mirage };
 }
 
 function safeName(item) {
@@ -3790,7 +3987,7 @@ const commands = [
   // Stock tools
   new SlashCommandBuilder().setName("refresh-stock").setDescription("Reenviar o estoque salvo sem consultar as fontes")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-  new SlashCommandBuilder().setName("api-refresh-stock").setDescription("Pedir à API para consultar novamente as fontes públicas")
+  new SlashCommandBuilder().setName("api-refresh-stock").setDescription("Atualizar o stock diretamente pelo Chromium integrado")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder().setName("stock-history").setDescription("Show recent stock changes")
     .setIntegrationTypes([0, 1]).setContexts([0]),
@@ -6577,46 +6774,23 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "api-refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const endpoint = String(process.env.ASTRAL_STOCK_API_URL || "https://app-astral-service.discloud.dev/stock").trim()
-        .replace(/\/stock\/?$/, "/stock/refresh");
-      const apiKey = String(process.env.STOCK_SERVICE_KEY || "").trim();
-      const headers = { "Accept": "application/json" };
-      if (apiKey) headers["x-api-key"] = apiKey;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        signal: AbortSignal.timeout(60000)
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload || payload.status !== true) {
-        throw new Error(payload?.message || payload?.error || ("A API respondeu HTTP " + response.status));
-      }
-      // A API terminou de consultar as fontes. Limpa o cache local do bot,
-      // busca o resultado recém-atualizado e sincroniza o stock salvo/publicado.
-      lastSuccessfulStock = null;
-      lastSuccessfulStockAt = 0;
-      const refreshedStock = await getStock();
+      const refreshedStock = await getStock(true);
       const normalCount = refreshedStock.filter(item => String(item.type || "").toLowerCase() === "normal").length;
       const mirageCount = refreshedStock.filter(item => String(item.type || "").toLowerCase() === "mirage").length;
       if (!normalCount || !mirageCount) {
-        throw new Error("A API não retornou listas completas de Normal e Mirage.");
+        throw new Error("A página não retornou listas completas de Normal e Mirage.");
       }
 
       const synchronized = await checkStock(true, ["normal", "mirage"], true, refreshedStock);
       if (!synchronized) throw new Error("Já existe uma verificação de stock em andamento. Tente novamente em alguns segundos.");
       await interaction.editReply(
-        uiEmoji("success", "✅") + " **API consultada e estoque sincronizado!**\n" +
-        "Normal: **" + normalCount + "** frutas\n" +
-        "Mirage: **" + mirageCount + "** frutas\n" +
-        "O resultado novo foi salvo e publicado no Discord." +
-        (payload.updatedAt ? "\nAtualizado: <t:" + Math.floor(new Date(payload.updatedAt).getTime() / 1000) + ":R>" : "") +
-        (payload.error ? "\nAviso: " + payload.error : "")
+        uiEmoji("success", "✅") + " **Stock atualizado pelo Chromium integrado!**\\n" +
+        "Normal: **" + normalCount + " frutas** | Mirage: **" + mirageCount + " frutas**\\n" +
+        "Fonte: bloxfruitsvalues.org"
       );
-    } catch (e) {
-      await interaction.editReply(
-        uiEmoji("error", "<:offline:1557204568432185454>") +
-        " Não consegui pedir uma nova consulta à API: " + (e.message || "erro desconhecido")
-      );
+    } catch (error) {
+      console.error("[STOCK] Falha no refresh interno:", error);
+      await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui atualizar o stock: " + (error.message || error));
     }
   } else if (interaction.commandName === "set-stock-channel") {
     const channel = interaction.options.getChannel("channel", true);
