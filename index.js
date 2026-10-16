@@ -19,11 +19,9 @@ const STATE_PATH = path.join(__dirname, "data", "state.json");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 let checking = false;
-let apiCooldownUntil = 0;
 let lastSuccessfulStock = null;
 let lastSuccessfulStockAt = 0;
-const STOCK_API_CACHE_MS = 30 * 1000;
-const apiKeyCooldownUntil = new Map();
+const STOCK_MEMORY_CACHE_MS = 30 * 1000;
 const BRASIL_TZ = "America/Sao_Paulo";
 const nextStockAt = { normal: null, mirage: null };
 const pendingBotCustomizations = new Map();
@@ -653,108 +651,6 @@ function normalizeStock(payload) {
   if (Array.isArray(data)) return data.map(x => normalizeItem(x, x?.type || "Normal"));
   throw new Error("Formato da API não reconhecido. Confira a resposta do endpoint.");
 }
-// Somente fontes públicas fixas. Nenhuma URL de API paga ou variável de ambiente entra nesta lista.
-const STOCK_SOURCES = [
-  "https://fruityblox.com/stock",
-  "https://blox-fruits-wiki.com/wiki/stock/",
-  "https://blox-fruits.fandom.com/wiki/Blox_Fruits_%22Stock%22"
-];
-
-function decodeHtmlEntities(value) {
-  return String(value)
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([\da-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
-}
-
-function htmlToStockText(html) {
-  return decodeHtmlEntities(
-    String(html)
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<!--([\s\S]*?)-->/g, " ")
-      .replace(/<[^>]+>/g, "\n")
-  ).replace(/[\t\r ]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
-}
-
-function parseWikiStockSection(text, heading, nextHeading, type) {
-  const start = text.toLowerCase().indexOf(heading.toLowerCase());
-  if (start < 0) throw new Error("A seção '" + heading + "' não foi encontrada na página de stock.");
-  const contentStart = start + heading.length;
-  const end = text.toLowerCase().indexOf(nextHeading.toLowerCase(), contentStart);
-  const section = text.slice(contentStart, end < 0 ? undefined : end);
-  const found = [];
-
-  for (const fruit of ALL_FRUITS) {
-    const escaped = fruit.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
-    const match = new RegExp("(^|[^A-Za-z0-9])(" + escaped + ")(?=$|[^A-Za-z0-9])", "i").exec(section);
-    if (match) found.push({ name: fruit, index: match.index + match[1].length });
-  }
-  found.sort((a, b) => a.index - b.index);
-
-  return found.map((fruit, index) => {
-    const nextIndex = found[index + 1]?.index ?? section.length;
-    const details = section.slice(fruit.index + fruit.name.length, nextIndex);
-    const numbers = [...details.matchAll(/\b\d[\d,]*(?:\.\d+)?\b/g)].map(match => Number(match[0].replace(/,/g, "")));
-    return {
-      name: fruit.name,
-      type,
-      ...(numbers.length ? { money_price: numbers[0] } : {}),
-      ...(numbers.length > 1 ? { robux_price: numbers[1] } : {})
-    };
-  });
-}
-
-function parseFruityBloxStock(html) {
-  // Replica a lógica do endpoint /info/stock do projeto Blox Fruits API,
-  // mas sem iniciar um servidor Python separado: o próprio bot consulta a página.
-  const clean = value => decodeHtmlEntities(String(value || "")
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/[\t\r\n ]+/g, " ")
-    .trim());
-  const normal = [];
-  const mirage = [];
-  const sections = String(html).match(/<section\b[^>]*>[\s\S]*?<\/section>/gi) || [];
-
-  for (const section of sections) {
-    const heading = section.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i);
-    if (!heading) continue;
-    const title = clean(heading[1]).toLowerCase();
-    if (title !== "normal" && title !== "mirage") continue;
-
-    const fruits = [...section.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi)]
-      .map(match => clean(match[1]))
-      .filter(Boolean)
-      .map(name => {
-        const key = fruitKey(name);
-        const canonical = ALL_FRUITS.find(fruit => fruitKey(fruit) === key);
-        if (canonical) return canonical;
-        if (/^(east|eastern) dragon$/i.test(name)) return "Dragon East";
-        if (/^(west|western) dragon$/i.test(name)) return "Dragon West";
-        return name;
-      });
-
-    const target = title === "normal" ? normal : mirage;
-    for (const name of fruits) {
-      if (!target.some(item => fruitKey(item.name) === fruitKey(name))) {
-        target.push({ name, type: title === "normal" ? "Normal" : "Mirage" });
-      }
-    }
-  }
-
-  if (!normal.length || !mirage.length) {
-    throw new Error("FruityBlox não retornou as listas Normal e Mirage no formato esperado.");
-  }
-  return [...normal, ...mirage];
-}
-
 let browserInstance = null;
 
 async function closeBrowser(reason = "recovery") {
@@ -773,10 +669,10 @@ async function ensureBrowser() {
   browserInstance = null;
   const puppeteer = require("puppeteer");
   const launched = await puppeteer.launch({
-    // Mesmo modo headless do serviço API, com recursos de navegação normais.
-    // Mantemos apenas os argumentos necessários para executar Chromium em contêiner Linux.
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+      "--disable-background-networking", "--disable-renderer-backgrounding",
+      "--disable-background-timer-throttling"]
   });
   browserInstance = launched;
   launched.on("disconnected", () => {
@@ -869,24 +765,14 @@ async function renderPageWithBrowser(url) {
 }
 
 async function fetchHtmlStock(url) {
-  let html = "";
-  let visibleText = "";
-  try {
-    const rendered = await renderPageWithBrowser(url);
-    html = rendered.html;
-    visibleText = rendered.text;
-    const title = String(rendered.title || "");
-    if (/just a moment|attention required|access denied|verify you are human|cloudflare/i.test(title)) {
-      throw new Error("A fonte apresentou uma página de proteção/bloqueio, não o estoque.");
-    }
-  } catch (browserError) {
-    if (/página de proteção\/bloqueio/.test(String(browserError?.message || ""))) throw browserError;
-    console.warn("[BROWSER CHECK] Navegador falhou para " + new URL(url).hostname +
-      ": " + String(browserError?.message || browserError).slice(0, 500) +
-      ". Tentando HTML direto como alternativa.");
-    const response = await fetch(url, { headers: { accept: "text/html", "user-agent": "Mozilla/5.0 (compatible; ASTRAL-BOT/1.0)" }, signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error("Fonte HTML HTTP " + response.status);
-    html = await response.text();
+  // Fonte única e leitura somente pelo Chromium, igual ao fluxo do serviço API.
+  // Se o navegador falhar, a consulta falha sem recorrer a fetch direto ou outro site.
+  const rendered = await renderPageWithBrowser(url);
+  const html = rendered.html;
+  const visibleText = rendered.text;
+  const title = String(rendered.title || "");
+  if (/just a moment|attention required|access denied|verify you are human|cloudflare/i.test(title)) {
+    throw new Error("O site apresentou uma página de proteção/bloqueio, não o estoque.");
   }
 
   const fruitNames = [
@@ -916,11 +802,17 @@ async function fetchHtmlStock(url) {
   // Extrai apenas o texto entre os títulos do estoque atual; não varre a página inteira.
   // Assim a tabela histórica nunca pode ser confundida com os cards do dealer.
   const pageText = sourceText.join(" ").replace(/\s+/g, " ").trim();
+  const targetHeading = /Blox Fruits Stock Right Now\s*[–—-]\s*Normal\s*&\s*Mirage Dealer\s*\(Live Timer\)/i;
+  const targetMatch = targetHeading.exec(pageText);
+  if (!targetMatch) {
+    throw new Error("A seção exata 'Blox Fruits Stock Right Now – Normal & Mirage Dealer (Live Timer)' não foi encontrada.");
+  }
+  const stockSection = pageText.slice(targetMatch.index + targetMatch[0].length);
   const findHeading = (patterns, from = 0) => {
     let best = null;
     for (const pattern of patterns) {
       pattern.lastIndex = from;
-      const match = pattern.exec(pageText);
+      const match = pattern.exec(stockSection);
       if (match && (!best || match.index < best.index)) best = match;
     }
     return best;
@@ -935,11 +827,11 @@ async function fetchHtmlStock(url) {
   if (!normalHeading || !mirageHeading || mirageHeading.index <= normalHeading.index) {
     throw new Error("Não foi possível identificar os títulos exatos de Normal stock e Mirage stock.");
   }
-  const normalBlock = pageText.slice(normalHeading.index + normalHeading[0].length, mirageHeading.index);
+  const normalBlock = stockSection.slice(normalHeading.index + normalHeading[0].length, mirageHeading.index);
   const mirageEnd = historyHeading && historyHeading.index > mirageHeading.index
     ? historyHeading.index
-    : pageText.length;
-  const mirageBlock = pageText.slice(mirageHeading.index + mirageHeading[0].length, mirageEnd);
+    : stockSection.length;
+  const mirageBlock = stockSection.slice(mirageHeading.index + mirageHeading[0].length, mirageEnd);
   const namesFromBlock = block => {
     let found = fruitNames.filter(fruit =>
       new RegExp("(^|[^a-z])" + fruit.replace(/[^a-z0-9 -]/gi, "\\$&") + "([^a-z]|$)", "i").test(block));
@@ -966,7 +858,7 @@ async function fetchHtmlStock(url) {
 
 
 async function getStock(forceRefresh = false) {
-  if (!forceRefresh && lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_API_CACHE_MS) {
+  if (!forceRefresh && lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_MEMORY_CACHE_MS) {
     console.log("[STOCK] Usando stock válido em cache na memória.");
     return lastSuccessfulStock.map(item => ({ ...item }));
   }
