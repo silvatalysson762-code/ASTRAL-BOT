@@ -765,14 +765,25 @@ async function renderPageWithBrowser(url) {
 }
 
 async function fetchHtmlStock(url) {
-  // Fonte única e leitura somente pelo Chromium, igual ao fluxo do serviço API.
-  // Se o navegador falhar, a consulta falha sem recorrer a fetch direto ou outro site.
-  const rendered = await renderPageWithBrowser(url);
-  const html = rendered.html;
-  const visibleText = rendered.text;
-  const title = String(rendered.title || "");
-  if (/just a moment|attention required|access denied|verify you are human|cloudflare/i.test(title)) {
-    throw new Error("O site apresentou uma página de proteção/bloqueio, não o estoque.");
+  let html = "";
+  let visibleText = "";
+  try {
+    const rendered = await renderPageWithBrowser(url);
+    html = rendered.html;
+    visibleText = rendered.text;
+    const title = String(rendered.title || "");
+    if (/just a moment|attention required|access denied|verify you are human|cloudflare/i.test(title)) {
+      throw new Error("A fonte apresentou uma página de proteção/bloqueio, não o estoque.");
+    }
+  } catch (browserError) {
+    if (/página de proteção\/bloqueio/.test(String(browserError?.message || ""))) throw browserError;
+    console.warn("[BROWSER CHECK] Navegador falhou para " + new URL(url).hostname +
+      ": " + String(browserError?.message || browserError).slice(0, 500) +
+      ". Tentando HTML direto como alternativa.");
+    const response = await fetchWithRetry(url, {
+      headers: { accept: "text/html", "user-agent": "Mozilla/5.0 (compatible; ASTRAL-Stock-Service/1.0)" }
+    }, "Fonte HTML");
+    html = await response.text();
   }
 
   const fruitNames = [
@@ -802,17 +813,11 @@ async function fetchHtmlStock(url) {
   // Extrai apenas o texto entre os títulos do estoque atual; não varre a página inteira.
   // Assim a tabela histórica nunca pode ser confundida com os cards do dealer.
   const pageText = sourceText.join(" ").replace(/\s+/g, " ").trim();
-  const targetHeading = /Blox Fruits Stock Right Now\s*[–—-]\s*Normal\s*&\s*Mirage Dealer\s*\(Live Timer\)/i;
-  const targetMatch = targetHeading.exec(pageText);
-  if (!targetMatch) {
-    throw new Error("A seção exata 'Blox Fruits Stock Right Now – Normal & Mirage Dealer (Live Timer)' não foi encontrada.");
-  }
-  const stockSection = pageText.slice(targetMatch.index + targetMatch[0].length);
   const findHeading = (patterns, from = 0) => {
     let best = null;
     for (const pattern of patterns) {
       pattern.lastIndex = from;
-      const match = pattern.exec(stockSection);
+      const match = pattern.exec(pageText);
       if (match && (!best || match.index < best.index)) best = match;
     }
     return best;
@@ -827,11 +832,11 @@ async function fetchHtmlStock(url) {
   if (!normalHeading || !mirageHeading || mirageHeading.index <= normalHeading.index) {
     throw new Error("Não foi possível identificar os títulos exatos de Normal stock e Mirage stock.");
   }
-  const normalBlock = stockSection.slice(normalHeading.index + normalHeading[0].length, mirageHeading.index);
+  const normalBlock = pageText.slice(normalHeading.index + normalHeading[0].length, mirageHeading.index);
   const mirageEnd = historyHeading && historyHeading.index > mirageHeading.index
     ? historyHeading.index
-    : stockSection.length;
-  const mirageBlock = stockSection.slice(mirageHeading.index + mirageHeading[0].length, mirageEnd);
+    : pageText.length;
+  const mirageBlock = pageText.slice(mirageHeading.index + mirageHeading[0].length, mirageEnd);
   const namesFromBlock = block => {
     let found = fruitNames.filter(fruit =>
       new RegExp("(^|[^a-z])" + fruit.replace(/[^a-z0-9 -]/gi, "\\$&") + "([^a-z]|$)", "i").test(block));
@@ -854,6 +859,32 @@ async function fetchHtmlStock(url) {
   console.log("[STOCK PARSER] " + host + " | Normal=" + normal.map(f => f.name).join(", ") +
     " | Mirage=" + mirage.map(f => f.name).join(", "));
   return { normal, mirage, next_normal: null, next_mirage: null, source: host };
+}
+
+function stockSignature(stock, key) {
+  return stock[key].map(f => f.name.toLowerCase()).sort().join("|");
+}
+
+function selectConsensus(results) {
+  const ranked = results.map(candidate => ({
+    ...candidate,
+    agreement: results.filter(other =>
+      stockSignature(other, "normal") === stockSignature(candidate, "normal") &&
+      stockSignature(other, "mirage") === stockSignature(candidate, "mirage")
+    ).length
+  })).sort((a, b) => b.agreement - a.agreement);
+  const best = ranked[0];
+  const conflicts = ranked.filter(item =>
+    stockSignature(item, "normal") !== stockSignature(best, "normal") ||
+    stockSignature(item, "mirage") !== stockSignature(best, "mirage")
+  );
+  if (conflicts.length) {
+    console.warn("[STOCK] Divergência entre sites: " +
+      [best, ...conflicts].map(item => item.source).join(", ") +
+      ". Escolhendo a fonte com maior concordância.");
+  }
+  console.log("[STOCK] Sites consultados: " + results.map(item => item.source).join(", "));
+  return best;
 }
 
 
