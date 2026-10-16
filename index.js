@@ -764,6 +764,27 @@ async function renderPageWithBrowser(url) {
   }
 }
 
+function decodeHtmlStock(value) {
+  return String(value).replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
+function normalizeFruits(list) {
+  const seen = new Set();
+  return list.map(item => {
+    const name = typeof item === "string"
+      ? item.trim()
+      : String(item.name ?? item.fruit ?? item.title ?? "").trim();
+    return { name };
+  }).filter(fruit => {
+    if (!fruit.name) return false;
+    const key = fruit.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function fetchHtmlStock(url) {
   let html = "";
   let visibleText = "";
@@ -797,28 +818,14 @@ async function fetchHtmlStock(url) {
     "Spirit", "Dragon", "Leopard", "Kitsune", "Yeti", "Gas", "Lightning",
     "Tiger", "West Dragon", "East Dragon", "Mochi", "Magnet",
   ];
-  const decodeStockHtml = value => String(value)
-    .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'").replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">").replace(/&nbsp;|&#160;/gi, " ");
-  const cleanText = value => decodeStockHtml(String(value)
+  const cleanText = value => decodeHtmlStock(String(value)
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
     .replace(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/section|\/article|\/tr|\/main|\/ul|\/ol)\b[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
     .replace(/[\t\f\v ]+/g, " ")
     .replace(/ *\n */g, "\n")).trim();
-  const normalizeFruits = list => {
-    const seen = new Set();
-    return list.map(item => ({ name: String(item?.name ?? item?.fruit ?? item?.title ?? "").trim() }))
-      .filter(item => {
-        if (!item.name) return false;
-        const key = item.name.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-  };
   // Preferir o texto visível real do navegador: vários sites montam cards com divs,
   // não com tags h1-h6, então procurar apenas headings HTML perdia o estoque.
   const sourceText = (visibleText || cleanText(html))
