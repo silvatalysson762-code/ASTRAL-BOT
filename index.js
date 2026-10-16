@@ -773,10 +773,10 @@ async function ensureBrowser() {
   browserInstance = null;
   const puppeteer = require("puppeteer");
   const launched = await puppeteer.launch({
+    // Mesmo modo headless do serviço API, com recursos de navegação normais.
+    // Mantemos apenas os argumentos necessários para executar Chromium em contêiner Linux.
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
-      "--disable-background-networking", "--disable-renderer-backgrounding",
-      "--disable-background-timer-throttling"]
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
   });
   browserInstance = launched;
   launched.on("disconnected", () => {
