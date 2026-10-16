@@ -1705,47 +1705,30 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function runScheduledStockCycle(groupKey, resetAt) {
-  const state = readState();
-  const baseline = state.stockSignatures?.[groupKey] || null;
-  console.log(`[SCHEDULER] ${groupKey} entrou em monitoramento após o reset ${new Date(resetAt).toISOString()}.`);
-
-  // Consulta no horário previsto e repete a cada 30 segundos até detectar
-  // a nova rotação. Mantém intervalo fixo para não esperar vários minutos entre tentativas.
-  // Quando os dois estoques viram no mesmo horário, o Normal segue tendo prioridade.
-  const retryInterval = 30 * 1000;
-  let attempt = 0;
-  while (true) {
-    if (attempt > 0) await wait(retryInterval);
-    attempt++;
-    try {
-      const stock = await getStock();
-      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
-      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
-      if (!normal.length || !mirage.length) {
-        throw new Error("A fonte não retornou as duas listas completas.");
-      }
-
-      const items = groupKey === "normal" ? normal : mirage;
-      const currentSignature = signature(items);
-      const savedSignature = readState().stockSignatures?.[groupKey] || baseline;
-
-      if (savedSignature === null || currentSignature !== savedSignature) {
-        console.log(`[SCHEDULER] Nova rotação detectada para ${groupKey}; tentando publicar.`);
-        const published = await checkStock(false, [groupKey], false, stock);
-        const after = readState().stockSignatures?.[groupKey];
-        if (published && after === currentSignature) {
-          console.log(`[SCHEDULER] ${groupKey} publicado e salvo com sucesso.`);
-          return;
-        }
-      } else {
-        console.log(`[SCHEDULER] ${groupKey} ainda não mudou (tentativa ${attempt}); nova consulta em 30 segundos.`);
-      }
-    } catch (error) {
-      console.warn(`[SCHEDULER] Falha na tentativa ${attempt} de ${groupKey}: ${error.message || error}. Nova consulta em 30 segundos.`);
+  console.log(`[SCHEDULER] ${groupKey} consulta única após o reset previsto em ${new Date(resetAt).toISOString()}.`);
+  try {
+    // Ignora o cache para garantir uma leitura nova, mas faz somente uma consulta por rotação.
+    const stock = await getStock(true);
+    const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+    const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+    if (!normal.length || !mirage.length) {
+      throw new Error("A fonte não retornou as duas listas completas.");
     }
-  }
 
-  // O loop só termina quando a rotação nova é detectada e publicada.
+    const items = groupKey === "normal" ? normal : mirage;
+    const currentSignature = signature(items);
+    const savedSignature = readState().stockSignatures?.[groupKey] || null;
+
+    if (savedSignature && currentSignature === savedSignature) {
+      console.log(`[SCHEDULER] ${groupKey}: estoque não mudou; nenhuma mensagem enviada.`);
+      return;
+    }
+
+    console.log(`[SCHEDULER] ${groupKey}: estoque novo detectado; publicando.`);
+    await checkStock(false, [groupKey], false, stock);
+  } catch (error) {
+    console.error(`[SCHEDULER] Falha na consulta programada de ${groupKey}; não haverá repetição até o próximo ciclo:`, error.message || error);
+  }
 }
 const activeStockCycles = new Set();
 let schedulerTimer = null;
@@ -1761,7 +1744,7 @@ function startStockScheduler() {
 
       // Agenda o próximo ciclo antes de iniciar o monitoramento atual.
       // Assim, um atraso da API nunca trava o outro relógio.
-      nextStockAt[key] = nextGlobalReset(key, new Date(now)).getTime();
+      nextStockAt[key] = nextGlobalReset(key, new Date(now)).getTime() + 15 * 1000;
 
       if (activeStockCycles.has(key)) {
         console.log(`[SCHEDULER] ${key} já está em monitoramento; mantendo o ciclo atual.`);
@@ -1784,8 +1767,8 @@ function startStockScheduler() {
   if (schedulerTimer) clearTimeout(schedulerTimer);
 
   // O contador das mensagens e o scheduler usam exatamente estes timestamps.
-  nextStockAt.normal = nextGlobalReset("normal").getTime();
-  nextStockAt.mirage = nextGlobalReset("mirage").getTime();
+  nextStockAt.normal = nextGlobalReset("normal").getTime() + 15 * 1000;
+  nextStockAt.mirage = nextGlobalReset("mirage").getTime() + 15 * 1000;
 
   console.log("[SCHEDULER] Agendador ativo. Normal: 4h; Mirage: 2h; publicação somente após detectar mudança real no stock.");
   tick();
@@ -6884,28 +6867,16 @@ client.on("interactionCreate", async interaction => {
   }
 });
 guildSettings.register(client);
-client.once("ready", () => {
-  // Um único monitor publica mudanças. O agendador paralelo foi desativado
-  // para evitar corridas com o verificador periódico e reduzir duplicações.
-  const pollIntervalMs = 15 * 1000;
-  console.log("[STOCK MONITOR] Monitor único ativo: consulta à API própria a cada 15 segundos; a API controla o cache das fontes.");
-
-  let pollInFlight = false;
-  const refreshAndPublishIfChanged = async () => {
-    if (pollInFlight) return;
-    pollInFlight = true;
-    try {
-      const stock = await getStock(true);
-      await checkStock(false, ["normal", "mirage"], false, stock);
-    } catch (error) {
-      console.error("[STOCK MONITOR] Consulta falhou; o último stock publicado foi preservado:", error.message || error);
-    } finally {
-      pollInFlight = false;
-    }
-  };
-
-  void refreshAndPublishIfChanged();
-  setInterval(refreshAndPublishIfChanged, pollIntervalMs);
+client.once("ready", async () => {
+  console.log("[STOCK MONITOR] Inicializando estoque e ativando consultas programadas, sem polling contínuo.");
+  try {
+    // Uma leitura inicial estabelece o estado atual. Depois disso, só consulta perto dos resets.
+    const stock = await getStock(true);
+    await checkStock(false, ["normal", "mirage"], false, stock);
+  } catch (error) {
+    console.error("[STOCK MONITOR] Falha na leitura inicial; o agendador continuará ativo:", error.message || error);
+  }
+  startStockScheduler();
 });
 
 client.login(process.env.DISCORD_TOKEN);
