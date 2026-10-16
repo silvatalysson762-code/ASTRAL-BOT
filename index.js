@@ -884,33 +884,6 @@ async function fetchHtmlStock(url) {
   return { normal, mirage, next_normal: null, next_mirage: null, source: host };
 }
 
-function stockSignature(stock, key) {
-  return stock[key].map(f => f.name.toLowerCase()).sort().join("|");
-}
-
-function selectConsensus(results) {
-  const ranked = results.map(candidate => ({
-    ...candidate,
-    agreement: results.filter(other =>
-      stockSignature(other, "normal") === stockSignature(candidate, "normal") &&
-      stockSignature(other, "mirage") === stockSignature(candidate, "mirage")
-    ).length
-  })).sort((a, b) => b.agreement - a.agreement);
-  const best = ranked[0];
-  const conflicts = ranked.filter(item =>
-    stockSignature(item, "normal") !== stockSignature(best, "normal") ||
-    stockSignature(item, "mirage") !== stockSignature(best, "mirage")
-  );
-  if (conflicts.length) {
-    console.warn("[STOCK] Divergência entre sites: " +
-      [best, ...conflicts].map(item => item.source).join(", ") +
-      ". Escolhendo a fonte com maior concordância.");
-  }
-  console.log("[STOCK] Sites consultados: " + results.map(item => item.source).join(", "));
-  return best;
-}
-
-
 async function getStock(forceRefresh = false) {
   if (!forceRefresh && lastSuccessfulStock && Date.now() - lastSuccessfulStockAt < STOCK_MEMORY_CACHE_MS) {
     console.log("[STOCK] Usando stock válido em cache na memória.");
