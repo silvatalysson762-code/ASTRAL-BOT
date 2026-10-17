@@ -4288,7 +4288,7 @@ client.on("interactionCreate", async interaction => {
           }
           if (!member.moderatable) throw new Error("Não consigo silenciar esse membro. Confira a hierarquia de cargos e a permissão Moderar membros do bot.");
           await member.timeout(durationMs, reason.slice(0, 512));
-          await interaction.reply({ content: `🔇 **${target.tag || target.username}** foi silenciado por **${amount}${unit}**. Motivo: ${reason}` });
+          await interaction.reply({ content: `<:64415:1561058629136818299> silêncio Betinha, **${target.tag || target.username}** calado por **${amount}${unit}**` });
         } else {
           if (!member.isCommunicationDisabled()) throw new Error("Esse membro não está silenciado.");
           if (!member.moderatable) throw new Error("Não consigo retirar o silenciamento desse membro. Confira a hierarquia de cargos e a permissão Moderar membros do bot.");
