@@ -3936,6 +3936,23 @@ const guildSettings = require("./guild-settings");
 const commands = [
   ...guildSettings.commands,
   ...sales.commands,
+  // Moderação
+  new SlashCommandBuilder().setName("mute").setDescription("Silenciar ou retirar o silenciamento de um membro")
+    .addStringOption(option => option.setName("acao").setDescription("Escolha a ação").setRequired(true).addChoices(
+      { name: "Silenciar", value: "add" },
+      { name: "Retirar silenciamento", value: "remove" }
+    ))
+    .addUserOption(option => option.setName("membro").setDescription("Membro alvo").setRequired(true))
+    .addIntegerOption(option => option.setName("minutos").setDescription("Duração em minutos (apenas ao silenciar)").setRequired(false).setMinValue(1).setMaxValue(40320))
+    .addStringOption(option => option.setName("motivo").setDescription("Motivo da ação").setRequired(false).setMaxLength(500)),
+  new SlashCommandBuilder().setName("ban").setDescription("Banir ou desbanir um membro")
+    .addStringOption(option => option.setName("acao").setDescription("Escolha a ação").setRequired(true).addChoices(
+      { name: "Banir", value: "add" },
+      { name: "Retirar banimento", value: "remove" }
+    ))
+    .addUserOption(option => option.setName("membro").setDescription("Membro alvo para banir ou usuário para desbanir").setRequired(true))
+    .addStringOption(option => option.setName("motivo").setDescription("Motivo da ação").setRequired(false).setMaxLength(500)),
+
   // General
   new SlashCommandBuilder().setName("stock").setDescription("Show the current Blox Fruits stock")
     .setIntegrationTypes([0, 1]).setContexts([0]),
@@ -4220,6 +4237,77 @@ client.on("messageCreate", async message => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (interaction.isChatInputCommand() && ["mute", "ban"].includes(interaction.commandName)) {
+    const commandName = interaction.commandName;
+    const action = interaction.options.getString("acao", true);
+    const target = interaction.options.getUser("membro", true);
+    const reason = interaction.options.getString("motivo") || "Nenhum motivo informado";
+    const config = interaction.guild ? getGuildConfig(interaction.guild.id) : {};
+    const roleConfig = config?.adminRoles || {};
+    const actor = interaction.guild ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null) : null;
+    if (!interaction.guild || !actor) {
+      await interaction.reply({ content: "Este comando só pode ser usado dentro de um servidor.", ephemeral: true });
+      return;
+    }
+    const isDiscordAdmin = actor.permissions.has(PermissionFlagsBits.Administrator);
+    const hasConfiguredRole = key => /^\d{17,20}$/.test(String(roleConfig[key] || "")) && actor.roles.cache.has(String(roleConfig[key]));
+    const isConfiguredAdmin = isDiscordAdmin || hasConfiguredRole("administrator");
+    const isMuteStaff = isConfiguredAdmin || hasConfiguredRole("moderator") || hasConfiguredRole("staff");
+    if (commandName === "mute" && !isMuteStaff) {
+      await interaction.reply({ content: "Você precisa ter o cargo Administrador, Moderador ou Staff configurado no painel para usar /mute.", ephemeral: true });
+      return;
+    }
+    if (commandName === "ban" && !isConfiguredAdmin) {
+      await interaction.reply({ content: "Apenas o cargo Administrador configurado no painel ou um administrador do Discord pode usar /ban.", ephemeral: true });
+      return;
+    }
+    if (target.id === interaction.user.id) {
+      await interaction.reply({ content: "Você não pode aplicar esta ação em si mesmo.", ephemeral: true });
+      return;
+    }
+    if (target.id === client.user.id) {
+      await interaction.reply({ content: "Não posso aplicar esta ação no próprio bot.", ephemeral: true });
+      return;
+    }
+    try {
+      if (commandName === "mute") {
+        const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+        if (!member) throw new Error("Esse membro não está neste servidor.");
+        if (member.id === interaction.guild.ownerId) throw new Error("Não é possível aplicar esta ação ao dono do servidor.");
+        if (action === "add") {
+          const minutes = interaction.options.getInteger("minutos");
+          if (!minutes) throw new Error("Informe a opção minutos para silenciar o membro.");
+          if (!member.moderatable) throw new Error("Não consigo silenciar esse membro. Confira a hierarquia de cargos e a permissão Moderar membros do bot.");
+          await member.timeout(minutes * 60 * 1000, reason.slice(0, 512));
+          await interaction.reply({ content: `🔇 **${target.tag || target.username}** foi silenciado por **${minutes} minuto(s)**. Motivo: ${reason}` });
+        } else {
+          if (!member.isCommunicationDisabled()) throw new Error("Esse membro não está silenciado.");
+          if (!member.moderatable) throw new Error("Não consigo retirar o silenciamento desse membro. Confira a hierarquia de cargos e a permissão Moderar membros do bot.");
+          await member.timeout(null, reason.slice(0, 512));
+          await interaction.reply({ content: `🔊 Silenciamento de **${target.tag || target.username}** removido. Motivo: ${reason}` });
+        }
+      } else {
+        if (action === "add") {
+          const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+          if (member && (member.id === interaction.guild.ownerId || !member.bannable)) {
+            throw new Error("Não consigo banir esse membro. Confira a hierarquia de cargos e a permissão Banir membros do bot.");
+          }
+          await interaction.guild.members.ban(target.id, { reason: reason.slice(0, 512) });
+          await interaction.reply({ content: `🔨 **${target.tag || target.username}** foi banido. Motivo: ${reason}` });
+        } else {
+          const banEntry = await interaction.guild.bans.fetch(target.id).catch(() => null);
+          if (!banEntry) throw new Error("Esse usuário não está banido neste servidor.");
+          await interaction.guild.members.unban(target.id, reason.slice(0, 512));
+          await interaction.reply({ content: `✅ Banimento de **${target.tag || target.username}** removido. Motivo: ${reason}` });
+        }
+      }
+    } catch (error) {
+      const message = String(error?.message || error).slice(0, 1500);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "Não consegui concluir a ação: " + message, ephemeral: true }).catch(() => {});
+      else if (interaction.replied) await interaction.followUp({ content: "Não consegui concluir a ação: " + message, ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
   if (await guildSettings.handleInteraction(interaction)) return;
   if (await sales.handleInteraction(interaction, client)) return;
   if (interaction.isButton() && /^ticket:member:(add|remove):\d{17,20}$/.test(interaction.customId)) {
