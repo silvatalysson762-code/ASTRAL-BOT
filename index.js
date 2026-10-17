@@ -695,15 +695,19 @@ async function renderPageWithBrowser(url) {
     // fontes e demais recursos ficam habilitados, como em uma navegação comum.
     await page.setViewport({ width: 1365, height: 900, deviceScaleFactor: 1 });
     await page.setJavaScriptEnabled(true);
-    await page.setCacheEnabled(true);
+    // Cada consulta de stock deve buscar a versão atual, não reutilizar recursos HTTP em cache.
+    await page.setCacheEnabled(false);
     await page.setExtraHTTPHeaders({
-      "accept-language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7"
+      "accept-language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7",
+      "cache-control": "no-cache, no-store, max-age=0",
+      "pragma": "no-cache"
     });
 
     const navigationStartedAt = Date.now();
 
-    // Primeiro aguardar o DOM, depois dar tempo para scripts e conteúdo dinâmico
-    // terminarem de preencher a página. Não tenta contornar proteções do site.
+    // Cada tentativa abre uma navegação nova sem cache, equivalente a recarregar a página
+    // no horário do reset. Não tenta contornar proteções do site.
+    console.log("[BROWSER] Recarregando a página sem cache para consultar o stock mais recente.");
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 35_000 });
 
     await page.waitForFunction(() => document.readyState === "complete", {
@@ -1796,7 +1800,7 @@ function startStockScheduler() {
   };
 
   scheduleNextResets();
-  console.log("[SCHEDULER] Ativo: primeira consulta 15 segundos após cada reset; novas tentativas a cada 15 segundos por até 15 minutos. Após reinício, recupera a janela atual se ela ainda estiver ativa. Um único ciclo Chromium atende Normal e Mirage.");
+  console.log("[SCHEDULER] Ativo: recarrega a página sem cache 15 segundos após cada reset; novas consultas Chromium a cada 15 segundos por até 15 minutos. Após reinício, recupera a janela atual se ela ainda estiver ativa. Um único ciclo Chromium atende Normal e Mirage.");
   tick();
 }
 
