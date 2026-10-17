@@ -1533,7 +1533,19 @@ async function resolveEmoji(input) {
   return value;
 }
 function stockContainer(stock, title, groupKey = null, guildConfig = defaultGuildConfig()) {
-  const lines = stock.map(item => {
+  // Mostra primeiro as frutas de maior valor de loja (proxy consistente de raridade),
+  // deixando as comuns no fim. O índice original desempata e preserva a ordem da fonte.
+  const orderedStock = [...stock].map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const priceA = beliPrice(a.item);
+      const priceB = beliPrice(b.item);
+      if (priceA == null && priceB == null) return a.index - b.index;
+      if (priceA == null) return 1;
+      if (priceB == null) return -1;
+      return Number(priceB) - Number(priceA) || a.index - b.index;
+    })
+    .map(entry => entry.item);
+  const lines = orderedStock.map(item => {
     const name = safeName(item);
     const price = beliPrice(item);
     const robuxPriceValue = robuxPrice(item);
