@@ -654,7 +654,7 @@ function buildBotGuildProfileModal(guild) {
           .setLabel("Nome do bot neste servidor")
           .setStyle(TextInputStyle.Short)
           .setPlaceholder("Deixe vazio para usar o nome padrão")
-          .setValue(String(member?.nickname || "").slice(0, 32))
+          .setValue(String(member?.nickname || " ").slice(0, 32))
           .setMaxLength(32)
           .setRequired(false)
       ),
@@ -664,7 +664,7 @@ function buildBotGuildProfileModal(guild) {
           .setLabel("URL direta da imagem do avatar")
           .setStyle(TextInputStyle.Short)
           .setPlaceholder("https://...")
-          .setValue(String(profile.avatarUrl || "").slice(0, 500))
+          .setValue(String(profile.avatarUrl || " ").slice(0, 500))
           .setMaxLength(500)
           .setRequired(false)
       )
