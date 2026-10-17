@@ -1644,20 +1644,21 @@ async function checkStock(force = false, onlyGroups = ["normal", "mirage"], thro
       const sig = signature(items);
 
       const needsPublish = items.length && (force || !state.stockSignatures[group.key] || sig !== state.stockSignatures[group.key]);
+      let publicationConfirmed = false;
       if (needsPublish) {
         const delivered = await postStock(items, true, group.title, group.key);
-        // Nunca marque uma rotação como processada se nenhuma publicação chegou a um canal.
-        // Isso permite que a próxima verificação tente novamente sem duplicar o stock entregue.
+        // Não avance a assinatura até confirmar a entrega em pelo menos um canal.
         if (!delivered) {
           console.warn("[STOCK] " + group.type + " não foi confirmado em nenhum canal; assinatura não será avançada.");
           continue;
         }
+        publicationConfirmed = true;
         state.latestStock[group.key] = items;
         state.history = Array.isArray(state.history) ? state.history : [];
         state.history.unshift({ at: new Date().toISOString(), stock: items, type: group.type });
         state.history = state.history.slice(0, Math.max(500, Number(readConfig().historyLimit || 500)));
       }
-      if (!needsPublish || state.stockSignatures[group.key] === sig || items.length) {
+      if (!needsPublish || publicationConfirmed) {
         state.stockSignatures[group.key] = sig;
       }
     }
@@ -6679,33 +6680,27 @@ client.on("interactionCreate", async interaction => {
   } else if (interaction.commandName === "refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const state = readState();
-      const latest = state.latestStock || {};
-      const normal = Array.isArray(latest.normal) ? latest.normal : [];
-      const mirage = Array.isArray(latest.mirage) ? latest.mirage : [];
-      if (!normal.length && !mirage.length) {
-        throw new Error("Ainda não existe stock salvo para reenviar.");
+      console.log("[STOCK] /refresh-stock solicitado: iniciando consulta forçada pelo Chromium.");
+      const refreshedStock = await getStock(true);
+      const normalCount = refreshedStock.filter(item => String(item.type || "").toLowerCase() === "normal").length;
+      const mirageCount = refreshedStock.filter(item => String(item.type || "").toLowerCase() === "mirage").length;
+      if (!normalCount || !mirageCount) {
+        throw new Error("A página não retornou listas completas de Normal e Mirage.");
       }
 
-      const guildConfig = getGuildConfig(interaction.guildId);
-      let sent = false;
-
-      if (normal.length) {
-        const normalSent = await postStock(normal, false, null, "normal");
-        sent = sent || normalSent;
-      }
-      if (mirage.length) {
-        const mirageSent = await postStock(mirage, false, null, "mirage");
-        sent = sent || mirageSent;
+      const synchronized = await checkStock(true, ["normal", "mirage"], true, refreshedStock);
+      if (!synchronized) {
+        throw new Error("A consulta terminou, mas a publicação não foi confirmada. Verifique o canal de stock e tente novamente.");
       }
 
-      if (!sent) {
-        throw new Error("Nenhum canal de stock configurado ou acessível neste servidor.");
-      }
-
-      await interaction.editReply(uiEmoji("success", "✅") + " Reenviei o último stock salvo no canal configurado. Nenhuma consulta à API/Wiki foi feita.");
+      await interaction.editReply(
+        uiEmoji("success", "✅") + " **Consulta direta concluída pelo Chromium integrado!**\\n" +
+        "Normal: **" + normalCount + " frutas** | Mirage: **" + mirageCount + " frutas**\\n" +
+        "Fonte: bloxfruitsvalues.org"
+      );
     } catch (e) {
-      await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui reenviar o stock salvo: " + e.message + ".");
+      console.error("[STOCK] Falha no /refresh-stock:", e);
+      await interaction.editReply(uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui consultar/publicar o stock: " + (e.message || e));
     }
   } else if (interaction.commandName === "api-refresh-stock") {
     await interaction.deferReply({ ephemeral: true });
