@@ -4276,7 +4276,7 @@ client.on("interactionCreate", async interaction => {
         if (member.id === interaction.guild.ownerId) throw new Error("Não é possível aplicar esta ação ao dono do servidor.");
         if (action === "add") {
           const durationInput = String(interaction.options.getString("tempo") || "").trim().toLowerCase();
-          const durationMatch = durationInput.match(/^(\\d+)(m|h|d)$/);
+          const durationMatch = durationInput.match(/^(\d+)(m|h|d)$/);
           if (!durationMatch) throw new Error("Informe a duração no formato número + unidade, por exemplo 10m, 2h ou 1d.");
           const amount = Number(durationMatch[1]);
           const unit = durationMatch[2];
