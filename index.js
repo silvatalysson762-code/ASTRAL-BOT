@@ -1682,13 +1682,13 @@ async function runScheduledStockCycle(groupKeys, resetAt) {
   if (!groups.length) return;
 
   const maxAttempts = 10;
-  const retryInterval = 2 * 60 * 1000;
+  const retryInterval = 30 * 1000;
   const pending = new Set(groups);
   console.log(`[SCHEDULER] Monitorando ${groups.join(" + ")} após o reset previsto em ${new Date(resetAt).toISOString()}.`);
 
   for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
     if (attempt > 1) {
-      console.log(`[SCHEDULER] ${[...pending].join(" + ")} ainda não mudou; nova leitura em 2 minutos (tentativa ${attempt}/${maxAttempts}).`);
+      console.log(`[SCHEDULER] ${[...pending].join(" + ")} ainda não mudou; nova leitura em 30 segundos (tentativa ${attempt}/${maxAttempts}).`);
       await wait(retryInterval);
     }
 
@@ -1778,7 +1778,7 @@ function startStockScheduler() {
   };
 
   scheduleNextResets();
-  console.log("[SCHEDULER] Ativo: consulta 15 segundos após cada reset; se a página ainda estiver antiga, tenta a cada 2 minutos por até 20 minutos. Um único ciclo Chromium atende Normal e Mirage.");
+  console.log("[SCHEDULER] Ativo: consulta 15 segundos após cada reset; se a página ainda estiver antiga, tenta a cada 30 segundos por até 5 minutos. Um único ciclo Chromium atende Normal e Mirage.");
   tick();
 }
 
@@ -6894,8 +6894,8 @@ client.once("ready", async () => {
     } catch (error) {
       console.error("[STOCK MONITOR] Falha na leitura inicial (" + attempt + "/" + maxStartupAttempts + "):", error.message || error);
       if (attempt < maxStartupAttempts) {
-        console.log("[STOCK MONITOR] Nova tentativa de inicialização em 2 minutos.");
-        await wait(2 * 60 * 1000);
+        console.log("[STOCK MONITOR] Nova tentativa de inicialização em 30 segundos.");
+        await wait(30 * 1000);
       }
     }
   }
