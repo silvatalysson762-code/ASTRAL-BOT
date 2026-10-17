@@ -1682,16 +1682,20 @@ async function runScheduledStockCycle(groupKeys, resetAt) {
   const groups = [...new Set((Array.isArray(groupKeys) ? groupKeys : [groupKeys]).filter(key => key === "normal" || key === "mirage"))];
   if (!groups.length) return;
 
-  const maxAttempts = 10;
-  const retryInterval = 30 * 1000;
+  const retryInterval = 15 * 1000;
+  const retryWindowMs = 15 * 60 * 1000;
+  const retryDeadline = resetAt + retryWindowMs;
   const pending = new Set(groups);
-  console.log(`[SCHEDULER] Monitorando ${groups.join(" + ")} após o reset previsto em ${new Date(resetAt).toISOString()}.`);
+  let attempt = 0;
+  console.log(`[SCHEDULER] Monitorando ${groups.join(" + ")} após o reset previsto em ${new Date(resetAt).toISOString()}; tentativas a cada 15 segundos até ${new Date(retryDeadline).toISOString()}.`);
 
-  for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-    if (attempt > 1) {
-      console.log(`[SCHEDULER] ${[...pending].join(" + ")} ainda não mudou; nova leitura em 30 segundos (tentativa ${attempt}/${maxAttempts}).`);
-      await wait(retryInterval);
+  while (pending.size && Date.now() <= retryDeadline) {
+    if (attempt > 0) {
+      console.log(`[SCHEDULER] ${[...pending].join(" + ")} ainda não mudou; nova leitura em 15 segundos (tentativa ${attempt + 1}).`);
+      await wait(Math.min(retryInterval, Math.max(0, retryDeadline - Date.now())));
+      if (Date.now() > retryDeadline) break;
     }
+    attempt++;
 
     try {
       // Uma leitura Chromium serve aos dois estoques. Nunca dispara duas consultas
@@ -1734,7 +1738,7 @@ async function runScheduledStockCycle(groupKeys, resetAt) {
   }
 
   if (pending.size) {
-    console.warn(`[SCHEDULER] Não foi detectada/publicada uma rotação nova para ${[...pending].join(" + ")} após ${maxAttempts} tentativas. O monitoramento será retomado no próximo reset.`);
+    console.warn(`[SCHEDULER] A janela de 15 minutos terminou sem confirmar stock novo para ${[...pending].join(" + ")}. A próxima janela será calculada pelo horário global.`);
   }
 }
 
@@ -1744,11 +1748,24 @@ let schedulerTimer = null;
 function startStockScheduler() {
   if (schedulerTimer) clearTimeout(schedulerTimer);
 
-  // Os horários são absolutos em UTC. Após reinício/rebuild, o contador é
-  // recalculado do relógio global, sem depender de timers antigos em memória.
+  // Os horários são absolutos em UTC. Após reinício/rebuild, recupera a janela
+  // do reset mais recente se ainda estiver dentro dos 15 minutos de tentativas.
+  // Caso contrário, agenda o próximo reset global. Não depende de timers antigos.
   const scheduleNextResets = (now = new Date()) => {
-    nextStockAt.normal = nextGlobalReset("normal", now).getTime() + 15 * 1000;
-    nextStockAt.mirage = nextGlobalReset("mirage", now).getTime() + 15 * 1000;
+    const nowMs = now.getTime();
+    for (const key of ["normal", "mirage"]) {
+      const intervalMs = (key === "mirage" ? 2 : 4) * 60 * 60 * 1000;
+      const lastResetMs = Math.floor(nowMs / intervalMs) * intervalMs;
+      const firstAttemptMs = lastResetMs + 15 * 1000;
+      const retryDeadlineMs = lastResetMs + 15 * 60 * 1000;
+      if (nowMs >= firstAttemptMs && nowMs <= retryDeadlineMs) {
+        // Reinício dentro da janela: retoma já, sem esperar mais 2/4 horas.
+        nextStockAt[key] = nowMs;
+        console.log(`[SCHEDULER] Recuperando a janela atual de ${key} após reinício.`);
+      } else {
+        nextStockAt[key] = nextGlobalReset(key, now).getTime() + 15 * 1000;
+      }
+    }
   };
 
   const tick = () => {
@@ -1779,7 +1796,7 @@ function startStockScheduler() {
   };
 
   scheduleNextResets();
-  console.log("[SCHEDULER] Ativo: consulta 15 segundos após cada reset; se a página ainda estiver antiga, tenta a cada 30 segundos por até 5 minutos. Um único ciclo Chromium atende Normal e Mirage.");
+  console.log("[SCHEDULER] Ativo: primeira consulta 15 segundos após cada reset; novas tentativas a cada 15 segundos por até 15 minutos. Após reinício, recupera a janela atual se ela ainda estiver ativa. Um único ciclo Chromium atende Normal e Mirage.");
   tick();
 }
 
