@@ -4423,7 +4423,7 @@ client.on("interactionCreate", async interaction => {
             throw new Error("Não consigo banir esse membro. Confira a hierarquia de cargos e a permissão Banir membros do bot.");
           }
           await interaction.guild.members.ban(target.id, { reason: reason.slice(0, 512) });
-          await interaction.reply({ content: `🔨 **${target.tag || target.username}** foi banido. Motivo: ${reason}` });
+          await interaction.reply({ content: `<:64418:1561067303301423208> esse Betinha foi banido **${target.tag || target.username}**` });
         } else {
           const banEntry = await interaction.guild.bans.fetch(target.id).catch(() => null);
           if (!banEntry) throw new Error("Esse usuário não está banido neste servidor.");
