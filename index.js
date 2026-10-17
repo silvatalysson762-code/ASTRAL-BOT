@@ -6876,14 +6876,30 @@ client.on("interactionCreate", async interaction => {
 guildSettings.register(client);
 client.once("ready", async () => {
   console.log("[STOCK MONITOR] Inicializando estoque e ativando consultas programadas, sem polling contínuo.");
-  try {
-    // Uma leitura inicial estabelece o estado atual. Depois disso, só consulta perto dos resets.
-    const stock = await getStock(true);
-    await checkStock(false, ["normal", "mirage"], false, stock);
-  } catch (error) {
-    console.error("[STOCK MONITOR] Falha na leitura inicial; o agendador continuará ativo:", error.message || error);
-  }
+  // O relógio começa mesmo se a fonte estiver temporariamente indisponível.
+  // Assim, uma falha no primeiro acesso não desliga o agendador até o próximo reset.
   startStockScheduler();
+
+  const maxStartupAttempts = 10;
+  for (let attempt = 1; attempt <= maxStartupAttempts; attempt++) {
+    try {
+      const stock = await getStock(true);
+      const normal = stock.filter(item => String(item.type || "").toLowerCase() === "normal");
+      const mirage = stock.filter(item => String(item.type || "").toLowerCase() === "mirage");
+      if (!normal.length || !mirage.length) throw new Error("A fonte não retornou listas completas de Normal e Mirage.");
+
+      await checkStock(false, ["normal", "mirage"], false, stock);
+      console.log("[STOCK MONITOR] Leitura inicial concluída: Normal " + normal.length + ", Mirage " + mirage.length + ".");
+      return;
+    } catch (error) {
+      console.error("[STOCK MONITOR] Falha na leitura inicial (" + attempt + "/" + maxStartupAttempts + "):", error.message || error);
+      if (attempt < maxStartupAttempts) {
+        console.log("[STOCK MONITOR] Nova tentativa de inicialização em 2 minutos.");
+        await wait(2 * 60 * 1000);
+      }
+    }
+  }
+  console.error("[STOCK MONITOR] Não foi possível ler a fonte após 10 tentativas. O agendador continua ativo e tentará novamente no próximo reset.");
 });
 
 client.login(process.env.DISCORD_TOKEN);
