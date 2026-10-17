@@ -3943,7 +3943,7 @@ const commands = [
       { name: "Retirar silenciamento", value: "remove" }
     ))
     .addUserOption(option => option.setName("membro").setDescription("Membro alvo").setRequired(true))
-    .addIntegerOption(option => option.setName("minutos").setDescription("Duração em minutos (apenas ao silenciar)").setRequired(false).setMinValue(1).setMaxValue(40320))
+    .addStringOption(option => option.setName("tempo").setDescription("Duração: número seguido de m, h ou d (ex.: 10m, 2h, 1d)").setRequired(false).setMaxLength(8))
     .addStringOption(option => option.setName("motivo").setDescription("Motivo da ação").setRequired(false).setMaxLength(500)),
   new SlashCommandBuilder().setName("ban").setDescription("Banir ou desbanir um membro")
     .addStringOption(option => option.setName("acao").setDescription("Escolha a ação").setRequired(true).addChoices(
@@ -4275,11 +4275,20 @@ client.on("interactionCreate", async interaction => {
         if (!member) throw new Error("Esse membro não está neste servidor.");
         if (member.id === interaction.guild.ownerId) throw new Error("Não é possível aplicar esta ação ao dono do servidor.");
         if (action === "add") {
-          const minutes = interaction.options.getInteger("minutos");
-          if (!minutes) throw new Error("Informe a opção minutos para silenciar o membro.");
+          const durationInput = String(interaction.options.getString("tempo") || "").trim().toLowerCase();
+          const durationMatch = durationInput.match(/^(\\d+)(m|h|d)$/);
+          if (!durationMatch) throw new Error("Informe a duração no formato número + unidade, por exemplo 10m, 2h ou 1d.");
+          const amount = Number(durationMatch[1]);
+          const unit = durationMatch[2];
+          const multiplier = unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : 86_400_000;
+          const durationMs = amount * multiplier;
+          const maxTimeoutMs = 28 * 24 * 60 * 60 * 1000;
+          if (!Number.isSafeInteger(amount) || amount < 1 || !Number.isSafeInteger(durationMs) || durationMs > maxTimeoutMs) {
+            throw new Error("A duração deve ser maior que zero e não pode ultrapassar 28 dias (ex.: 30m, 12h ou 7d).");
+          }
           if (!member.moderatable) throw new Error("Não consigo silenciar esse membro. Confira a hierarquia de cargos e a permissão Moderar membros do bot.");
-          await member.timeout(minutes * 60 * 1000, reason.slice(0, 512));
-          await interaction.reply({ content: `🔇 **${target.tag || target.username}** foi silenciado por **${minutes} minuto(s)**. Motivo: ${reason}` });
+          await member.timeout(durationMs, reason.slice(0, 512));
+          await interaction.reply({ content: `🔇 **${target.tag || target.username}** foi silenciado por **${amount}${unit}**. Motivo: ${reason}` });
         } else {
           if (!member.isCommunicationDisabled()) throw new Error("Esse membro não está silenciado.");
           if (!member.moderatable) throw new Error("Não consigo retirar o silenciamento desse membro. Confira a hierarquia de cargos e a permissão Moderar membros do bot.");
