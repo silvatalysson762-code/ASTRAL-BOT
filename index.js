@@ -556,6 +556,121 @@ function updateGuildConfig(guildId, updater) {
   saveConfig(config);
   return config.guilds[guildId];
 }
+
+async function updateBotGuildProfile(guild, options = {}) {
+  if (!guild?.members?.me) throw new Error("Não consegui localizar o perfil do bot neste servidor.");
+  const nickname = String(options.nickname || "").trim();
+  const avatarUrl = String(options.avatarUrl || "").trim();
+  const reset = options.reset === true;
+  let avatar;
+  if (avatarUrl) {
+    const response = await fetch(avatarUrl, {
+      headers: { Accept: "image/png,image/jpeg,image/webp,image/gif,*/*" },
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error("Não consegui baixar a imagem do avatar.");
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.startsWith("image/")) throw new Error("A URL precisa apontar diretamente para um arquivo de imagem.");
+    avatar = Buffer.from(await response.arrayBuffer());
+    if (avatar.length > 8 * 1024 * 1024) throw new Error("A imagem precisa ter no máximo 8 MB.");
+  }
+  const edit = {};
+  if (reset || Object.prototype.hasOwnProperty.call(options, "nickname")) edit.nick = reset ? null : (nickname || null);
+  if (reset || avatar !== undefined) edit.avatar = reset ? null : avatar;
+  if (!Object.keys(edit).length) throw new Error("Informe um nome, uma URL de avatar ou deixe os dois campos vazios para restaurar o padrão.");
+  try {
+    await guild.members.me.edit(edit, "Personalização do perfil do bot neste servidor");
+  } catch (error) {
+    if (error?.code === 50013 || /Missing Permissions/i.test(String(error?.message || ""))) {
+      throw new Error("O Discord recusou a alteração. Verifique as permissões do bot; o avatar por servidor também pode não estar disponível para esta conta de bot.");
+    }
+    throw error;
+  }
+  updateGuildConfig(guild.id, config => {
+    if (reset) {
+      delete config.botProfile;
+      return;
+    }
+    config.botProfile = {
+      ...(config.botProfile || {}),
+      ...(Object.prototype.hasOwnProperty.call(options, "nickname") ? { nickname: nickname || null } : {}),
+      ...(avatarUrl ? { avatarUrl } : {})
+    };
+  });
+}
+
+function buildBotGuildProfilePanel(guild, userId = "") {
+  const member = guild?.members?.me;
+  const profile = getGuildConfig(guild?.id).botProfile || {};
+  const safeGuildName = String(guild?.name || "este servidor").replace(/[\\*_{}\[\]()<>#+.!|~-]/g, "");
+  const container = new ContainerBuilder()
+    .setAccentColor(getBotPanelAccentColor())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## <:discord:1557204573817405440> PERSONALIZAR POR SERVIDOR\n" +
+        "> Configure o perfil do ASTRAL BOT somente em **" + safeGuildName + "**.\n" +
+        "### <:user:1557205116849758238> Perfil atual\n" +
+        "> **Nome:** " + (member?.nickname || client.user?.username || "ASTRAL BOT") + "\n" +
+        "> **Avatar:** " + (profile.avatarUrl ? "Personalizado neste servidor" : "Padrão do bot") + "\n" +
+        "-# O Discord pode recusar o avatar específico de bots. Se isso acontecer, o painel mostrará o erro retornado."
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:guild_bot_profile_edit")
+          .setLabel("Editar perfil")
+          .setEmoji({ name: "compass", id: "1557204910578335844" })
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("panel:guild_bot_profile_reset")
+          .setLabel("Restaurar padrão")
+          .setEmoji({ name: "refresh_alt", id: "1557205141051019274", animated: true })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("panel:guild_bot_profile_back")
+          .setLabel("Voltar")
+          .setEmoji({ name: "arrow_left", id: "1557204764834537534" })
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+function buildBotGuildProfileModal(guild) {
+  const member = guild?.members?.me;
+  const profile = getGuildConfig(guild?.id).botProfile || {};
+  return new ModalBuilder()
+    .setCustomId("panel:guild_bot_profile_modal")
+    .setTitle("Personalizar por servidor")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("nickname")
+          .setLabel("Nome do bot neste servidor")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("Deixe vazio para usar o nome padrão")
+          .setValue(String(member?.nickname || "").slice(0, 32))
+          .setMaxLength(32)
+          .setRequired(false)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("avatar_url")
+          .setLabel("URL direta da imagem do avatar")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("https://...")
+          .setValue(String(profile.avatarUrl || "").slice(0, 500))
+          .setMaxLength(500)
+          .setRequired(false)
+      )
+    );
+}
+
 function migrateLegacyConfig() {
   const config = readConfig();
   const legacyGuild = process.env.GUILD_ID;
@@ -2459,6 +2574,12 @@ function buildMainPanel(guildId, userId) {
               description: "Configure as mensagens de entrada e saída dos membros",
               value: "server_settings",
               emoji: { name: "entrada", id: "1559285231301951569" }
+            },
+            {
+              label: "Personalizar bot por servidor",
+              description: "Configure o nome e tente definir um avatar exclusivo neste servidor",
+              value: "guild_bot_profile",
+              emoji: { name: "image", id: "1557204834405322874" }
             }
           )
       )
@@ -5757,6 +5878,7 @@ client.on("interactionCreate", async interaction => {
       else if (action === "server_settings") panel = guildSettings.buildWelcomeLandingPanel(interaction.guild);
       else if (action === "fruit_roles") panel = buildFruitAdminPanel(interaction.guildId);
       else if (action === "servers") panel = buildServerAdminPanel();
+      else if (action === "guild_bot_profile") panel = buildBotGuildProfilePanel(interaction.guild, interaction.user.id);
       else panel = buildMainPanel(interaction.guildId, interaction.user.id);
 
       await interaction.update(panel);
@@ -5766,6 +5888,69 @@ client.on("interactionCreate", async interaction => {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: uiEmoji("error", "<:offline:1557204568432185454>") + " Não consegui abrir essa área.", ephemeral: true }).catch(() => {});
       }
+    }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:guild_bot_profile_back") {
+    await interaction.update(buildMainPanel(interaction.guildId, interaction.user.id));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:guild_bot_profile_edit") {
+    const canManage = await isBotOwner(interaction.user.id) ||
+      Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+    if (!canManage) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Você precisa da permissão **Gerenciar Servidor** para personalizar o perfil neste servidor.", ephemeral: true });
+      return;
+    }
+    await interaction.showModal(buildBotGuildProfileModal(interaction.guild));
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === "panel:guild_bot_profile_reset") {
+    const canManage = await isBotOwner(interaction.user.id) ||
+      Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+    if (!canManage) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Você precisa da permissão **Gerenciar Servidor** para personalizar o perfil neste servidor.", ephemeral: true });
+      return;
+    }
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      await updateBotGuildProfile(interaction.guild, { reset: true });
+      await interaction.message.edit(buildBotGuildProfilePanel(interaction.guild, interaction.user.id));
+      await interaction.editReply({ content: "<:online:1557204563675848814> Perfil do bot restaurado ao padrão neste servidor." });
+    } catch (error) {
+      console.error("[PANEL] Erro ao restaurar perfil do bot no servidor:", error);
+      await interaction.editReply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui restaurar o perfil.").slice(0, 500) });
+    }
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === "panel:guild_bot_profile_modal") {
+    const canManage = await isBotOwner(interaction.user.id) ||
+      Boolean(interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageGuild));
+    if (!canManage) {
+      await interaction.reply({ content: "<:offline:1557204568432185454> Você precisa da permissão **Gerenciar Servidor** para personalizar o perfil neste servidor.", ephemeral: true });
+      return;
+    }
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const nickname = interaction.fields.getTextInputValue("nickname").trim();
+      const avatarUrl = interaction.fields.getTextInputValue("avatar_url").trim();
+      const options = {};
+      if (nickname) options.nickname = nickname;
+      if (avatarUrl) options.avatarUrl = avatarUrl;
+      if (!nickname && !avatarUrl) {
+        await updateBotGuildProfile(interaction.guild, { reset: true });
+      } else {
+        if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) throw new Error("A URL do avatar precisa começar com http:// ou https://.");
+        await updateBotGuildProfile(interaction.guild, options);
+      }
+      await interaction.editReply({ content: "<:online:1557204563675848814> Perfil atualizado para este servidor." });
+    } catch (error) {
+      console.error("[PANEL] Erro ao personalizar perfil do bot no servidor:", error);
+      await interaction.editReply({ content: "<:offline:1557204568432185454> " + String(error?.message || "Não consegui atualizar o perfil.").slice(0, 500) });
     }
     return;
   }
